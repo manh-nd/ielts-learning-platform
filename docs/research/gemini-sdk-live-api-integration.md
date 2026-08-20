@@ -335,3 +335,174 @@ export async function POST() {
    - Dùng **`gemini-3.7-flash`** (20 RPD / 5 RPM) $\rightarrow$ Tiết kiệm cho các trường hợp chấm tranh chấp điểm hoặc review phúc khảo.
 3. **Phòng thi Thử Trực tiếp (Live Examiner Speaking):**
    - Dùng **`Gemini 3 Flash Live`** (Unlimited RPD / 65K TPM) $\rightarrow$ Thí sinh luyện thi thoại trực tiếp không giới hạn số lượt trong ngày.
+
+---
+
+## 7. Chiến Lược API Key Rotation (Xoay Vòng Nhiều Free Tier Keys)
+
+Để nhân rộng hạn mức Free Tier mà không tốn chi phí, hệ thống hỗ trợ cơ chế **Dynamic API Key Pool Rotation**:
+
+### 7.1 Lợi Ích & Khả Năng Mở Rộng
+
+Giả sử cấu hình pool gồm **$N = 5$ API Keys** từ các Google Cloud Projects khác nhau:
+
+| Tiêu chí                         | 1 API Key đơn lẻ       | Pool 5 API Keys (Rotated)                   |
+| :------------------------------- | :--------------------- | :------------------------------------------ |
+| **`gemini-3.5-flash-lite` RPD**  | 500 bài / ngày         | **2,500 bài / ngày**                        |
+| **`gemini-3.5-flash-lite` RPM**  | 15 RPM                 | **75 RPM**                                  |
+| **`gemini-3.7-flash` RPD**       | 20 bài / ngày          | **100 bài / ngày**                          |
+| **Chống lỗi 429 Quota Exceeded** | Bị nghẽn toàn hệ thống | **Tự động chuyển key khác tức thì (<50ms)** |
+
+### 7.2 Thuật Toán Quản Lý Key Pool (Circuit Breaker + Cooldown)
+
+```
+                       [ Yêu Cầu Chấm Bài ]
+                                 │
+                                 ▼
+                     ┌───────────────────────┐
+                     │  GeminiKeyPoolManager │
+                     │  (Round-Robin Pick)   │
+                     └───────────┬───────────┘
+                                 │
+                                 ▼
+                          [ Thực thi API ]
+                                 │
+                   ┌─────────────┴─────────────┐
+                   ▼                           ▼
+               [ Thành công ]               [ Lỗi 429 Quota Exhausted ]
+                   │                           │
+                   ▼                           ▼
+          Trả kết quả cho Client       1. Đánh dấu Key vào bảng Cooldown
+                                       2. Lấy Key khả dụng tiếp theo
+                                       3. Tự động Retry request ngay lập tức
+```
+
+### 7.3 Mã Nguồn Mẫu Module `lib/ai/key-rotator.ts`
+
+```typescript
+import { GoogleGenAI } from "@google/genai";
+
+interface KeyState {
+  key: string;
+  client: GoogleGenAI;
+  cooldownUntil: number; // Timestamp (ms)
+  consecutiveFailures: number;
+}
+
+export class GeminiKeyRotator {
+  private keyStates: KeyState[] = [];
+  private currentIndex = 0;
+
+  constructor(rawKeys?: string) {
+    const keys = (
+      rawKeys ||
+      process.env.GEMINI_API_KEYS ||
+      process.env.GEMINI_API_KEY ||
+      ""
+    )
+      .split(",")
+      .map((k) => k.trim())
+      .filter(Boolean);
+
+    if (keys.length === 0) {
+      throw new Error("No Gemini API Keys provided in environment.");
+    }
+
+    this.keyStates = keys.map((key) => ({
+      key,
+      client: new GoogleGenAI({ apiKey: key }),
+      cooldownUntil: 0,
+      consecutiveFailures: 0,
+    }));
+  }
+
+  /**
+   * Lấy client GoogleGenAI đang hoạt động tốt nhất theo Round-Robin
+   */
+  public getNextClient(): { client: GoogleGenAI; key: string } {
+    const now = Date.now();
+    const availableKeys = this.keyStates.filter((k) => k.cooldownUntil <= now);
+
+    if (availableKeys.length === 0) {
+      // Nếu tất cả các keys đều đang trong cooldown, lấy key có thời gian chờ ngắn nhất
+      const nearest = [...this.keyStates].sort(
+        (a, b) => a.cooldownUntil - b.cooldownUntil
+      )[0];
+      return { client: nearest.client, key: nearest.key };
+    }
+
+    this.currentIndex = (this.currentIndex + 1) % availableKeys.length;
+    const selected = availableKeys[this.currentIndex];
+    return { client: selected.client, key: selected.key };
+  }
+
+  /**
+   * Đánh dấu key gặp lỗi 429 vào trạng thái Cooldown
+   * @param key API key bị lỗi
+   * @param isDailyLimit true nếu hết RPD (chờ 1 giờ hoặc qua ngày), false nếu quá RPM (chờ 60s)
+   */
+  public markRateLimited(key: string, isDailyLimit = false) {
+    const state = this.keyStates.find((k) => k.key === key);
+    if (!state) return;
+
+    state.consecutiveFailures += 1;
+    // Nếu quá RPM: cooldown 60 giây. Nếu quá RPD: cooldown 1 tiếng.
+    const cooldownMs = isDailyLimit ? 60 * 60 * 1000 : 60 * 1000;
+    state.cooldownUntil = Date.now() + cooldownMs;
+    console.warn(
+      `[GeminiKeyRotator] Key ...${key.slice(-6)} rate limited. Cooldown for ${cooldownMs / 1000}s`
+    );
+  }
+
+  /**
+   * Thực thi gọi API với cơ chế tự động xoay key và retry
+   */
+  public async executeWithRotation<T>(
+    fn: (client: GoogleGenAI) => Promise<T>,
+    maxRetries = this.keyStates.length
+  ): Promise<T> {
+    let attempts = 0;
+    let lastError: unknown = null;
+
+    while (attempts < maxRetries) {
+      attempts++;
+      const { client, key } = this.getNextClient();
+
+      try {
+        const result = await fn(client);
+        // Reset failures on success
+        const state = this.keyStates.find((k) => k.key === key);
+        if (state) state.consecutiveFailures = 0;
+        return result;
+      } catch (error: any) {
+        lastError = error;
+        const errorMessage = String(error?.message || error);
+        const is429 =
+          errorMessage.includes("429") ||
+          errorMessage.includes("RESOURCE_EXHAUSTED");
+
+        if (is429) {
+          const isDaily =
+            errorMessage.includes("PerDay") ||
+            errorMessage.includes("quota exceeded for quota metric 'Queries'");
+          this.markRateLimited(key, isDaily);
+          console.warn(
+            `[GeminiKeyRotator] Rotating to next key (Attempt ${attempts}/${maxRetries})...`
+          );
+          continue; // Thử lại ngay lập tức với key tiếp theo
+        }
+
+        // Lỗi không phải rate limit thì throw ngay
+        throw error;
+      }
+    }
+
+    throw new Error(
+      `All API keys in pool exhausted. Last error: ${String(lastError)}`
+    );
+  }
+}
+
+// Global Singleton Rotator
+export const geminiRotator = new GeminiKeyRotator();
+```
