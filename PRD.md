@@ -1,173 +1,1507 @@
-# **TÀI LIỆU YÊU CẦU SẢN PHẨM (PRD)**
+# PRD — IELTS Speaking & Writing Assessment Platform
 
-## **Website chấm chữa IELTS Speaking & Writing bằng AI**
+**Version:** 2.0 — Domain-refined MVP
+**Status:** Working specification
+**Primary purpose:** Làm tài liệu nguồn sự thật để AI Coding Agent / Developer có thể triển khai sản phẩm mà không tự suy diễn business rule.
 
-**Ngày tạo:** 20/08/2026
+---
 
-**Trạng thái:** Bản nháp v1
+# 1. Product Vision
 
-## **1\. TỔNG QUAN SẢN PHẨM**
+Xây dựng nền tảng luyện IELTS Speaking và Writing trong đó:
 
-Website hỗ trợ học viên luyện thi **IELTS Speaking và Writing**, chấm điểm tự động bằng AI theo đúng tiêu chí chấm thi IELTS chính thức, có giáo viên kiểm duyệt lại kết quả. Về lâu dài, hệ thống sẽ **học từ các chỉnh sửa của giáo viên** để tự cải thiện độ chính xác của AI theo thời gian.
+- Learner làm Mock Test hoặc Homework.
+- AI hỗ trợ chấm bài và đưa ra đề xuất điểm/feedback.
+- Với Homework, Teacher là người chịu trách nhiệm cuối cùng về kết quả.
+- AI được dùng để giảm thời gian chấm bài của Teacher, không thay thế Teacher.
+- Các chỉnh sửa của Teacher so với kết quả AI phải được lưu lại để tạo dữ liệu cải thiện AI trong tương lai.
 
-**Đối tượng dùng ban đầu:** Học viên tự học cá nhân, luyện thi IELTS Speaking & Writing.
+Nguyên tắc cốt lõi:
 
-**Quy mô ban đầu:** Vài chục học viên, 1 giáo viên duyệt bài toàn bộ hệ thống.
+> AI assists. Teacher decides.
 
-**Mô hình kinh doanh:** Miễn phí hoàn toàn ở giai đoạn đầu (không cần tích hợp thanh toán trong MVP).
+---
 
-**Deadline mong muốn:** Dưới 1 tháng cho bản MVP đầu tiên (rất gấp, Dev có thể propose thời gian hợp lí)
+# 2. MVP Goal
 
-Overall thì cái em cần gấp hiện tại là web có phần AI chấm chữa bài tập speaking, giáo viên duyệt và trả điểm, nhận xét chi tiết. Em muốn triển khai luôn sau đó thì có thể tích hợp thêm các tính năng khác sau ạ. Em muốn triển khai luôn sau đó thì có thể tích hợp thêm các bước sau
+MVP phải chứng minh được vòng lặp nghiệp vụ:
 
-**2\. VAI TRÒ NGƯỜI DÙNG**
+```text
+Learner submits
+        ↓
+AI optionally assesses
+        ↓
+Teacher reviews
+        ↓
+Teacher accepts / corrects / grades manually
+        ↓
+Teacher approves
+        ↓
+Teacher publishes
+        ↓
+Learner receives final assessment
+```
 
-| Vai trò       | Mô tả                                                                                                    | Trong MVP?                                   |
-| :------------ | :------------------------------------------------------------------------------------------------------- | :------------------------------------------- |
-| Học viên      | Đăng ký tài khoản, tham gia lớp, làm bài thi thử/homework, xem kết quả chấm                              | Có                                           |
-| Giáo viên     | Tạo lớp học, thêm học viên vào lớp, soạn đề bài, duyệt/sửa kết quả AI chấm, theo dõi tiến trình học viên | Có (1 người dùng)                            |
-| Quản trị viên | Quản lý hệ thống, xem thống kê                                                                           | Có thể gộp chung với vai trò Giáo viên ở MVP |
+Success của MVP không được đo bằng số lượng CRUD screens.
 
-**Đăng nhập/Đăng ký:** Email \+ mật khẩu đơn giản (chưa cần Google OAuth, chưa cần xác thực email phức tạp ở giai đoạn MVP — có thể thêm sau).
+Success được đo bằng việc Teacher thực sự giảm thời gian chấm bài trong khi vẫn kiểm soát kết quả cuối cùng.
 
-## **3\. HAI LUỒNG NGHIỆP VỤ CHÍNH**
+---
 
-### **3.1. Luồng "Thi thử" (Mock Test)**
+# 3. Actors
 
-- Học viên bấm "Làm bài thi thử" → hệ thống **tự động random 1 đề** từ kho đề thi thử hiện có \- cập nhật theo quý (không cho học viên tự chọn đề, để mô phỏng đúng cảm giác thi thật).
-- Học viên làm bài Speaking (ghi âm) hoặc Writing trong điều kiện giống thi thật (có giới hạn thời gian).
-- AI chấm và **trả kết quả ngay lập tức**, không qua giáo viên duyệt.
-- Mục đích: học viên luyện tập nhanh, có phản hồi tức thì, không đoán trước được đề để luyện phản xạ thật.
+## 3.1 Learner
 
-  ### **3.2. Luồng "Homework" (Bài tập về nhà)**
+Learner có thể:
 
-- Giáo viên soạn và đăng đề bài.
-- Học viên làm bài, nộp lên hệ thống.
-- AI chấm trước → **giáo viên xem lại, chỉnh sửa điểm/nhận xét nếu cần** → học viên nhận kết quả cuối cùng (đã qua duyệt).
-- Mỗi lần giáo viên chỉnh sửa, dữ liệu này được lưu lại làm "dữ liệu huấn luyện" để cải thiện AI về sau (xem mục 5.4).
+- tham gia lớp;
+- nhận Homework;
+- làm Writing Homework;
+- làm Speaking Homework;
+- làm Mock Test;
+- submit/resubmit bài trong những điều kiện được phép;
+- xem kết quả đã được publish;
+- xem lịch sử kết quả.
 
-  ## **4\. YÊU CẦU TÍNH NĂNG CHI TIẾT**
+---
 
-  ### **4.1. Module Speaking**
+## 3.2 Teacher
 
-- Học viên ghi âm trực tiếp trên trình duyệt (không cần upload file — cần xin quyền micro).
-- Hệ thống chuyển giọng nói thành văn bản (Speech-to-Text) để phục vụ chấm nội dung, đồng thời giữ lại file âm thanh để chấm phát âm/ngữ điệu.
-- Chấm theo 4 tiêu chí chính thức IELTS Speaking:
-  1. Fluency and Coherence (Độ trôi chảy và mạch lạc)
-  2. Lexical Resource (Vốn từ vựng)
-  3. Grammatical Range and Accuracy (Ngữ pháp)
-  4. Pronunciation (Phát âm)
-- Kết quả trả về: điểm từng tiêu chí (thang 1.0–9.0, bước 0.5) \+ điểm tổng (band trung bình) \+ nhận xét, lí do sai và gợi ý sửa lỗi (phát âm, ngữ pháp, từ vựng), bổ sung những cách dùng từ/diễn đạt tự nhiên để nâng band (từ vựng/ngữ pháp)
-- Với đề thi thử hay với làm bài tập về nhà, web mô phỏng 1 giám khảo đang hỏi học viên, với thời lượng của 1 kì thi Ielts Speaking chuẩn. Bài tập về nhà sẽ có các phần speaking khá biệt lập với nhau, không thông suốt như phần thi thử với 3 parts.
+Teacher có thể:
 
-**4.2. Module Writing**
+- tạo lớp;
+- thêm Learner vào lớp;
+- tạo đề;
+- giao Homework;
+- xem bài Learner;
+- bắt đầu review bài;
+- xem AI Assessment Proposal;
+- retry AI assessment;
+- chấm hoàn toàn thủ công;
+- chỉnh sửa kết quả AI;
+- approve assessment;
+- publish assessment;
+- xem lịch sử Learner.
 
-- Học viên nhập bài viết trực tiếp trên web (text editor đơn giản, có đếm số từ).
-- Chấm theo 4 tiêu chí chính thức IELTS Writing (Task 1 và Task 2 có tiêu chí hơi khác nhau, cần làm rõ đề bài thuộc Task nào):
-  1. Task Achievement/Response
-  2. Coherence and Cohesion
-  3. Lexical Resource
-  4. Grammatical Range and Accuracy
-- Kết quả trả về: điểm từng tiêu chí \+ điểm tổng \+ nhận xét, lí do sai và gợi ý sửa lỗi \+ bổ sung những cách dùng từ/diễn đạt để nâng band (từ vựng/ngữ pháp)
+Teacher là:
 
-  ### **4.3. Module Quản lý đề bài (dành cho giáo viên)**
+```text
+FINAL ASSESSMENT AUTHORITY
+```
 
-- Giáo viên tạo đề bài mới: chọn loại (Speaking Part 1/2/3, Writing Task 1/2), nhập nội dung đề, gắn nhãn chủ đề/độ khó (tùy chọn).
-- Giáo viên chỉ định đề bài đó là "Thi thử" hay "Homework".
-- **Kho đề thi thử (Mock Test Bank) — MỚI:**
-  - Giáo viên upload/nhập nhiều đề cùng lúc vào kho đề thi thử (cần hỗ trợ nhập hàng loạt — ví dụ qua file Excel/CSV hoặc form nhập nhanh nhiều đề liên tiếp, để giáo viên không phải nhập từng đề một khi cập nhật theo quý).
-  - Hệ thống lưu trạng thái đề: đang active (dùng để random) hay đã ngừng dùng (ví dụ đề cũ của quý trước, giáo viên có thể ẩn đi mà không cần xóa hẳn — để vẫn giữ lịch sử học viên nào đã làm đề nào).
-  - Khi học viên làm thi thử, hệ thống **random 1 đề trong số các đề đang active**, có tùy chọn tránh lặp lại đề học viên đã làm gần đây (hỏi thêm dev về độ ưu tiên tính năng này, có thể để phase 2 nếu phức tạp).
-  - Giáo viên xem được danh sách đề trong kho, dễ dàng thêm đề mới/ẩn đề cũ mỗi quý.
-- Danh sách đề bài để học viên chọn làm (áp dụng cho Homework — học viên hoặc giáo viên chỉ định đề cụ thể, khác với Thi thử là random).
+đối với Homework.
 
-  ### **4.4. Module Duyệt bài (dành cho giáo viên)**
+---
 
-- Danh sách các bài homework đang chờ duyệt (đã có điểm AI chấm sẵn).
-- Giao diện cho giáo viên xem bài làm gốc (audio/văn bản) \+ kết quả AI \+ chỉnh sửa điểm/nhận xét.
-- Sau khi giáo viên bấm "Duyệt", học viên mới thấy được kết quả. Có thể có nhiều giáo viên, vì sau có thể em sẽ tuyển trợ giảng.
+## 3.3 AI Assessment Service
 
-**4.5. Module Lịch sử & tiến độ học viên (góc nhìn học viên)**
+AI không phải actor có quyền quyết định kết quả chính thức.
 
-- Học viên xem lại lịch sử các bài đã làm, điểm số theo thời gian (để thấy tiến bộ của chính mình).
+AI chỉ:
 
-  ### **4.6. Module Quản lý lớp học (dành cho giáo viên) — MỚI**
+```text
+produces Assessment Proposal
+```
 
-- Giáo viên tạo lớp học (ví dụ: "IELTS Speaking 7.0 \- Khóa T8"), đặt tên, mô tả.
-- Thêm học viên vào lớp (theo email đã đăng ký, hoặc gửi lời mời/mã/link tham gia lớp).
-- Một học viên có thể thuộc nhiều lớp (tùy chọn thiết kế, cần thống nhất với dev).
-- Giao đề bài/homework có thể gán riêng cho một lớp cụ thể, thay vì công khai cho tất cả học viên.
-- Danh sách học viên trong từng lớp, xem nhanh trạng thái (đã nộp bao nhiêu bài, còn bao nhiêu bài chưa nộp...).
+AI có thể:
 
-  ### **4.7. Module Theo dõi tiến trình học viên (dành cho giáo viên) — MỚI**
+- thành công;
+- thất bại;
+- timeout;
+- unavailable;
+- hết quota;
+- gặp lỗi billing;
+- trả output không hợp lệ.
 
-- Với mỗi học viên, giáo viên xem được:
-  - Lịch sử toàn bộ bài đã làm (thi thử \+ homework), điểm từng tiêu chí theo thời gian.
-  - Biểu đồ xu hướng điểm số (band trung bình tăng/giảm qua từng bài, theo từng tiêu chí Speaking/Writing).
-  - Số lượng bài đã hoàn thành, tỷ lệ nộp bài đúng hạn (nếu có deadline cho homework).
-- Xem tổng quan theo lớp: điểm trung bình cả lớp, học viên nào đang tiến bộ chậm cần chú ý.
-- (Biểu đồ trực quan có thể làm đơn giản ở MVP — bảng số liệu trước, biểu đồ đẹp để sau.)
+Các trường hợp này KHÔNG được làm Teacher mất khả năng chấm bài.
 
-  ## **5\. YÊU CẦU KỸ THUẬT & KIẾN TRÚC AI**
+---
 
-  ### **5.1. Lựa chọn công nghệ chấm AI**
+# 4. Core Domain Principle
 
-- **Dùng API có sẵn** (ví dụ Claude, GPT-4, kết hợp Google Speech-to-Text/Whisper cho phần audio) — nhanh, chi phí theo lượt gọi, độ chính xác phụ thuộc vào prompt engineering.
-- **Fine-tune/huấn luyện riêng** — chính xác hơn theo thời gian nhưng tốn thời gian, không khả thi cho deadline dưới 1 tháng.
+## 4.1 AI Assessment ≠ Official Assessment
 
-**Khuyến nghị cho MVP:** Dùng API có sẵn (LLM \+ Speech-to-Text) với prompt được thiết kế kỹ theo band descriptor chính thức của IELTS, KHÔNG fine-tune riêng ở giai đoạn này.
+Không được sử dụng một concept chung chung:
 
-### **5.2. Speech-to-Text cho phần Speaking**
+```text
+Assessment
+```
 
-Cần chọn dịch vụ chuyển giọng nói thành văn bản (ảnh hưởng đến độ chính xác chấm phát âm và nội dung). Đây là điểm kỹ thuật cần đội dev khảo sát kỹ vì chấm phát âm khó hơn nhiều so với chấm nội dung văn bản thuần túy.
+để đồng nhất kết quả AI với kết quả chính thức.
 
-### **5.3. Lưu trữ dữ liệu**
+Phải phân biệt:
 
-- File âm thanh: cần dịch vụ lưu trữ (cloud storage), tính toán dung lượng dự kiến theo số lượng học viên và số bài ghi âm.
-- Văn bản bài viết, điểm số, nhận xét: lưu trong database.
+```text
+AI Assessment Proposal
+Teacher Assessment
+Approved Assessment
+Published Assessment
+```
 
-  ### **5.4. Cơ chế "AI học từ giáo viên" — CẦN LÀM RÕ THÊM**
+Ý nghĩa:
 
-Đây là phần có độ phức tạp kỹ thuật cao nhất trong toàn bộ dự án, và **khó khả thi trọn vẹn trong MVP dưới 1 tháng**. Đề xuất chia làm 2 giai đoạn:
+```text
+AI Assessment Proposal
+```
 
-- **Giai đoạn 1 (MVP):** Chỉ cần lưu lại đầy đủ dữ liệu mỗi lần giáo viên sửa (điểm AI chấm ban đầu vs. điểm giáo viên sửa lại, kèm bài làm gốc). Đây là bước "thu thập dữ liệu", **chưa cần** AI tự động học ngay.
-- **Giai đoạn 2 (sau MVP):** Dùng dữ liệu đã thu thập để tinh chỉnh prompt, hoặc fine-tune mô hình, hoặc xây dựng cơ chế feedback loop tự động. Việc này cần thời gian và khối lượng dữ liệu đủ lớn để có ý nghĩa (vài chục bài chưa đủ để huấn luyện hiệu quả).
+là đề xuất của AI.
 
-**Khuyến nghị:** Nói rõ với đội dev rằng MVP chỉ cần xây "hạ tầng thu thập dữ liệu sạch" (lưu đúng, đủ, có cấu trúc), việc AI tự học sẽ làm ở phase 2\.
+```text
+Teacher Assessment
+```
 
-## **6\. ĐỀ XUẤT PHẠM VI MVP (DEADLINE DƯỚI 1 THÁNG)**
+là assessment mà Teacher đồng ý chịu trách nhiệm.
 
-Vì thời gian rất gấp, khuyến nghị **thu hẹp phạm vi** để kịp deadline, ưu tiên theo thứ tự:
+```text
+Approved Assessment
+```
 
-**Bắt buộc có trong MVP:**
+là assessment đã được Teacher xác nhận là hoàn tất.
 
-1. Đăng ký/đăng nhập bằng email-password
-2. Giáo viên tạo lớp học, thêm học viên vào lớp (bản đơn giản: thêm bằng email)
-3. Giáo viên đăng đề bài (Speaking \+ Writing), nhập được nhiều đề vào kho đề thi thử, có thể gán homework cho lớp cụ thể
-4. Học viên bấm làm thi thử → hệ thống random đề từ kho, làm bài Writing (nhập text) \+ AI chấm ngay
-5. Học viên bấm làm thi thử → hệ thống random đề từ kho, làm bài Speaking (ghi âm) \+ AI chấm ngay
-6. Luồng Homework: AI chấm trước → giáo viên duyệt → học viên xem kết quả
-7. Giáo viên xem được lịch sử bài làm \+ điểm số theo thời gian của từng học viên (dạng bảng, chưa cần biểu đồ đẹp)
-8. Lưu trữ dữ liệu chỉnh sửa của giáo viên (phục vụ cải thiện AI ở phase 2\)
+```text
+Published Assessment
+```
 
-**Có thể lùi sang Phase 2 (sau MVP) nếu cần cắt giảm thêm để kịp tiến độ:**
+là assessment chính thức đã được công bố cho Learner.
 
-- Cơ chế tránh random trùng đề học viên đã làm gần đây (MVP có thể random hoàn toàn ngẫu nhiên, chấp nhận trùng)
-- Nhập đề hàng loạt qua Excel/CSV (MVP có thể để giáo viên nhập từng đề qua form, đủ dùng với quy mô nhỏ)
-- Biểu đồ trực quan hóa xu hướng điểm số (thay vì chỉ bảng số liệu)
-- Tổng quan thống kê theo cả lớp (điểm trung bình lớp, cảnh báo học viên tiến bộ chậm)
-- Mời học viên vào lớp qua mã tham gia (thay vì giáo viên thêm thủ công bằng email)
-- Cơ chế AI tự động học/cải thiện từ dữ liệu giáo viên sửa
-- Đăng nhập Google, quên mật khẩu qua email
-- Thanh toán (vì miễn phí giai đoạn đầu nên không cần)
-- Phân loại đề bài theo chủ đề/độ khó nâng cao
+---
 
-⚠️ **Lưu ý quan trọng:** Trong 2 module Speaking và Writing, module **Speaking phức tạp và tốn thời gian hơn nhiều** (do cần xử lý ghi âm, chuyển giọng nói thành văn bản, chấm phát âm). Nếu deadline quá gấp, có thể cân nhắc ra mắt **Writing trước**, Speaking ra sau vài tuần — nên trao đổi thẳng với đội dev về việc này ngay từ đầu.
+# 5. Primary Business Flows
 
-## **7\. CÂU HỎI CÒN MỞ — CẦN THẢO LUẬN THÊM VỚI ĐỘI DEV**
+# 5.1 Homework
 
-- Chọn dịch vụ Speech-to-Text nào (ảnh hưởng chi phí và độ chính xác)?
-- Chọn LLM nào để chấm (Claude, GPT-4, hay khác) và ai chịu chi phí API theo lượt dùng?
-- Hạ tầng lưu trữ file âm thanh dự kiến dùng dịch vụ nào (AWS S3, Google Cloud Storage...)?
-- Có cần giới hạn số lượt làm bài/ngày cho mỗi học viên để kiểm soát chi phí API không (vì đang miễn phí)?
-- Giao diện ghi âm cần hỗ trợ trên thiết bị nào (máy tính, điện thoại, cả hai)?
+Luồng chuẩn:
+
+```text
+Teacher creates Homework
+        ↓
+Teacher assigns Homework
+        ↓
+Learner submits
+        ↓
+AI assessment is requested
+        ↓
+AI succeeds OR fails
+        ↓
+Teacher starts review
+        ↓
+Submission becomes locked
+        ↓
+Teacher chooses one of:
+
+    Accept AI Proposal
+    Correct AI Proposal
+    Grade Manually
+    Retry AI
+
+        ↓
+Teacher approves
+        ↓
+Assessment waits
+        ↓
+Teacher publishes
+        ↓
+Learner can see final assessment
+```
+
+AI assessment KHÔNG phải prerequisite bắt buộc cho Teacher Review.
+
+---
+
+# 5.2 Mock Test
+
+Mock Test khác Homework.
+
+```text
+Learner starts Mock Test
+        ↓
+System selects active prompt
+        ↓
+Learner completes test
+        ↓
+Learner submits
+        ↓
+AI assesses
+        ↓
+AI result is published immediately
+```
+
+Mock Test không yêu cầu Teacher approval trong MVP.
+
+Policy:
+
+```text
+Homework
+→ Teacher approval required.
+
+Mock Test
+→ AI result may publish automatically.
+```
+
+Không implement rule này bằng các `if type === ...` phân tán khắp codebase.
+
+Đây phải là business policy rõ ràng.
+
+---
+
+# 6. Homework Submission Domain
+
+## 6.1 HomeworkSubmission
+
+Một Learner có một HomeworkSubmission cho một Homework.
+
+Một HomeworkSubmission có thể có nhiều Submission Attempts.
+
+Ví dụ:
+
+```text
+HomeworkSubmission
+    ├── Attempt #1
+    ├── Attempt #2
+    └── Attempt #3 ← current
+```
+
+Không được overwrite bài cũ khi resubmit.
+
+Sai:
+
+```text
+submission.content = newContent
+```
+
+Đúng về mặt domain:
+
+```text
+new SubmissionAttempt
+```
+
+---
+
+## 6.2 SubmissionAttempt
+
+Mỗi attempt phải đại diện cho nội dung chính xác được Learner gửi tại thời điểm đó.
+
+Assessment của attempt A không được gắn sang attempt B.
+
+```text
+AI Proposal #1
+    → Attempt #1
+
+AI Proposal #2
+    → Attempt #2
+```
+
+---
+
+# 7. Resubmission Rules
+
+Learner ĐƯỢC resubmit khi Teacher chưa bắt đầu review.
+
+State:
+
+```text
+Submitted
+    ↓
+Learner may resubmit
+
+Submitted
+    ↓
+Teacher starts review
+
+UnderReview
+    ↓
+Learner may NOT resubmit
+```
+
+Invariant:
+
+```text
+A Learner MUST NOT resubmit
+a HomeworkSubmission
+after Teacher Review has started.
+```
+
+---
+
+# 8. Start Review
+
+`StartHomeworkReview` là business command.
+
+Không coi việc Teacher mở màn hình review đơn thuần là frontend navigation.
+
+Command:
+
+```text
+StartHomeworkReview
+```
+
+Event:
+
+```text
+HomeworkReviewStarted
+```
+
+Khi command thành công:
+
+1. current SubmissionAttempt được xác định là attempt đang review;
+2. HomeworkSubmission chuyển sang `UnderReview`;
+3. Learner không thể resubmit nữa.
+
+Ví dụ:
+
+```text
+Current Attempt = #3
+
+Teacher starts review
+
+        ↓
+
+Reviewed Attempt = #3
+Submission = UnderReview
+```
+
+Từ thời điểm này:
+
+```text
+ResubmitHomework
+```
+
+phải bị reject.
+
+Domain error:
+
+```text
+HomeworkIsAlreadyUnderReview
+```
+
+---
+
+# 9. AI Assessment
+
+Sau mỗi SubmissionAttemptSubmitted, hệ thống SHOULD request AI assessment.
+
+Policy:
+
+```text
+WHEN SubmissionAttemptSubmitted
+THEN RequestAIAssessment
+```
+
+Nhưng đây KHÔNG phải invariant.
+
+AI fail không được rollback việc Learner submit bài.
+
+Luồng:
+
+```text
+SubmissionAttemptSubmitted
+        ↓
+Request AI Assessment
+        ↓
+
+   ┌────┴────┐
+   │         │
+Success     Failure
+   │         │
+   ▼         ▼
+Proposal   AI Unavailable
+   │         │
+   └────┬────┘
+        ↓
+Teacher can review
+```
+
+---
+
+# 10. AI Failure
+
+Các failure có thể gồm:
+
+- timeout;
+- provider outage;
+- quota exceeded;
+- billing unavailable;
+- malformed AI response;
+- STT unavailable;
+- internal integration error.
+
+AI failure KHÔNG được khiến Homework không thể tiếp tục.
+
+Teacher phải có hai lựa chọn:
+
+```text
+Retry AI Assessment
+```
+
+hoặc:
+
+```text
+Grade Manually
+```
+
+AI là optimization, không phải dependency bắt buộc của core workflow.
+
+---
+
+# 11. Teacher Assessment
+
+Teacher có ba con đường chính.
+
+## 11.1 AI hoàn toàn đúng
+
+Teacher chỉ cần:
+
+```text
+Approve AI Result
+```
+
+Không bắt Teacher copy/chỉnh dữ liệu không cần thiết.
+
+Business meaning:
+
+```text
+Teacher accepts the AI proposal
+as the assessment they stand behind.
+```
+
+---
+
+## 11.2 AI đúng một phần
+
+Teacher được sửa:
+
+- criterion scores;
+- overall score;
+- feedback;
+- detected errors;
+- recommendations.
+
+Ví dụ:
+
+```text
+Lexical Resource
+
+AI:      6.0
+Teacher: 6.5
+```
+
+Teacher result luôn là authority cuối cùng.
+
+---
+
+## 11.3 AI không khả dụng
+
+Teacher có thể tự tạo assessment hoàn toàn thủ công.
+
+Không yêu cầu phải retry AI trước.
+
+---
+
+# 12. Assessment Approval
+
+Approval là quyết định của Teacher rằng assessment đã sẵn sàng về mặt chuyên môn.
+
+Command:
+
+```text
+ApproveAssessment
+```
+
+Event:
+
+```text
+AssessmentApproved
+```
+
+Invariant:
+
+```text
+AI alone MUST NOT approve Homework Assessment.
+```
+
+Teacher phải là authority của Homework approval.
+
+---
+
+# 13. Approval ≠ Publication
+
+Đây là distinction bắt buộc.
+
+```text
+ApproveAssessment
+```
+
+không được tự động làm Learner thấy kết quả.
+
+Sau approval:
+
+```text
+Approved
+```
+
+assessment vẫn đang chờ publish.
+
+Teacher phải thực hiện:
+
+```text
+PublishAssessment
+```
+
+Event:
+
+```text
+AssessmentPublished
+```
+
+State:
+
+```text
+Teacher Assessment
+        ↓
+Approved
+        ↓
+waiting
+        ↓
+Published
+```
+
+---
+
+# 14. Learner Result Visibility
+
+Learner chỉ được thấy kết quả Homework chính thức khi:
+
+```text
+Assessment = Published
+```
+
+Không phải khi:
+
+```text
+AI Assessment Completed
+```
+
+và cũng không phải chỉ khi:
+
+```text
+Assessment Approved
+```
+
+Invariant:
+
+```text
+Only Published Homework Assessment
+is visible to Learner as final result.
+```
+
+---
+
+# 15. Assessment State Model
+
+Conceptual lifecycle:
+
+```text
+AwaitingAssessment
+        │
+        ├── AI succeeds
+        │
+        ▼
+AIProposalAvailable
+        │
+        │
+        └─────────────┐
+                      │
+        AI fails      │
+            │         │
+            ▼         │
+     AIUnavailable    │
+            │         │
+            └────┬────┘
+                 ▼
+       AwaitingTeacherReview
+                 │
+        ┌────────┴─────────┐
+        │                  │
+ Accept AI Proposal   Grade / Correct
+        │                  │
+        └────────┬─────────┘
+                 ▼
+          TeacherAssessed
+                 │
+                 ▼
+              Approved
+                 │
+                 │ waiting
+                 ▼
+             Published
+```
+
+Không nên model state bằng generic integer:
+
+```text
+status = 1
+status = 2
+status = 3
+```
+
+Tên state phải mang business meaning.
+
+---
+
+# 16. Candidate Aggregates
+
+## 16.1 HomeworkSubmission
+
+Responsibilities:
+
+```text
+HomeworkSubmission
+    ├── identifies Learner
+    ├── identifies Homework
+    ├── owns Submission Attempts
+    ├── knows Current Attempt
+    ├── allows Resubmission
+    └── locks Submission when Review starts
+```
+
+Commands:
+
+```text
+SubmitHomework
+ResubmitHomework
+StartHomeworkReview
+```
+
+Domain Events:
+
+```text
+HomeworkSubmitted
+SubmissionAttemptSubmitted
+HomeworkReviewStarted
+```
+
+Key invariants:
+
+```text
+CurrentAttempt is the latest accepted attempt.
+
+Learner may resubmit before review starts.
+
+Learner cannot resubmit after review starts.
+
+Teacher Review always targets the CurrentAttempt
+at the moment review starts.
+```
+
+---
+
+## 16.2 HomeworkAssessment
+
+Responsibilities:
+
+```text
+HomeworkAssessment
+    ├── targets one SubmissionAttempt
+    ├── stores AI Proposal
+    ├── records AI failures
+    ├── supports retry
+    ├── supports Manual Assessment
+    ├── records Teacher corrections
+    ├── handles Approval
+    └── handles Publication
+```
+
+Commands:
+
+```text
+RequestAIAssessment
+RetryAIAssessment
+
+AcceptAIProposal
+GradeManually
+CorrectAssessment
+
+ApproveAssessment
+PublishAssessment
+```
+
+Domain Events:
+
+```text
+AIAssessmentRequested
+AIAssessmentCompleted
+AIAssessmentFailed
+
+AssessmentManuallyGraded
+AssessmentCorrected
+AssessmentApproved
+AssessmentPublished
+```
+
+---
+
+# 17. AI Feedback Dataset
+
+MVP KHÔNG cần AI tự học.
+
+MVP PHẢI lưu dữ liệu đủ sạch để có thể cải thiện AI sau này.
+
+Không overwrite AI result bằng Teacher result.
+
+Phải giữ ít nhất:
+
+```text
+Original Submission Attempt
+
+AI Assessment Proposal
+    ├── criterion scores
+    ├── overall score
+    └── feedback
+
+Teacher Assessment
+    ├── criterion scores
+    ├── overall score
+    └── feedback
+
+Correction Difference
+    ├── AI value
+    ├── Teacher value
+    └── criterion / feedback affected
+```
+
+Ví dụ:
+
+```text
+Task Response
+
+AI:      6.0
+Teacher: 7.0
+Delta:   +1.0
+```
+
+Dữ liệu cũ không được mất sau correction.
+
+---
+
+# 18. Writing Assessment
+
+Writing gồm:
+
+```text
+Writing Task 1
+Writing Task 2
+```
+
+Assessment phải chứa 4 criteria:
+
+```text
+Task Achievement / Task Response
+Coherence and Cohesion
+Lexical Resource
+Grammatical Range and Accuracy
+```
+
+Output:
+
+```text
+Criterion Score
+Overall Band
+Feedback
+Detected Problems
+Correction Suggestions
+Higher-band Suggestions
+```
+
+Band sử dụng thang IELTS theo increment 0.5.
+
+---
+
+# 19. Speaking Assessment
+
+Speaking gồm:
+
+```text
+Part 1
+Part 2
+Part 3
+```
+
+Input gồm:
+
+```text
+Audio
++
+Transcript
+```
+
+Không được chỉ giữ transcript.
+
+Criteria:
+
+```text
+Fluency and Coherence
+Lexical Resource
+Grammatical Range and Accuracy
+Pronunciation
+```
+
+Speaking phụ thuộc thêm:
+
+```text
+Browser Recording
+Audio Storage
+Speech-to-Text
+Audio / Pronunciation Assessment
+```
+
+Vì risk kỹ thuật cao hơn Writing nên Speaking có thể được triển khai sau Writing Golden Path.
+
+---
+
+# 20. Question / Prompt Bank
+
+Teacher có thể tạo Prompt.
+
+Prompt type:
+
+```text
+Speaking Part 1
+Speaking Part 2
+Speaking Part 3
+Writing Task 1
+Writing Task 2
+```
+
+Prompt dành cho Mock Test có lifecycle:
+
+```text
+Active
+Retired
+```
+
+Commands nên sử dụng ubiquitous language:
+
+```text
+ActivatePrompt
+RetirePrompt
+```
+
+Không hard-delete prompt đã từng được Learner sử dụng.
+
+Invariant:
+
+```text
+Only Active Mock Test Prompts
+may be selected for a new Mock Test.
+```
+
+---
+
+# 21. Classroom
+
+Teacher có thể:
+
+```text
+CreateClassroom
+AddLearnerToClassroom
+AssignHomeworkToClassroom
+```
+
+Concepts:
+
+```text
+Classroom
+Membership
+HomeworkAssignment
+```
+
+Không model toàn bộ business chỉ bằng:
+
+```text
+homework.classId
+```
+
+Một Learner có thể thuộc nhiều Classroom.
+
+---
+
+# 22. Mock Test Policy
+
+Mock Test phải random từ active prompt bank.
+
+MVP có thể chấp nhận random hoàn toàn, kể cả lặp đề.
+
+Avoid-recently-used-prompt có thể để Phase 2.
+
+Mock Test result:
+
+```text
+AI Assessment
+→ immediately available to Learner
+```
+
+Không đi qua Homework Teacher Review lifecycle.
+
+---
+
+# 23. History & Progress
+
+Learner có thể xem:
+
+```text
+Submission history
+Published assessment history
+Criterion scores over time
+Overall bands over time
+```
+
+Teacher có thể xem lịch sử theo Learner.
+
+MVP ưu tiên table.
+
+Charts không phải requirement bắt buộc.
+
+---
+
+# 24. Application Architecture Principle
+
+Recommended architecture:
+
+```text
+Modular Monolith
+```
+
+Không tạo microservice chỉ vì có nhiều Bounded Context.
+
+Candidate contexts/modules:
+
+```text
+Practice
+Assessment
+Question Bank
+Classroom
+Progress
+Identity
+```
+
+Core Domain:
+
+```text
+Assessment
+```
+
+External integrations:
+
+```text
+LLM
+Speech-to-Text
+Audio Storage
+```
+
+phải nằm sau adapter/boundary rõ ràng.
+
+---
+
+# 25. Application Service Responsibility
+
+Application Service làm orchestration.
+
+Ví dụ:
+
+```text
+Command
+    ↓
+Load Aggregate
+    ↓
+Execute Domain Behavior
+    ↓
+Persist Aggregate
+    ↓
+Publish Domain Events
+```
+
+Application Service KHÔNG phải nơi chứa business invariants.
+
+Không:
+
+```text
+if status == UNDER_REVIEW
+```
+
+rải trong controller/service.
+
+Business decision phải nằm trong domain model.
+
+---
+
+# 26. Repository Rules
+
+Repository dùng để load/save Aggregate.
+
+Ví dụ:
+
+```text
+HomeworkSubmissionRepository
+
+get(id)
+save(submission)
+```
+
+Tránh API kiểu:
+
+```text
+updateStatus()
+updateScore()
+lockSubmission()
+updateById()
+```
+
+nếu chúng bypass domain behavior.
+
+---
+
+# 27. External AI Reliability
+
+Submission transaction KHÔNG được phụ thuộc trực tiếp vào AI transaction.
+
+Sai:
+
+```text
+Save Submission
+    ↓
+Call AI
+    ↓
+AI fails
+    ↓
+Rollback Submission
+```
+
+Desired behavior:
+
+```text
+Persist Submission
+    ↓
+SubmissionAttemptSubmitted
+    ↓
+Request AI asynchronously / after commit
+    ↓
+
+AI success or failure
+does not invalidate submission
+```
+
+Implementation mechanism có thể dùng:
+
+```text
+Transactional Outbox
+Job Queue
+Reliable Event Handler
+```
+
+Việc chọn mechanism là technical decision, không phải domain rule.
+
+---
+
+# 28. Concurrency
+
+Case cần bảo vệ:
+
+```text
+Learner clicks Resubmit
+
+and almost simultaneously
+
+Teacher clicks Start Review
+```
+
+Không được xảy ra state:
+
+```text
+Teacher reviewing Attempt #1
+while Attempt #2 silently becomes current.
+```
+
+HomeworkSubmission là consistency boundary bảo vệ invariant này.
+
+Recommended MVP mechanism:
+
+```text
+Optimistic Concurrency Control
+```
+
+Ví dụ Aggregate có `version`.
+
+Một concurrent write thắng; write còn lại phải reload và reevaluate domain command.
+
+---
+
+# 29. Explicit MVP Decisions
+
+Các quyết định đã được xác nhận:
+
+1. AI tồn tại để giảm workload cho Teacher.
+2. AI đúng thì Teacher chỉ cần approve, không cần chỉnh sửa giả tạo.
+3. Teacher luôn là authority cuối cùng của Homework.
+4. AI assessment không bắt buộc để Teacher có thể chấm bài.
+5. Khi AI fail, Teacher có thể retry hoặc chấm thủ công.
+6. Learner được resubmit trước khi Teacher Review bắt đầu.
+7. Khi Teacher bắt đầu review, submission bị khóa.
+8. Review phải target current attempt tại thời điểm bắt đầu review.
+9. Approval không đồng nghĩa Publication.
+10. Teacher phải thực hiện Publish riêng.
+11. Phase đầu không xây workflow reopen/revision phức tạp sau khi Published.
+12. Original AI result không được overwrite bởi Teacher correction.
+
+---
+
+# 30. MVP Delivery Order
+
+Ưu tiên triển khai theo vertical slice:
+
+```text
+Phase 0
+Writing → AI → simple result
+```
+
+```text
+Phase 1
+Writing Homework
+Learner Submit
+→ AI Proposal
+→ Teacher Review
+→ Approve
+→ Publish
+```
+
+```text
+Phase 2
+AI vs Teacher correction dataset
+```
+
+```text
+Phase 3
+Writing Mock Test
+```
+
+```text
+Phase 4
+Classroom + Homework Assignment
+```
+
+```text
+Phase 5
+History / Progress
+```
+
+```text
+Phase 6
+Speaking thin slice
+Record
+→ STT
+→ AI
+→ Teacher Review
+```
+
+```text
+Phase 7
+Full Speaking / Mock Test hardening
+```
+
+Mỗi phase phải tạo được một behavior có thể demo cho customer.
+
+---
+
+# 31. Out of Scope for Initial Slice
+
+Không được tự động thêm các feature sau nếu chưa có requirement mới:
+
+```text
+Payment
+Google Login
+Email verification workflow phức tạp
+Fine-tuning
+Automatic AI learning
+Advanced analytics
+Beautiful charts
+Complex roles/permissions
+Assessment revision history after publication
+Scheduled publication
+Review timeout
+Review cancellation
+Automatic review unlock
+Avoid-random-repeat algorithm
+Bulk CSV import
+```
+
+Một số feature có trong roadmap rộng hơn nhưng không thuộc Writing Homework Golden Path đầu tiên.
+
+---
+
+# 32. Open Questions
+
+AI Agent KHÔNG được tự chọn câu trả lời cho các câu hỏi sau.
+
+Nếu implementation chạm vào chúng, phải đánh dấu assumption hoặc yêu cầu Product decision.
+
+```text
+1. Published Assessment có được reopen trong Phase 2 không?
+
+2. Approved-but-not-published assessment
+   có được Teacher sửa lại trực tiếp không?
+
+3. Ai ngoài Teacher được phép Publish?
+
+4. Có scheduled publication không?
+
+5. Homework có deadline không?
+
+6. Deadline ảnh hưởng Resubmission như thế nào?
+
+7. Mock Test chính xác là một Prompt
+   hay một Test gồm nhiều Prompt?
+
+8. Writing Mock Test gồm Task 1,
+   Task 2 hay cả hai?
+
+9. Full Speaking Mock Test composition
+   được random như thế nào?
+
+10. AI correction dataset cần lưu diff
+    ở mức score hay cả detailed feedback spans?
+
+11. Pronunciation assessment provider nào được sử dụng?
+
+12. LLM provider nào được sử dụng?
+```
+
+Không được biến open question thành invariant.
+
+---
+
+# 33. Terminology to Avoid
+
+AI Agent nên tránh domain naming kiểu technical CRUD:
+
+```text
+SubmissionDto
+UpdateSubmission
+UpdateStatus
+ScoreDto
+UpdateScore
+QuestionEntity
+AssessmentService.update()
+```
+
+Ưu tiên ubiquitous language:
+
+```text
+SubmitHomework
+ResubmitHomework
+StartHomeworkReview
+RetryAIAssessment
+AcceptAIProposal
+GradeManually
+CorrectAssessment
+ApproveAssessment
+PublishAssessment
+ActivatePrompt
+RetirePrompt
+```
+
+Tên code phải kể được business story.
+
+---
+
+# 34. Core Invariants Summary
+
+```text
+HOMEWORK-01
+Teacher is the final authority for Homework Assessment.
+
+HOMEWORK-02
+AI Assessment Proposal is not an official learner result.
+
+HOMEWORK-03
+AI failure must not prevent Teacher from assessing Homework.
+
+SUBMISSION-01
+Learner may resubmit before Teacher Review starts.
+
+SUBMISSION-02
+Learner may not resubmit after Teacher Review starts.
+
+SUBMISSION-03
+Teacher Review targets the Current Submission Attempt
+at the moment Review starts.
+
+ASSESSMENT-01
+Teacher may accept an AI proposal without modifying it.
+
+ASSESSMENT-02
+Teacher may assess manually without an AI proposal.
+
+ASSESSMENT-03
+Original AI Proposal must be preserved after Teacher corrections.
+
+PUBLICATION-01
+Approval and Publication are different business actions.
+
+PUBLICATION-02
+Homework result is not visible to Learner before Publication.
+
+MOCKTEST-01
+Mock Test assessment does not require Teacher approval in MVP.
+
+PROMPT-01
+Only active Mock Test prompts may be selected for new Mock Tests.
+```
+
+---
+
+# 35. Acceptance Scenario — Golden Path
+
+```gherkin
+Given a Learner has been assigned a Writing Homework
+And the Homework has not entered Teacher Review
+
+When the Learner submits an answer
+
+Then a new Submission Attempt is created
+And it becomes the Current Attempt
+And AI Assessment should be requested
+```
+
+```gherkin
+Given AI has successfully created an Assessment Proposal
+
+When the Teacher starts reviewing the Homework
+
+Then the Current Attempt becomes the Reviewed Attempt
+And the Homework becomes Under Review
+And the Learner can no longer resubmit
+```
+
+```gherkin
+Given the AI Assessment Proposal is completely correct
+
+When the Teacher accepts and approves it
+
+Then the assessment becomes Approved
+But the Learner must not see it yet
+```
+
+```gherkin
+Given an Assessment is Approved
+
+When the Teacher publishes it
+
+Then the Assessment becomes Published
+And the Learner can see it as the Final Assessment
+```
+
+---
+
+# 36. Acceptance Scenario — AI Failure
+
+```gherkin
+Given a Learner submitted Homework
+
+When AI Assessment fails
+
+Then the Submission remains valid
+And the Homework remains reviewable
+And the Teacher can Retry AI Assessment
+And the Teacher can Grade Manually
+```
+
+---
+
+# 37. Acceptance Scenario — Resubmission
+
+```gherkin
+Given Attempt #1 is the Current Attempt
+And Teacher Review has not started
+
+When the Learner resubmits
+
+Then Attempt #2 is created
+And Attempt #2 becomes the Current Attempt
+And Attempt #1 remains in history
+```
+
+---
+
+# 38. Acceptance Scenario — Review Lock
+
+```gherkin
+Given Attempt #2 is the Current Attempt
+
+When the Teacher starts review
+
+Then Attempt #2 becomes the Reviewed Attempt
+And the Homework becomes Under Review
+```
+
+```gherkin
+Given the Homework is Under Review
+
+When the Learner tries to resubmit
+
+Then the command must be rejected
+Because Homework is already under Teacher Review
+```
+
+---
+
+# 39. Instructions for AI Coding Agents
+
+When implementing from this PRD:
+
+**MUST**
+
+- preserve domain terminology;
+- enforce invariants inside domain behavior;
+- distinguish AI Proposal from Teacher-approved result;
+- preserve historical attempts;
+- preserve original AI output;
+- allow manual Teacher grading;
+- treat AI integrations as fallible external dependencies;
+- distinguish Approve from Publish;
+- reject Resubmit after Review starts.
+
+**MUST NOT**
+
+- invent new business rules;
+- infer answers to Open Questions;
+- overwrite historical Submission Attempts;
+- overwrite original AI assessment with Teacher correction;
+- require AI success before Teacher Review;
+- expose Approved-but-unpublished Homework result to Learner;
+- represent core behavior only as generic CRUD status updates.
+
+**SHOULD**
+
+- use domain events for cross-boundary reactions;
+- keep external AI calls outside core domain;
+- use optimistic concurrency for Submission Review/Resubmit race conditions;
+- prefer small vertical slices;
+- keep MVP as a modular monolith unless an actual scaling requirement appears.
+
+When an implementation decision conflicts with this PRD:
+
+```text
+Business invariant
+    >
+Domain model convenience
+    >
+Technical convenience
+```
+
+When a requirement is ambiguous:
+
+```text
+DO NOT GUESS.
+
+Mark it as:
+Product Decision Required.
+```
