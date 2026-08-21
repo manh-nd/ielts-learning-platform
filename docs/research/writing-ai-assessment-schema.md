@@ -1,244 +1,133 @@
-# IELTS Writing Assessment: LLM Prompt Engineering & Structured JSON Output Schema
+# Research: IELTS Writing Assessment với Gemini Structured Outputs & Zod Schema
 
-**Document Version:** 1.0.0  
-**Status:** Approved Architectural Specification  
+**Ticket:** #2  
+**Tài liệu đích:** `docs/research/writing-ai-assessment-schema.md`  
+**Status:** Approved Architectural Specification (Đã nâng cấp với Google GenAI SDK & Interactions API Structured Output)  
 **Target Module:** IELTS Writing AI Evaluation Engine (Task 1 & Task 2)  
-**Primary Standards:** Official IELTS Band Descriptors (May 2023 Update) & CEFR Alignment
+**Primary Standards:** Cambridge / IDP / British Council Official IELTS Band Descriptors (May 2023 Update) & CEFR Alignment
 
 ---
 
-## 1. Overview & System Architecture
+## 1. Tổng Quan Kiến Trúc Đánh Giá Writing với Gemini Structured Outputs
 
-The automated IELTS Writing evaluation engine is designed to deliver immediate, examiner-grade feedback for student mock tests and pre-graded submissions for teacher review.
+Hệ thống chấm IELTS Writing tự động sử dụng tính năng **Structured Outputs** của **Google Gemini Interactions API** (`@google/genai`). Cơ chế này đảm bảo mô hình trả về dữ liệu tuân thủ 100% định dạng JSON Schema định sẵn, loại bỏ hoàn toàn lỗi vỡ cấu trúc JSON (Broken JSON), sinh markdown rác, hoặc sai kiểu dữ liệu.
 
 ```
-┌─────────────────┐       ┌───────────────────────────────┐       ┌────────────────────────┐
-│  Student Essay  │  ──>  │  LLM Assessment Engine        │  ──>  │  Deterministic Post-  │
-│  & Task Prompt  │       │  (Gemini / Claude / OpenAI)   │       │  Processing & Math     │
-└─────────────────┘       │  • Constrained JSON Output    │       └────────────────────────┘
-                          │  • Criterion Descriptors      │                   │
-                          │  • In-Schema Chain of Thought │                   ▼
-                          └───────────────────────────────┘       ┌────────────────────────┐
-                                                                  │  Grounding Verifier    │
-                                                                  │  (Quote Substring Check)│
-                                                                  └────────────────────────┘
-                                                                              │
-                                                                              ▼
-                                                                  ┌────────────────────────┐
-                                                                  │  Teacher Review UI /   │
-                                                                  │  Student Report        │
-                                                                  └────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 STUDENT SUBMISSION                                       │
+│   • Task Type: TASK_1_ACADEMIC | TASK_1_GENERAL | TASK_2                                 │
+│   • Prompt Text + Chart/Table Description                                                │
+│   • Student Essay Text (Clean Plain Text từ TipTap Editor)                               │
+└────────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                             │
+                                             ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                    GEMINI INTERACTIONS API (Structured Output)                           │
+│  • Model: gemini-3.5-flash-lite (Tier 1 Default) / gemini-3.7-flash (Deep Analysis)     │
+│  • response_format: { type: "text", mime_type: "application/json", schema: jsonSchema }  │
+│  • In-Schema Internal Examiner Audit (CoT chống lạm phát điểm)                          │
+│  • 4 IELTS Criteria Sub-scores (TA/TR, CC, LR, GRA: 1.0 - 9.0 in 0.5 steps)              │
+│  • Verbatim Grounded Detected Errors (original_quote + suggested_correction)            │
+│  • Actionable Band Upgrade Recommendations (+0.5 / +1.0 Band)                            │
+└────────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                             │ JSON Output (output_text)
+                                             ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                          SERVER-SIDE VERIFICATION & MATH                                 │
+│  1. Zod Runtime Validation: IeltsWritingAssessmentSchema.parse(json)                     │
+│  2. Quote Grounding Verifier: Xác minh mọi original_quote tồn tại chính xác trong essay  │
+│  3. Deterministic Arithmetic Rounding: Tính Overall Band theo chuẩn Cambridge            │
+└────────────────────────────────────────────┬─────────────────────────────────────────────┘
+                                             │
+                                             ▼
+┌──────────────────────────────────────────────────────────────────────────────────────────┐
+│                         PERSISTENCE & USER INTERFACE                                     │
+│  • Lưu vào Aggregate AIAssessmentProposal                                                │
+│  • Render lên Teacher Review Workspace (shadcn/ui + TipTap Error Highlights)             │
+│  • Học viên xem báo cáo chi tiết kèm lộ trình nâng band                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### Key Principles
-
-1. **Separation of Evaluation and Arithmetic:** The LLM evaluates qualitative criteria ($TA/TR, CC, LR, GRA \in [1.0, 9.0]$ in 0.5 increments). The server computes the composite task band and overall writing band using deterministic IELTS mathematical rounding.
-2. **Strict Verbatim Quoting:** Any identified error or suggested upgrade must link to an exact substring in the student's submission to eliminate hallucinated text.
-3. **Actionable Improvement Paths:** Every score must include concrete upgrade recommendations (lexical collocations, structural variety, cohesive flow) showing how to reach the next band level (+0.5 / +1.0).
 
 ---
 
-## 2. Official IELTS Writing Criteria & Band Descriptors
+## 2. Tiêu Chí Chấm Điểm 4 Bảng Chuẩn IELTS (May 2023 Update)
 
-Assessment adheres to the official updated IELTS public band descriptors (Cambridge / IDP / British Council).
+Động cơ AI đánh giá bài viết theo 4 tiêu chí chính thức của Cambridge / IDP:
 
 ### 2.1 Task 1: Task Achievement (TA)
 
-Measures how accurately, appropriately, and relevantly the response fulfills the task prompt (minimum 150 words recommended).
-
-- **Academic Task 1 (Charts, Graphs, Tables, Diagrams, Maps, Processes):**
-  - **Overview Requirement:** A clear, concise overview summarizing main trends, differences, or stages is mandatory for Band 6.0+. Responses lacking an overview cannot exceed Band 5.0.
-  - **Key Features:** Key data points and comparisons must be selected and reported accurately without personal opinion or unsupported speculation.
-- **General Training Task 1 (Letters):**
-  - **Purpose & Tone:** Clear statement of purpose and consistent register (formal, semi-formal, or informal).
-  - **Bullet Points:** All bullet points in the prompt must be covered adequately and appropriately.
-
-| Band    | Key TA Descriptors (Academic)                                                                                                                                |
-| :------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **9.0** | Fully satisfies all requirements; comprehensive overview; key features skillfully selected, highlighted, and fully extended.                                 |
-| **8.0** | Covers all requirements appropriately and sufficiently; clear overview highlighting key trends/differences; key features well supported with accurate data.  |
-| **7.0** | Covers requirements; presents a clear overview; highlights main features clearly, but some data may be lightly extended or generalized.                      |
-| **6.0** | Addresses requirements; presents an overview (may lack clarity or data focus); highlights key features but may contain minor data inaccuracies or omissions. |
-| **5.0** | Generally addresses the task; no clear overview or mechanical overview; recounts detail mechanically with inadequate focus on key features.                  |
-| **4.0** | Attempts task but fails to present an overview; key features largely omitted, inaccurate, or confused.                                                       |
+- **Academic Task 1:** Bắt buộc phải có **Overview** nêu rõ xu hướng chính/sự khác biệt nổi bật (Không có overview $\rightarrow$ tối đa Band 5.0). Lựa chọn và báo cáo số liệu chính xác, không đưa quan điểm cá nhân.
+- **General Training Task 1:** Xác định rõ mục đích, văn phong nhất quán (Formal / Semi-formal / Informal), trả lời đầy đủ tất cả các ý trong prompt.
 
 ### 2.2 Task 2: Task Response (TR)
 
-Measures how fully and appropriately the candidate formulates and supports an argument in response to the prompt (minimum 250 words recommended).
-
-- **Addressing All Parts:** Directly answering all prompt prompts (e.g., both views + opinion, advantages vs disadvantages, cause and solution).
-- **Clear Position Throughout:** The writer's stance must be evident in the introduction, maintained through body arguments, and confirmed in the conclusion.
-- **Idea Extension & Support:** Arguments must be supported with logical explanations and examples, avoiding sweeping over-generalizations.
-
-| Band    | Key TR Descriptors                                                                                                                                                          |
-| :------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **9.0** | Fully addresses all parts of the prompt; presents a fully developed position with well-supported and nuanced ideas throughout.                                              |
-| **8.0** | Sufficiently addresses all parts; well-developed response with relevant, extended, and supported ideas; clear position throughout.                                          |
-| **7.0** | Addresses all parts; clear position throughout; main ideas extended and supported, though some over-generalization or lack of depth may occur.                              |
-| **6.0** | Addresses all parts (some more fully than others); presents a relevant position though conclusions may be repetitive or unclear; ideas adequately developed but lack depth. |
-| **5.0** | Addresses the task only partially; position expressed but development is unclear or inconsistent; ideas limited or poorly supported.                                        |
-| **4.0** | Responds in a minimal or tangential way; position unclear; ideas repetitive, irrelevant, or unsupported.                                                                    |
+- **Trả lời đầy đủ yêu cầu đề bài:** Bao quát toàn bộ câu hỏi (Both views + opinion, Advantages/Disadvantages, Problem/Solution).
+- **Lập trường rõ ràng (Clear Position Throughout):** Thể hiện rõ quan điểm xuyên suốt từ mở bài, thân bài đến kết luận.
+- **Phát triển và mở rộng ý:** Luận điểm có dẫn chứng, giải thích logic, tránh kết luận chung chung, giáo điều.
 
 ### 2.3 Coherence & Cohesion (CC)
 
-Measures the clarity of thought progression, paragraph architecture, and linking mechanisms.
-
-- **Paragraphing:** Each body paragraph must focus on a clear central topic with logical progression from introduction to conclusion.
-- **Cohesive Devices:** Varied use of conjunctions, transitions, referencing (pronouns, demonstratives), and lexical substitution.
-- **Avoidance of Mechanical Linking:** Overuse of canned transitions (e.g., "Firstly", "Secondly", "Furthermore", "In a nutshell") caps CC at Band 6.0.
-
-| Band    | Key CC Descriptors                                                                                                                                                            |
-| :------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **9.0** | Cohesion is seamless and attracts no attention; paragraphing is expertly managed with natural thematic progression.                                                           |
-| **8.0** | Sequences ideas logically; manages all aspects of cohesion effectively; uses paragraphing appropriately and sufficiently.                                                     |
-| **7.0** | Logically organizes ideas with clear progression; uses a range of cohesive devices appropriately (occasional under/overuse); clear central topic per paragraph.               |
-| **6.0** | Coherent overall progression; uses cohesive devices effectively, but cohesion within/between sentences may be faulty or mechanical; paragraphing used but not always logical. |
-| **5.0** | Some organization, but lacks overall progression; makes inadequate, inaccurate, or excessive use of cohesive devices; faulty paragraphing.                                    |
+- **Cấu trúc đoạn văn (Paragraphing):** Mỗi đoạn thân bài tập trung vào một chủ đề trung tâm rõ ràng.
+- **Phương tiện liên kết (Cohesive Devices):** Sử dụng đa dạng từ nối, đại từ thay thế (referencing), tránh lạm dụng từ nối cơ học (như _Firstly, Secondly, In a nutshell_).
 
 ### 2.4 Lexical Resource (LR)
 
-Measures vocabulary range, precision, register appropriateness, and word-formation accuracy.
-
-- **Lexical Range:** Use of topic-specific vocabulary, uncommon lexical items, and natural collocations.
-- **Accuracy:** Minimizing errors in word choice, spelling, and morphological form (prefixes/suffixes).
-
-| Band    | Key LR Descriptors                                                                                                                                                            |
-| :------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **9.0** | Full flexibility and precise use of wide vocabulary; natural and sophisticated control of lexical features; rare minor 'slips'.                                               |
-| **8.0** | Wide range of vocabulary used flexibly to convey precise meanings; skillfully uses uncommon lexical items and collocations; rare spelling/formation errors.                   |
-| **7.0** | Sufficient range allowing flexibility and precision; uses less common vocabulary with awareness of style and collocation; produces occasional errors in word choice/spelling. |
-| **6.0** | Adequate range for the task; attempts less common vocabulary but with noticeable inaccuracies; spelling/formation errors do not impede communication.                         |
-| **5.0** | Limited vocabulary range; minimally adequate; noticeable errors in spelling/formation that cause difficulty for the reader.                                                   |
+- **Độ đa dạng & Chính xác:** Sử dụng từ vựng đúng ngữ cảnh, kết hợp từ tự nhiên (collocations), ít lỗi chính tả và biến hình từ (morphology).
+- **Từ vựng học thuật ít phổ biến (Less Common Lexical Items):** Dùng tự nhiên ở band 7.0+.
 
 ### 2.5 Grammatical Range & Accuracy (GRA)
 
-Measures the variety and syntactic complexity of sentence structures, error density, and punctuation control.
-
-- **Syntactic Range:** Balance of simple, compound, and complex sentences (relative clauses, conditionals, passive voice, inversions, participle clauses).
-- **Error-Free Ratio:**
-  - **Band 7.0 Requirement:** Frequent error-free sentences ($> 50\%$).
-  - **Band 8.0 Requirement:** Majority of sentences are error-free ($> 75\%$).
-- **Punctuation:** Accurate use of commas, full stops, apostrophes, and semicolons without comma splices or run-on sentences.
-
-| Band    | Key GRA Descriptors                                                                                                                           |
-| :------ | :-------------------------------------------------------------------------------------------------------------------------------------------- |
-| **9.0** | Wide range of structures with full flexibility and accuracy; rare minor 'slips'.                                                              |
-| **8.0** | Wide range of sentence structures; majority of sentences are error-free; only occasional non-systematic errors.                               |
-| **7.0** | Uses a variety of complex structures; produces frequent error-free sentences; good control of grammar and punctuation with occasional errors. |
-| **6.0** | Mix of simple and complex forms; some errors in grammar and punctuation, but they rarely impede communication.                                |
-| **5.0** | Limited range of structures; complex attempts are often inaccurate; frequent grammatical errors and punctuation faults cause reader strain.   |
+- **Độ đa dạng cấu trúc câu:** Kết hợp linh hoạt câu đơn, câu ghép, câu phức (mệnh đề quan hệ, câu điều kiện, câu bị động, đảo ngữ, rút gọn mệnh đề).
+- **Tỷ lệ câu không lỗi (Error-Free Sentences Ratio):**
+  - **Band 7.0:** $> 50\%$ tổng số câu không mắc lỗi ngữ pháp/chấm câu.
+  - **Band 8.0:** $> 75\%$ câu hoàn toàn không có lỗi.
 
 ---
 
-## 3. Band Score Calculation & Exact Rounding Rules
+## 3. Thuật Toán Làm Tròn Điểm IELTS Chuẩn Server-Side
 
-### 3.1 Single Task Band Calculation
+> [!IMPORTANT]
+> **Nguyên tắc bất biến:** Không để LLM tự tính toán và làm tròn điểm Band tổng. LLM chỉ đánh giá 4 sub-scores ($TA, CC, LR, GRA$). Server sẽ tính trung bình cộng và làm tròn theo quy tắc ngưỡng chính thức của Cambridge.
 
-Each task is evaluated across all 4 criteria on a 1.0–9.0 scale with 0.5 increments:
+### 3.1 Quy Tắc Làm Tròn Ngưỡng (Threshold Rules)
 
-$$\text{Task Criterion Mean} = \frac{\text{TA (or TR)} + \text{CC} + \text{LR} + \text{GRA}}{4}$$
+Cho trung bình cộng $M = \frac{TA + CC + LR + GRA}{4}$, phần nguyên $I = \lfloor M \rfloor$, phần dư $R = M - I$:
 
-$$\text{Task Band Score} = \text{round}_{\text{IELTS}}(\text{Task Criterion Mean})$$
+- Nếu $R < 0.25 \rightarrow$ Làm tròn xuống $I.0$ (Ví dụ: $6.125 \rightarrow \mathbf{6.0}$)
+- Nếu $0.25 \le R < 0.75 \rightarrow$ Làm tròn thành $I.5$ (Ví dụ: $6.25 \rightarrow \mathbf{6.5}$, $6.625 \rightarrow \mathbf{6.5}$)
+- Nếu $R \ge 0.75 \rightarrow$ Làm tròn lên $I + 1.0$ (Ví dụ: $6.75 \rightarrow \mathbf{7.0}$, $6.875 \rightarrow \mathbf{7.0}$)
 
-### 3.2 Overall Writing Band Calculation (Task 1 + Task 2)
-
-When both tasks are completed together, Task 2 is weighted **two-thirds ($2/3$)** and Task 1 **one-third ($1/3$)**:
+### 3.2 Trọng Số Bài Viết Tổng Hợp (Task 1 + Task 2)
 
 $$\text{Overall Writing Mean} = \frac{\text{Task 1 Band} + (2 \times \text{Task 2 Band})}{3}$$
 
-$$\text{Overall Writing Band Score} = \text{round}_{\text{IELTS}}(\text{Overall Writing Mean})$$
-
-### 3.3 IELTS Official Rounding Algorithm
-
-Given any arithmetic mean $M$:
-
-1. Let integer component $I = \lfloor M \rfloor$.
-2. Let fractional remainder $R = M - I$.
-
-| Fractional Range    | Rounding Rule         | Example Calculation                                                      | Final Band |
-| :------------------ | :-------------------- | :----------------------------------------------------------------------- | :--------- |
-| $R < 0.25$          | Round down to $I.0$   | $6.125 \to 6.0$                                                          | **6.0**    |
-| $0.25 \le R < 0.75$ | Round to $I.5$        | $6.250 \to 6.5$<br>$6.375 \to 6.5$<br>$6.500 \to 6.5$<br>$6.625 \to 6.5$ | **6.5**    |
-| $R \ge 0.75$        | Round up to $I + 1.0$ | $6.750 \to 7.0$<br>$6.875 \to 7.0$                                       | **7.0**    |
-
-### 3.4 TypeScript Reference Implementation
-
-```typescript
-/**
- * IELTS Official Rounding Standard
- * British Council / IDP / Cambridge Assessment Specification
- */
-export function roundToIeltsBand(rawScore: number): number {
-  if (rawScore < 0 || rawScore > 9) {
-    throw new Error(
-      `Invalid IELTS score: ${rawScore}. Must be between 0.0 and 9.0`
-    );
-  }
-
-  const floor = Math.floor(rawScore);
-  const remainder = Number((rawScore - floor).toFixed(4));
-
-  if (remainder < 0.25) {
-    return floor;
-  } else if (remainder < 0.75) {
-    return floor + 0.5;
-  } else {
-    return floor + 1.0;
-  }
-}
-
-export interface IeltsCriterionScores {
-  taOrTr: number; // Task Achievement (Task 1) or Task Response (Task 2)
-  cc: number; // Coherence & Cohesion
-  lr: number; // Lexical Resource
-  gra: number; // Grammatical Range & Accuracy
-}
-
-export function calculateTaskBand(scores: IeltsCriterionScores): {
-  rawMean: number;
-  roundedBand: number;
-} {
-  const rawMean = (scores.taOrTr + scores.cc + scores.lr + scores.gra) / 4;
-  return {
-    rawMean: Number(rawMean.toFixed(4)),
-    roundedBand: roundToIeltsBand(rawMean),
-  };
-}
-
-export function calculateOverallWritingBand(
-  task1Band: number,
-  task2Band: number
-): {
-  weightedMean: number;
-  overallBand: number;
-} {
-  const weightedMean = (task1Band + 2 * task2Band) / 3;
-  return {
-    weightedMean: Number(weightedMean.toFixed(4)),
-    overallBand: roundToIeltsBand(weightedMean),
-  };
-}
-```
-
 ---
 
-## 4. Structured JSON Output Schema (Zod Specification)
+## 4. Đặc Tả Zod Schema & JSON Schema cho Gemini Structured Output
+
+File: `lib/ai/schemas/ielts-writing-schema.ts`
 
 ```typescript
 import { z } from "zod";
 
+export const IeltsTaskTypeEnum = z.enum([
+  "TASK_1_ACADEMIC",
+  "TASK_1_GENERAL",
+  "TASK_2",
+]);
+
 export const IeltsCriterionEnum = z.enum([
-  "TASK_ACHIEVEMENT", // Task 1
-  "TASK_RESPONSE", // Task 2
+  "TASK_ACHIEVEMENT",
+  "TASK_RESPONSE",
   "COHERENCE_COHESION",
   "LEXICAL_RESOURCE",
   "GRAMMATICAL_RANGE_ACCURACY",
 ]);
 
 export const ErrorSeverityEnum = z.enum([
-  "minor_slip", // Isolated typo or non-systematic slip
-  "systematic_error", // Repeated structural/grammatical issue
-  "impedes_communication", // Severely obscures intended meaning
+  "minor_slip", // Lỗi nhỏ không ảnh hưởng truyền đạt
+  "systematic_error", // Lỗi có hệ thống
+  "impedes_communication", // Lỗi nghiêm trọng gây khó hiểu
 ]);
 
 export const ErrorCategoryEnum = z.enum([
@@ -266,31 +155,33 @@ export const ErrorCategoryEnum = z.enum([
   "incoherent_sentence_progression",
 
   // Task Fulfillment (TA/TR)
-  "missing_overview_feature", // Task 1
-  "unsupported_claim", // Task 2
+  "missing_overview_feature",
+  "unsupported_claim",
   "off_topic_tangent",
-  "inaccurate_data_report", // Task 1
+  "inaccurate_data_report",
 ]);
 
 export const DetectedErrorSchema = z.object({
-  id: z.string().describe("Unique identifier for this error annotation"),
+  id: z.string().describe("Unique identifier for this error, e.g. err_gra_1"),
   criterion: IeltsCriterionEnum,
   category: ErrorCategoryEnum,
   severity: ErrorSeverityEnum,
   original_quote: z
     .string()
-    .describe("Exact verbatim substring from the student text"),
+    .describe(
+      "Exact verbatim substring from the student essay (case-sensitive)"
+    ),
   context_sentence: z
     .string()
-    .describe("The full sentence containing the original quote"),
+    .describe("The full sentence in which the error occurred"),
   explanation: z
     .string()
     .describe(
-      "Clear explanation of why this is incorrect under IELTS standards"
+      "Clear pedagogical explanation citing IELTS band descriptor rationale"
     ),
   suggested_correction: z
     .string()
-    .describe("Corrected replacement text or sentence restructuring"),
+    .describe("Recommended high-band natural correction or restructuring"),
 });
 
 export const CriterionEvaluationSchema = z.object({
@@ -298,70 +189,81 @@ export const CriterionEvaluationSchema = z.object({
     .number()
     .min(1.0)
     .max(9.0)
-    .describe("Criterion band score in 0.5 increments"),
+    .describe("Criterion band score from 1.0 to 9.0 in 0.5 increments"),
   justification: z
     .string()
     .describe(
-      "Detailed rationale citing official May 2023 IELTS band descriptors"
+      "Detailed justification referencing May 2023 IELTS band descriptors"
     ),
   strengths: z
     .array(z.string())
-    .describe("Key proficiencies demonstrated in this criterion"),
+    .describe("Demonstrated strengths in this criterion"),
   areas_for_improvement: z
     .array(z.string())
-    .describe("Specific gaps preventing the next higher band"),
+    .describe("Specific deficiencies preventing the next higher band"),
 });
 
 export const BandUpgradeRecommendationSchema = z.object({
   category: z.enum(["lexical", "grammatical", "cohesive", "task_strategy"]),
   original_phrase_or_sentence: z
     .string()
-    .describe("Original text segment from the essay"),
+    .describe("Verbatim excerpt from student submission"),
   upgraded_version: z
     .string()
-    .describe("High-band (C1/C2 or Band 8.0+) alternative"),
-  target_band_level: z.number().min(7.0).max(9.0),
+    .describe("High-band (C1/C2 or Band 8.0+) alternative expression"),
+  target_band_level: z
+    .number()
+    .min(7.0)
+    .max(9.0)
+    .describe("Target band level achieved by this upgrade"),
   linguistic_principle: z
     .string()
-    .describe("Explanation of why this upgrade enhances band score"),
+    .describe("Why this upgrade elevates the band score"),
 });
 
 export const ModelRevisionSchema = z.object({
   revised_introduction: z
     .string()
-    .describe("Model rewrite of the introductory paragraph"),
+    .describe("Exemplary rewrite of the student's introduction"),
   revised_sample_body_paragraph: z
     .string()
-    .describe("Model rewrite of one body paragraph showing target structure"),
+    .describe(
+      "Exemplary rewrite of one body paragraph demonstrating structure"
+    ),
   key_enhancements_annotated: z
     .array(z.string())
-    .describe(
-      "List of structural and lexical techniques applied in the model rewrite"
-    ),
+    .describe("List of enhancements applied in the revision"),
 });
 
+// Root Schema
 export const IeltsWritingAssessmentSchema = z.object({
-  task_type: z.enum(["TASK_1_ACADEMIC", "TASK_1_GENERAL", "TASK_2"]),
+  task_type: IeltsTaskTypeEnum,
   word_count: z
     .number()
     .int()
     .positive()
-    .describe("Exact calculated word count of the submission"),
+    .describe("Calculated word count of the student submission"),
   is_underlength: z
     .boolean()
     .describe("True if Task 1 < 150 words or Task 2 < 250 words"),
 
-  // Chain of Thought / Examiner Reflection (Executed before scoring)
+  // Chain-of-Thought Audit
   internal_examiner_audit: z.object({
-    task_fulfillment_notes: z.string(),
-    cohesion_and_flow_notes: z.string(),
-    lexical_sophistication_notes: z.string(),
+    task_fulfillment_notes: z
+      .string()
+      .describe("CoT notes on prompt requirements coverage & overview quality"),
+    cohesion_and_flow_notes: z
+      .string()
+      .describe("CoT notes on paragraphing and linking device naturalness"),
+    lexical_sophistication_notes: z
+      .string()
+      .describe("CoT notes on vocabulary range and collocation precision"),
     grammatical_accuracy_ratio_notes: z
       .string()
-      .describe("Analysis of error-free sentences vs total sentences"),
+      .describe("CoT notes on error-free sentences ratio vs total sentences"),
   }),
 
-  // Criterion Scoring Breakdown
+  // Criterion Sub-scores
   criteria: z.object({
     task_achievement_or_response: CriterionEvaluationSchema,
     coherence_and_cohesion: CriterionEvaluationSchema,
@@ -369,20 +271,20 @@ export const IeltsWritingAssessmentSchema = z.object({
     grammatical_range_and_accuracy: CriterionEvaluationSchema,
   }),
 
-  // Granular Error Diagnostics
+  // Granular Grounded Errors
   detected_errors: z.array(DetectedErrorSchema),
 
-  // Actionable Upgrades
+  // Actionable Band Upgrades
   upgrade_recommendations: z.array(BandUpgradeRecommendationSchema).min(3),
 
-  // Exemplary Model Section
+  // Model Revision
   model_revision: ModelRevisionSchema,
 
-  // Overall Qualitative Summary
+  // Qualitative Summary
   examiner_summary: z
     .string()
     .describe(
-      "Overall qualitative assessment and strategic advice for the student"
+      "Comprehensive summary of strengths, weaknesses, and key priority actions"
     ),
 });
 
@@ -390,3 +292,402 @@ export type IeltsWritingAssessment = z.infer<
   typeof IeltsWritingAssessmentSchema
 >;
 ```
+
+---
+
+## 5. Tích Hợp Google GenAI SDK & Interactions API
+
+### 5.1 JSON Schema Trực Tiếp Cho Interactions API (`response_format`)
+
+```typescript
+export const IELTS_WRITING_JSON_SCHEMA = {
+  type: "object",
+  properties: {
+    task_type: {
+      type: "string",
+      enum: ["TASK_1_ACADEMIC", "TASK_1_GENERAL", "TASK_2"],
+    },
+    word_count: { type: "integer", description: "Word count" },
+    is_underlength: { type: "boolean" },
+    internal_examiner_audit: {
+      type: "object",
+      properties: {
+        task_fulfillment_notes: { type: "string" },
+        cohesion_and_flow_notes: { type: "string" },
+        lexical_sophistication_notes: { type: "string" },
+        grammatical_accuracy_ratio_notes: { type: "string" },
+      },
+      required: [
+        "task_fulfillment_notes",
+        "cohesion_and_flow_notes",
+        "lexical_sophistication_notes",
+        "grammatical_accuracy_ratio_notes",
+      ],
+    },
+    criteria: {
+      type: "object",
+      properties: {
+        task_achievement_or_response: {
+          type: "object",
+          properties: {
+            score: {
+              type: "number",
+              description: "Band 1.0 to 9.0 in 0.5 steps",
+            },
+            justification: { type: "string" },
+            strengths: { type: "array", items: { type: "string" } },
+            areas_for_improvement: { type: "array", items: { type: "string" } },
+          },
+          required: [
+            "score",
+            "justification",
+            "strengths",
+            "areas_for_improvement",
+          ],
+        },
+        coherence_and_cohesion: {
+          type: "object",
+          properties: {
+            score: { type: "number" },
+            justification: { type: "string" },
+            strengths: { type: "array", items: { type: "string" } },
+            areas_for_improvement: { type: "array", items: { type: "string" } },
+          },
+          required: [
+            "score",
+            "justification",
+            "strengths",
+            "areas_for_improvement",
+          ],
+        },
+        lexical_resource: {
+          type: "object",
+          properties: {
+            score: { type: "number" },
+            justification: { type: "string" },
+            strengths: { type: "array", items: { type: "string" } },
+            areas_for_improvement: { type: "array", items: { type: "string" } },
+          },
+          required: [
+            "score",
+            "justification",
+            "strengths",
+            "areas_for_improvement",
+          ],
+        },
+        grammatical_range_and_accuracy: {
+          type: "object",
+          properties: {
+            score: { type: "number" },
+            justification: { type: "string" },
+            strengths: { type: "array", items: { type: "string" } },
+            areas_for_improvement: { type: "array", items: { type: "string" } },
+          },
+          required: [
+            "score",
+            "justification",
+            "strengths",
+            "areas_for_improvement",
+          ],
+        },
+      },
+      required: [
+        "task_achievement_or_response",
+        "coherence_and_cohesion",
+        "lexical_resource",
+        "grammatical_range_and_accuracy",
+      ],
+    },
+    detected_errors: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          criterion: {
+            type: "string",
+            enum: [
+              "TASK_ACHIEVEMENT",
+              "TASK_RESPONSE",
+              "COHERENCE_COHESION",
+              "LEXICAL_RESOURCE",
+              "GRAMMATICAL_RANGE_ACCURACY",
+            ],
+          },
+          category: { type: "string" },
+          severity: {
+            type: "string",
+            enum: ["minor_slip", "systematic_error", "impedes_communication"],
+          },
+          original_quote: {
+            type: "string",
+            description: "Verbatim quote substring",
+          },
+          context_sentence: { type: "string" },
+          explanation: { type: "string" },
+          suggested_correction: { type: "string" },
+        },
+        required: [
+          "id",
+          "criterion",
+          "category",
+          "severity",
+          "original_quote",
+          "context_sentence",
+          "explanation",
+          "suggested_correction",
+        ],
+      },
+    },
+    upgrade_recommendations: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          category: {
+            type: "string",
+            enum: ["lexical", "grammatical", "cohesive", "task_strategy"],
+          },
+          original_phrase_or_sentence: { type: "string" },
+          upgraded_version: { type: "string" },
+          target_band_level: { type: "number" },
+          linguistic_principle: { type: "string" },
+        },
+        required: [
+          "category",
+          "original_phrase_or_sentence",
+          "upgraded_version",
+          "target_band_level",
+          "linguistic_principle",
+        ],
+      },
+    },
+    model_revision: {
+      type: "object",
+      properties: {
+        revised_introduction: { type: "string" },
+        revised_sample_body_paragraph: { type: "string" },
+        key_enhancements_annotated: {
+          type: "array",
+          items: { type: "string" },
+        },
+      },
+      required: [
+        "revised_introduction",
+        "revised_sample_body_paragraph",
+        "key_enhancements_annotated",
+      ],
+    },
+    examiner_summary: { type: "string" },
+  },
+  required: [
+    "task_type",
+    "word_count",
+    "is_underlength",
+    "internal_examiner_audit",
+    "criteria",
+    "detected_errors",
+    "upgrade_recommendations",
+    "model_revision",
+    "examiner_summary",
+  ],
+};
+```
+
+---
+
+## 6. Pipeline Thực Thi Hoàn Chỉnh (`lib/ai/writing-evaluator.ts`)
+
+```typescript
+import { GoogleGenAI } from "@google/genai";
+import {
+  IeltsWritingAssessmentSchema,
+  IeltsWritingAssessment,
+  IeltsTaskTypeEnum,
+} from "./schemas/ielts-writing-schema";
+import { IELTS_WRITING_JSON_SCHEMA } from "./schemas/ielts-writing-json-schema";
+import { roundToIeltsBand, calculateTaskBand } from "./ielts-scoring";
+import { z } from "zod";
+
+const client = new GoogleGenAI({});
+
+export interface WritingEvaluationInput {
+  taskType: z.infer<typeof IeltsTaskTypeEnum>;
+  promptTitle: string;
+  promptBody: string;
+  chartDataDescription?: string; // Bắt buộc cho Task 1 Academic
+  essayText: string;
+  isDeepAnalysis?: boolean; // Sử dụng gemini-3.7-flash nếu true
+}
+
+export interface EvaluatedWritingResult {
+  assessment: IeltsWritingAssessment;
+  scoring: {
+    rawMean: number;
+    overallTaskBand: number;
+    criterionScores: {
+      taOrTr: number;
+      cc: number;
+      lr: number;
+      gra: number;
+    };
+  };
+  groundingVerification: {
+    totalErrors: number;
+    groundedErrors: number;
+    invalidQuotes: string[];
+  };
+}
+
+/**
+ * Executes Examiner-grade IELTS Writing evaluation with Gemini Structured Outputs
+ */
+export async function evaluateIeltsWritingSubmission(
+  input: WritingEvaluationInput
+): Promise<EvaluatedWritingResult> {
+  const modelName = input.isDeepAnalysis
+    ? "gemini-3.7-flash"
+    : "gemini-3.5-flash-lite";
+
+  const systemInstruction = `You are a Senior Cambridge Certified IELTS Examiner.
+Evaluate the candidate's essay strictly according to the official May 2023 IELTS Band Descriptors.
+You must conduct an internal audit first before assigning scores.
+All quotes in detected_errors must be EXACT VERBATIM substrings from the candidate's text.
+Do not inflate scores. Band 7+ requires substantial error-free grammar and natural collocation control.`;
+
+  const userPrompt = `
+TASK TYPE: ${input.taskType}
+PROMPT TITLE: ${input.promptTitle}
+
+PROMPT INSTRUCTIONS:
+${input.promptBody}
+
+${input.chartDataDescription ? `DATA / CHART DESCRIPTION:\n${input.chartDataDescription}\n` : ""}
+
+CANDIDATE ESSAY TEXT:
+"""
+${input.essayText}
+"""
+`;
+
+  // 1. Gọi Gemini Interactions API với Structured Output response_format
+  const interaction = await client.interactions.create({
+    model: modelName,
+    input: `${systemInstruction}\n\n${userPrompt}`,
+    response_format: {
+      type: "text",
+      mime_type: "application/json",
+      schema: IELTS_WRITING_JSON_SCHEMA,
+    },
+  });
+
+  if (!interaction.output_text) {
+    throw new Error(
+      `Gemini evaluation returned empty output_text from model ${modelName}`
+    );
+  }
+
+  // 2. Parse JSON & Validate với Zod Schema
+  const rawParsed = JSON.parse(interaction.output_text);
+  const validatedAssessment: IeltsWritingAssessment =
+    IeltsWritingAssessmentSchema.parse(rawParsed);
+
+  // 3. Verbatim Quote Grounding Check
+  const invalidQuotes: string[] = [];
+  let groundedCount = 0;
+
+  validatedAssessment.detected_errors.forEach((err) => {
+    if (input.essayText.includes(err.original_quote)) {
+      groundedCount++;
+    } else {
+      invalidQuotes.push(err.original_quote);
+      console.warn(
+        `[Grounding Warning] Hallucinated error quote detected: "${err.original_quote}"`
+      );
+    }
+  });
+
+  // Lọc bỏ các lỗi không tồn tại trong văn bản thực tế
+  const filteredErrors = validatedAssessment.detected_errors.filter(
+    (err) => !invalidQuotes.includes(err.original_quote)
+  );
+  validatedAssessment.detected_errors = filteredErrors;
+
+  // 4. Tính toán điểm toán học chuẩn xác
+  const criterionScores = {
+    taOrTr: validatedAssessment.criteria.task_achievement_or_response.score,
+    cc: validatedAssessment.criteria.coherence_and_cohesion.score,
+    lr: validatedAssessment.criteria.lexical_resource.score,
+    gra: validatedAssessment.criteria.grammatical_range_and_accuracy.score,
+  };
+
+  const { rawMean, roundedBand } = calculateTaskBand(criterionScores);
+
+  return {
+    assessment: validatedAssessment,
+    scoring: {
+      rawMean,
+      overallTaskBand: roundedBand,
+      criterionScores,
+    },
+    groundingVerification: {
+      totalErrors: rawParsed.detected_errors?.length || 0,
+      groundedErrors: groundedCount,
+      invalidQuotes,
+    },
+  };
+}
+```
+
+---
+
+## 7. Hỗ Trợ Streaming Structured Output
+
+Gemini Interactions API cho phép truyền luồng dữ liệu structured JSON theo thời gian thực (`stream: true`), giúp giao diện hiển thị dần kết quả đánh giá (Progressive Rendering):
+
+```typescript
+export async function* streamIeltsWritingEvaluation(
+  input: WritingEvaluationInput
+) {
+  const modelName = input.isDeepAnalysis
+    ? "gemini-3.7-flash"
+    : "gemini-3.5-flash-lite";
+
+  const stream = await client.interactions.create({
+    model: modelName,
+    input: `Evaluate this IELTS essay:\n\n${input.essayText}`,
+    response_format: {
+      type: "text",
+      mime_type: "application/json",
+      schema: IELTS_WRITING_JSON_SCHEMA,
+    },
+    stream: true,
+  });
+
+  let accumulatedJson = "";
+
+  for await (const event of stream) {
+    if (
+      event.event_type === "step.delta" &&
+      event.delta.type === "text" &&
+      event.delta.text
+    ) {
+      accumulatedJson += event.delta.text;
+      yield { chunk: event.delta.text, accumulated: accumulatedJson };
+    }
+  }
+}
+```
+
+---
+
+## 8. Bảng Tổng Kết Nghiên Cứu
+
+| Hạng mục                  | Giải pháp Kỹ thuật                                                                                                 |
+| :------------------------ | :----------------------------------------------------------------------------------------------------------------- |
+| **API Chuẩn**             | Google GenAI SDK (`@google/genai`) Interactions API (`client.interactions.create`).                                |
+| **Đảm bảo Cấu trúc JSON** | `response_format: { type: "text", mime_type: "application/json", schema: ... }`.                                   |
+| **Type Safety**           | Zod Schema (`IeltsWritingAssessmentSchema`) + JSON Schema chuẩn.                                                   |
+| **Chống Lạm phát điểm**   | `internal_examiner_audit` (CoT) thực hiện trước khi sinh điểm số các tiêu chí.                                     |
+| **Chống Ảo giác Lỗi**     | Verbatim Quote Substring Verification (loại bỏ quote không khớp văn bản gốc).                                      |
+| **Tính toán Điểm số**     | Server-side arithmetic mean + Cambridge rounding rules ($<0.25 \to .0$, $0.25..0.75 \to .5$, $\ge 0.75 \to +1.0$). |
