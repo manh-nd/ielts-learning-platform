@@ -15,14 +15,18 @@ graph TD
     subgraph OCI_Host["Oracle Cloud VM (ARM64 Ampere A1: 4 OCPU, 24GB RAM)"]
         subgraph NPM_Network["npm_network (External Bridge)"]
             NPM -->|"Proxy Pass (Port 3000)"| App["ielts-app (Next.js on Bun Standalone)<br/>• Port 3000 (Non-root user nextjs)<br/>• Healthcheck: /api/health<br/>• Resource Limit: 3.5 OCPU / 16GB RAM"]
+            NPM -->|"Proxy Pass (Port 8333)<br/>s3.yourdomain.com"| SeaweedFS["ielts-seaweedfs (SeaweedFS S3 Storage)<br/>• Port 8333 (S3 API Presigned URLs)<br/>• Port 8888 (Filer UI)<br/>• Resource Limit: 1.0 OCPU / 1GB RAM"]
         end
 
         subgraph Internal_Network["internal_network (Internal Bridge)"]
             App -->|"DATABASE_URL (Port 5432)"| DB[("ielts-postgres (PostgreSQL 18)<br/>• Port 5432 (Internal only)<br/>• Healthcheck: pg_isready<br/>• Resource Limit: 2.0 OCPU / 4GB RAM")]
+            App -->|"S3 API (Port 8333)"| SeaweedFS
         end
 
         PGVol[("Persistent Volume:<br/>postgres_data")]
+        SeaweedVol[("Persistent Volume:<br/>seaweedfs_data")]
         DB --- PGVol
+        SeaweedFS --- SeaweedVol
     end
 ```
 
@@ -137,7 +141,9 @@ Cập nhật các giá trị bí mật:
 - `BETTER_AUTH_URL`: Domain chính thức, ví dụ `https://ielts.yourdomain.com`.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: Khóa Google OAuth (Authorized Redirect URI: `https://ielts.yourdomain.com/api/auth/callback/google`).
 - `GEMINI_API_KEY` / `GEMINI_API_KEYS`: Khóa Google Gemini API.
-- `R2_*`: Thông tin Cloudflare R2 bucket lưu trữ audio Speaking.
+- `S3_ENDPOINT`: URL nội bộ của SeaweedFS trong Docker network (`http://seaweedfs:8333`).
+- `S3_PUBLIC_ENDPOINT`: URL công khai của SeaweedFS S3 API qua NPM, ví dụ `https://s3.yourdomain.com`.
+- `S3_BUCKET_NAME`: Tên bucket lưu audio (mặc định `ielts-audio-submissions`).
 
 ### 4.2. Build & Khởi chạy Containers
 
@@ -157,6 +163,9 @@ docker compose logs -f app
 
 # Log database PostgreSQL
 docker compose logs -f postgres
+
+# Log SeaweedFS S3 Object Storage
+docker compose logs -f seaweedfs
 ```
 
 ### 4.3. Chạy Migration Database
@@ -172,31 +181,29 @@ docker compose exec app bun run db:migrate # (hoặc lệnh migration tương �
 
 ## 5. Cấu hình Reverse Proxy & SSL trên Nginx Proxy Manager
 
-Đăng nhập vào giao diện Web NPM (`http://<IP_ORACLE_VM>:81`) và thực hiện các bước sau:
+Đăng nhập vào giao diện Web NPM (`http://<IP_ORACLE_VM>:81`) và tạo 2 Proxy Hosts:
 
-### 5.1. Thêm Proxy Host Mới (Tab "Details")
+### 5.1. Proxy Host 1: Ứng dụng Chính Next.js (`ielts.yourdomain.com`)
+
+**Tab "Details":**
 
 - **Domain Names**: `ielts.yourdomain.com` (và `www.ielts.yourdomain.com` nếu có)
 - **Scheme**: `http`
 - **Forward Hostname / IP**: `ielts-app` (Tên container dịch vụ trong mạng `npm_network`)
 - **Forward Port**: `3000`
-- **Cache Assets**: Bật (Optional, giúp tối ưu cache static assets)
-- **Block Common Exploits**: Bật (Khuyến nghị bảo mật)
+- **Cache Assets**: Bật
+- **Block Common Exploits**: Bật
 - **Websockets Support**: **BẬT (ON)** (Bắt buộc cho Gemini Live API, streaming audio và Server-Sent Events)
 
-### 5.2. Cấu hình SSL Certificate (Tab "SSL")
+**Tab "SSL":**
 
 - **SSL Certificate**: `Request a new SSL Certificate`
 - **Force SSL**: Bật
 - **HTTP/2 Support**: Bật
 - **HSTS Enabled**: Bật
-- **HSTS Subdomains**: Tùy chọn
 - **I Agree to the Let's Encrypt Terms of Service**: Bật
-- Nhập email nhận thông báo gia hạn chứng chỉ SSL tự động.
 
-### 5.3. Tối ưu Nâng cao cho Audio & Long Requests (Tab "Advanced")
-
-Trong tab **Advanced**, dán đoạn cấu hình Nginx sau để xử lý các file ghi âm bài Speaking lớn (lên tới 50MB) và tránh timeout khi AI chấm bài:
+**Tab "Advanced":**
 
 ```nginx
 # Cho phép upload file ghi âm Speaking dung lượng lớn
@@ -216,7 +223,39 @@ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 proxy_set_header X-Forwarded-Proto $scheme;
 ```
 
-Bấm **Save** để áp dụng.
+### 5.2. Proxy Host 2: SeaweedFS S3 API (`s3.yourdomain.com` - ADR-0003)
+
+Dùng cho thí sinh upload trực tiếp bài Speaking qua S3 Presigned PUT URL và nghe lại qua Presigned GET URL:
+
+**Tab "Details":**
+
+- **Domain Names**: `s3.yourdomain.com`
+- **Scheme**: `http`
+- **Forward Hostname / IP**: `ielts-seaweedfs`
+- **Forward Port**: `8333`
+- **Websockets Support**: Tắt
+- **Block Common Exploits**: Bật
+
+**Tab "SSL":**
+
+- **SSL Certificate**: `Request a new SSL Certificate`
+- **Force SSL**: Bật
+- **HTTP/2 Support**: Bật
+
+**Tab "Advanced":**
+
+```nginx
+# Cho phép upload file S3 lớn và giữ nguyên host header cho S3 signature v4
+client_max_body_size 100M;
+proxy_set_header Host $http_host;
+proxy_set_header X-Real-IP $remote_addr;
+proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_connect_timeout 300;
+proxy_http_version 1.1;
+proxy_set_header Connection "";
+chunked_transfer_encoding off;
+```
 
 ---
 
@@ -231,26 +270,33 @@ curl -I https://ielts.yourdomain.com/api/health
 # HTTP/2 200 OK
 ```
 
-### 6.2. Sao lưu Cơ sở Dữ liệu Định kỳ (Automated Backup)
+### 6.2. Sao lưu Cơ sở Dữ liệu & Audio Storage Định kỳ (Automated Backup)
 
-Tạo cron job sao lưu PostgreSQL tự động mỗi ngày vào 02:00 sáng:
+Tạo cron job sao lưu PostgreSQL và SeaweedFS volume tự động mỗi ngày vào 02:00 sáng:
 
 ```bash
-# Tạo script backup ~/backup-ielts-db.sh
-cat << 'EOF' > ~/backup-ielts-db.sh
+# Tạo script backup ~/backup-ielts-platform.sh
+cat << 'EOF' > ~/backup-ielts-platform.sh
 #!/bin/bash
-BACKUP_DIR="/opt/backups/postgres"
-mkdir -p $BACKUP_DIR
+BACKUP_DIR="/opt/backups"
+mkdir -p $BACKUP_DIR/postgres $BACKUP_DIR/seaweedfs
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
-docker exec -t ielts-postgres pg_dump -U postgres ielts_platform | gzip > "$BACKUP_DIR/ielts_db_$TIMESTAMP.sql.gz"
+
+# 1. Backup PostgreSQL Database
+docker exec -t ielts-postgres pg_dump -U postgres ielts_platform | gzip > "$BACKUP_DIR/postgres/ielts_db_$TIMESTAMP.sql.gz"
+
+# 2. Backup SeaweedFS Audio Data
+docker run --rm --volumes-from ielts-seaweedfs -v $BACKUP_DIR/seaweedfs:/backup alpine tar czf /backup/seaweedfs_data_$TIMESTAMP.tar.gz /data
+
 # Giữ bản sao lưu trong vòng 30 ngày
-find $BACKUP_DIR -type f -name "*.sql.gz" -mtime +30 -delete
+find $BACKUP_DIR/postgres -type f -name "*.sql.gz" -mtime +30 -delete
+find $BACKUP_DIR/seaweedfs -type f -name "*.tar.gz" -mtime +30 -delete
 EOF
 
-chmod +x ~/backup-ielts-db.sh
+chmod +x ~/backup-ielts-platform.sh
 
 # Thêm vào crontab
-(crontab -l 2>/dev/null; echo "0 2 * * * /home/ubuntu/backup-ielts-db.sh") | crontab -
+(crontab -l 2>/dev/null; echo "0 2 * * * /home/ubuntu/backup-ielts-platform.sh") | crontab -
 ```
 
 ### 6.3. Cập nhật Phiên bản Ứng dụng (Zero-downtime Rollout)

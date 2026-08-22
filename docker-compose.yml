@@ -78,11 +78,33 @@ services:
           cpus: "1.0"
           memory: 2G
 
+  # ============================================================================
+  # SeaweedFS Object Storage Service (S3-Compatible Local Storage - ADR-0003)
+  # ============================================================================
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: ielts-seaweedfs
+    restart: unless-stopped
+    command: "server -s3 -dir=/data -ip.bind=0.0.0.0 -s3.port=8333 -filer=true"
+    volumes:
+      - seaweedfs_data:/data
+    networks:
+      - internal_network
+      - npm_network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
 # ==============================================================================
 # Networks Configuration
 # ==============================================================================
 networks:
-  # Internal bridge network for communication between app and database
+  # Internal bridge network for communication between app, database, and seaweedfs
   internal_network:
     driver: bridge
 
@@ -96,4 +118,6 @@ networks:
 # ==============================================================================
 volumes:
   postgres_data:
+    driver: local
+  seaweedfs_data:
     driver: local
