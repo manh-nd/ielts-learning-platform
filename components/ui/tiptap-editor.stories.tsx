@@ -15,12 +15,11 @@ export default meta;
 type Story = StoryObj<typeof TiptapEditor>;
 
 /**
- * 1. Default Interactive Editor with Bubble Menu enabled
+ * 1. Default Interactive Editor
  */
 export const DefaultInteractive: Story = {
   args: {
-    placeholder: "Type something to test Tiptap v3 rich text editor...",
-    enableBubbleMenu: true,
+    placeholder: "Type something to test Tiptap v3 clean text editor...",
     onChange: fn(),
   },
   play: async ({ canvasElement }) => {
@@ -30,11 +29,9 @@ export const DefaultInteractive: Story = {
 
     // Type text
     await userEvent.click(editorEl);
-    await userEvent.type(editorEl, "Hello Tiptap v3 Rich Text Editor");
+    await userEvent.type(editorEl, "Hello Tiptap v3 Editor");
 
-    await expect(editorEl).toHaveTextContent(
-      "Hello Tiptap v3 Rich Text Editor"
-    );
+    await expect(editorEl).toHaveTextContent("Hello Tiptap v3 Editor");
   },
 };
 
@@ -44,8 +41,7 @@ export const DefaultInteractive: Story = {
 export const WithInitialContent: Story = {
   args: {
     content:
-      "<p><strong>IELTS Academic Writing:</strong> It is argued that renewable energy plays a vital role in global sustainable development.</p>",
-    enableBubbleMenu: true,
+      "<p>It is argued that renewable energy plays a vital role in global sustainable development.</p>",
     onChange: fn(),
   },
 };
@@ -57,7 +53,6 @@ export const ReadonlyDisabled: Story = {
   args: {
     content: "<p>This is a submitted essay locked in read-only mode.</p>",
     editable: false,
-    enableBubbleMenu: false,
   },
 };
 
@@ -68,7 +63,6 @@ export const StrictExamModeWithPastePrevention: Story = {
   args: {
     placeholder: "Strict exam mode: paste is disabled...",
     isMockTest: true,
-    enableBubbleMenu: false,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
