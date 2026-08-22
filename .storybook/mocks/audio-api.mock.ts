@@ -57,8 +57,9 @@ export function setupAudioApiMocks() {
           const dummyChunk = new Blob(["mock-audio-bytes"], {
             type: this.mimeType,
           });
-          // @ts-expect-error Synthetic event
-          this.ondataavailable({ data: dummyChunk } as BlobEvent);
+          const event = new Event("dataavailable") as unknown as BlobEvent;
+          Object.defineProperty(event, "data", { value: dummyChunk });
+          this.ondataavailable(event);
         }
       }, interval);
     }
