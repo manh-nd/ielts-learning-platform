@@ -1,12 +1,7 @@
 import type { StorybookConfig } from "@storybook/nextjs-vite";
 
 const config: StorybookConfig = {
-  stories: [
-    "../components/**/*.mdx",
-    "../components/**/*.stories.@(js|jsx|mjs|ts|tsx)",
-    "../app/**/*.stories.@(js|jsx|mjs|ts|tsx)",
-    "../modules/**/*.stories.@(js|jsx|mjs|ts|tsx)",
-  ],
+  stories: ["../components/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
   addons: [
     "@storybook/addon-docs",
     "@storybook/addon-themes",
@@ -25,6 +20,15 @@ const config: StorybookConfig = {
       propFilter: (prop) =>
         prop.parent ? !/node_modules/.test(prop.parent.fileName) : true,
     },
+  },
+  viteFinal: async (config) => {
+    return {
+      ...config,
+      build: {
+        ...config.build,
+        chunkSizeWarningLimit: 2000,
+      },
+    };
   },
 };
 
