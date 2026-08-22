@@ -182,12 +182,13 @@ export function TiptapEditor({
       )}
       data-testid={testId}
     >
-      {/* Floating Bubble Menu (Appears on text selection) */}
+      {/* Floating Bubble Menu (Hidden by default, only shown floating above selected text) */}
       {enableBubbleMenu && !isMockTest && editable && isMounted && (
         <div
           ref={menuRef}
           data-testid="tiptap-bubble-menu"
-          className="z-50 flex items-center gap-0.5 rounded-lg border bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-sm animate-in fade-in zoom-in-95 duration-150"
+          style={{ visibility: "hidden", position: "absolute" }}
+          className="z-50 flex items-center gap-0.5 rounded-lg border bg-popover/95 p-1 text-popover-foreground shadow-lg backdrop-blur-sm"
         >
           <button
             type="button"
