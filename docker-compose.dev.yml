@@ -1,0 +1,55 @@
+services:
+  # ============================================================================
+  # PostgreSQL Database Service (Local Development)
+  # ============================================================================
+  postgres:
+    image: postgres:18-alpine
+    container_name: ielts-postgres-dev
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ielts_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ielts_platform}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ============================================================================
+  # pgAdmin 4 Web GUI Service (Local Development)
+  # ============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ielts-pgadmin-dev
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@admin.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+      - ./pgadmin/servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+# ==============================================================================
+# Persistent Volumes (Isolated from Production)
+# ==============================================================================
+volumes:
+  postgres_dev_data:
+    driver: local
+  pgadmin_dev_data:
+    driver: local

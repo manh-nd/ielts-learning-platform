@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "IELTS Local Postgres",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "ielts_platform",
+      "Username": "postgres",
+      "SSLMode": "prefer"
+    }
+  }
+}
