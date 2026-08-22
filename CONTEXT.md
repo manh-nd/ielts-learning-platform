@@ -26,6 +26,10 @@ _Avoid_: ActiveSubmission, LatestAttempt
 The specific SubmissionAttempt locked in and evaluated when the Teacher starts review.
 _Avoid_: TargetAttempt, LockedAttempt
 
+**HomeworkAssessment**:
+The root record governing the full assessment lifecycle for a single ReviewedAttempt — from AI proposal through Teacher evaluation, approval, and publication.
+_Avoid_: AssessmentRecord, GradingSession, ReviewResult
+
 ### Assessment Lifecycle & Proposals
 
 **AIAssessmentProposal**:
@@ -61,6 +65,12 @@ _Avoid_: EnabledPrompt, AvailableQuestion
 **RetiredPrompt**:
 A Prompt archived from new test selection while preserving historical submission links.
 _Avoid_: DeletedPrompt, DisabledQuestion
+
+### Practice
+
+**MockTest**:
+A self-service practice test taken by a Learner using a randomly selected active Prompt. AI assesses directly and publishes immediately without Teacher approval.
+_Avoid_: PracticeTest, QuickTest, SelfTest
 
 ### Classroom & Organization
 

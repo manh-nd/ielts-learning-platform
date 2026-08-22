@@ -1,0 +1,3 @@
+# Drizzle ORM over Prisma
+
+The PRD and initial design assumed Prisma ORM. We chose Drizzle ORM instead because it produces standard SQL (no query engine binary), supports multi-file schema via glob patterns (ideal for modular monolith), gives direct control over queries needed for OCC (`WHERE version = $expected`), and ships a lighter runtime — important for the ARM64 Docker VM (4 OCPU, 24GB RAM) deployment target. Prisma's generated client and engine binary would add build complexity and ~15MB+ to the container image with no benefit this project needs. Driver: `postgres` (postgres.js), pure JS, no native dependencies.
