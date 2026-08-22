@@ -111,6 +111,7 @@ export function WritingScratchpad({
         <TiptapEditor
           content={content}
           placeholder="Ví dụ dàn ý:&#10;• Introduction: Paraphrase question & thesis statement&#10;• Body 1: Main trend / Argument 1 with details&#10;• Body 2: Secondary trend / Argument 2 with examples&#10;• Conclusion: Summary of key findings..."
+          enableBubbleMenu={true}
           isMockTest={false}
           minHeight="min-h-[420px]"
           editorClassName="p-4 text-sm"

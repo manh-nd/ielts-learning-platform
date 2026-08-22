@@ -270,6 +270,7 @@ export function IeltsWritingSuite({
               : "Bắt đầu viết bài luận IELTS của bạn tại đây..."
           }
           editable={!isTimeUp}
+          enableBubbleMenu={!isMockTest}
           isMockTest={isMockTest}
           minHeight="min-h-[440px]"
           onChange={handleEditorChange}

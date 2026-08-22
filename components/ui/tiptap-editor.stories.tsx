@@ -20,6 +20,7 @@ type Story = StoryObj<typeof TiptapEditor>;
 export const DefaultInteractive: Story = {
   args: {
     placeholder: "Type something to test Tiptap v3 clean text editor...",
+    enableBubbleMenu: true,
     onChange: fn(),
   },
   play: async ({ canvasElement }) => {
@@ -42,6 +43,7 @@ export const WithInitialContent: Story = {
   args: {
     content:
       "<p>It is argued that renewable energy plays a vital role in global sustainable development.</p>",
+    enableBubbleMenu: true,
     onChange: fn(),
   },
 };
