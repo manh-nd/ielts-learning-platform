@@ -1,6 +1,17 @@
 import type { Preview } from "@storybook/react";
 import { withThemeByClassName } from "@storybook/addon-themes";
+import { Inter, Geist, Geist_Mono } from "next/font/google";
 import "../app/globals.css";
+
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 const customViewports = {
   mobileSmall: {
@@ -59,6 +70,13 @@ const preview: Preview = {
       },
       defaultTheme: "light",
     }),
+    (Story) => (
+      <div
+        className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
+      >
+        <Story />
+      </div>
+    ),
   ],
 };
 
