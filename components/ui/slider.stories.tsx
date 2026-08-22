@@ -6,6 +6,14 @@ const meta: Meta<typeof Slider> = {
   title: "UI/Slider",
   component: Slider,
   tags: ["autodocs"],
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Thành phần Slider chọn điểm tiêu chí IELTS (0.0 đến 9.0 theo bước 0.5) cho giáo viên trong màn hình chấm bài (Teacher Review Workspace).",
+      },
+    },
+  },
 };
 
 export default meta;

@@ -6,11 +6,20 @@ const meta: Meta<typeof Badge> = {
   title: "UI/Badge",
   component: Badge,
   tags: ["autodocs"],
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Thành phần Badge hiển thị nhãn trạng thái (AI Evaluated, Approved, Underlength), điểm số Band và các cảnh báo tiêu chí lỗi trong bài thi IELTS.",
+      },
+    },
+  },
   args: {
     children: "Badge",
   },
   argTypes: {
     variant: {
+      description: "Màu sắc & phong cách hiển thị của badge",
       control: "select",
       options: [
         "default",

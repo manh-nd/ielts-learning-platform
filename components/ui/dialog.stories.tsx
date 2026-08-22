@@ -16,6 +16,14 @@ const meta: Meta<typeof Dialog> = {
   title: "UI/Dialog",
   component: Dialog,
   tags: ["autodocs"],
+  parameters: {
+    docs: {
+      description: {
+        component:
+          "Thành phần Dialog / Modal chuẩn của shadcn/ui tích hợp `@base-ui/react/dialog`. Dùng cho các luồng xác nhận quan trọng như `ApproveAssessment` (duyệt nội bộ) và `PublishAssessment` (công bố điểm cho học viên theo PUBLICATION-01).",
+      },
+    },
+  },
 };
 
 export default meta;
