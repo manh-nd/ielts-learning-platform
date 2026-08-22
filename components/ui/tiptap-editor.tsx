@@ -84,7 +84,7 @@ export function TiptapEditor({
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-neutral dark:prose-invert max-w-none focus:outline-none text-base leading-relaxed p-6 selection:bg-primary/20",
+          "tiptap prose prose-neutral dark:prose-invert max-w-none focus:outline-none text-base leading-relaxed p-6 selection:bg-primary/20",
           minHeight,
           editorClassName
         ),

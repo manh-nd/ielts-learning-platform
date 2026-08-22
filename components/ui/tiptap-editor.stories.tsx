@@ -37,14 +37,44 @@ export const DefaultInteractive: Story = {
 };
 
 /**
- * 2. Editor with Pre-populated Content
+ * 2. Editor with Pre-populated Content & Lists (Bullet & Numbered)
  */
-export const WithInitialContent: Story = {
+export const WithListsAndFormatting: Story = {
   args: {
-    content:
-      "<p>It is argued that renewable energy plays a vital role in global sustainable development.</p>",
+    content: `
+      <h2>IELTS Essay Planning & Outline</h2>
+      <p>Key arguments supporting green infrastructure:</p>
+      <ul>
+        <li>Reduction of urban carbon footprint and greenhouse emissions</li>
+        <li>Enhancement of public health through cleaner air quality</li>
+        <li>Long-term economic sustainability for municipalities</li>
+      </ul>
+      <p>Execution steps for local government:</p>
+      <ol>
+        <li>Allocate municipal budget for renewable energy subsidies</li>
+        <li>Upgrade public transit fleets to electric propulsion</li>
+        <li>Implement mandatory solar panel codes for commercial buildings</li>
+      </ol>
+      <blockquote>
+        "Sustainable development meets the needs of the present without compromising future generations."
+      </blockquote>
+    `,
     enableBubbleMenu: true,
     onChange: fn(),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const editorEl = canvas.getByTestId("tiptap-editor-content");
+    await expect(editorEl).toBeInTheDocument();
+
+    // Verify lists exist
+    const bulletList = editorEl.querySelector("ul");
+    const orderedList = editorEl.querySelector("ol");
+    const blockquote = editorEl.querySelector("blockquote");
+
+    await expect(bulletList).not.toBeNull();
+    await expect(orderedList).not.toBeNull();
+    await expect(blockquote).not.toBeNull();
   },
 };
 
