@@ -1,3 +1,4 @@
+import React, { useEffect } from "react";
 import type { Preview } from "@storybook/react";
 import { withThemeByClassName } from "@storybook/addon-themes";
 import { Inter, Geist, Geist_Mono } from "next/font/google";
@@ -76,13 +77,32 @@ const preview: Preview = {
       },
       defaultTheme: "light",
     }),
-    (Story) => (
-      <div
-        className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
-      >
-        <Story />
-      </div>
-    ),
+    (Story) => {
+      useEffect(() => {
+        if (typeof document !== "undefined") {
+          document.documentElement.classList.add(
+            inter.variable,
+            geistSans.variable,
+            geistMono.variable,
+            "font-sans"
+          );
+          document.body.classList.add(
+            inter.variable,
+            geistSans.variable,
+            geistMono.variable,
+            "font-sans"
+          );
+        }
+      }, []);
+
+      return (
+        <div
+          className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
+        >
+          <Story />
+        </div>
+      );
+    },
   ],
 };
 

@@ -121,7 +121,9 @@ export function TeacherReviewAnnotator({
       },
       handleClick: (_view, _pos, event) => {
         const target = event.target as HTMLElement;
-        const markEl = target.closest("mark.criterion-mark");
+        const markEl =
+          target.closest("mark.criterion-mark") ||
+          target.closest("mark[data-error-id]");
         if (markEl && containerRef.current) {
           const errorId = markEl.getAttribute("data-error-id");
           if (errorId) {
