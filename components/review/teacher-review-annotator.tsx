@@ -81,6 +81,7 @@ export function TeacherReviewAnnotator({
   const activeFilter = controlledFilter ?? internalFilter;
 
   const [activeErrorId, setActiveErrorId] = useState<string | null>(null);
+  const [isCreateMode, setIsCreateMode] = useState<boolean>(false);
   const [popoverPosition, setPopoverPosition] = useState<{
     top: number;
     left: number;
@@ -133,10 +134,11 @@ export function TeacherReviewAnnotator({
                 12,
                 Math.min(
                   rect.left - containerRect.left,
-                  containerRect.width - 340
+                  containerRect.width - 390
                 )
               ),
             });
+            setIsCreateMode(false);
             setActiveErrorId(errorId);
             return true;
           }
@@ -284,9 +286,9 @@ export function TeacherReviewAnnotator({
       const newAnnotation: ReviewAnnotation = {
         errorId: newErrorId,
         criterion,
-        category: "Nhận xét của giáo viên",
+        category: "",
         severity: "minor_slip",
-        explanation: "Giáo viên đã đánh dấu cần cải thiện tiêu chí này.",
+        explanation: "",
         suggestedCorrection: "",
         originalQuote: selectedText,
         source: "teacher",
@@ -297,10 +299,10 @@ export function TeacherReviewAnnotator({
       const attrs: CriterionAnnotationAttributes = {
         errorId: newErrorId,
         criterion,
-        category: newAnnotation.category,
-        severity: newAnnotation.severity,
-        explanation: newAnnotation.explanation,
-        suggestedCorrection: newAnnotation.suggestedCorrection,
+        category: "",
+        severity: "minor_slip",
+        explanation: "",
+        suggestedCorrection: "",
         source: "teacher",
         isResolved: false,
       };
@@ -310,6 +312,51 @@ export function TeacherReviewAnnotator({
       const updatedList = [...annotations, newAnnotation];
       setAnnotations(updatedList);
       onAnnotationsChange?.(updatedList);
+
+      // Calculate popover position from selection coordinates
+      const startPos = editor.view.coordsAtPos(from);
+      const endPos = editor.view.coordsAtPos(to);
+      const containerRect = containerRef.current?.getBoundingClientRect() || {
+        top: 0,
+        left: 0,
+        width: 600,
+      };
+
+      setPopoverPosition({
+        top: endPos.bottom - containerRect.top + 8,
+        left: Math.max(
+          12,
+          Math.min(
+            startPos.left - containerRect.left,
+            containerRect.width - 390
+          )
+        ),
+      });
+      setActiveErrorId(newErrorId);
+      setIsCreateMode(true);
+    },
+    [editor, annotations, onAnnotationsChange]
+  );
+
+  // Handler: Save / Update Annotation from Popover (Create or Edit Mode)
+  const handleSaveAnnotation = useCallback(
+    (updated: ReviewAnnotation) => {
+      if (!editor) return;
+
+      editor.commands.updateCriterionAnnotation(updated.errorId, {
+        category: updated.category,
+        explanation: updated.explanation,
+        suggestedCorrection: updated.suggestedCorrection,
+        severity: updated.severity,
+        source: updated.source,
+      });
+
+      const updatedList = annotations.map((a) =>
+        a.errorId === updated.errorId ? updated : a
+      );
+      setAnnotations(updatedList);
+      onAnnotationsChange?.(updatedList);
+      setIsCreateMode(false);
     },
     [editor, annotations, onAnnotationsChange]
   );
@@ -460,13 +507,16 @@ export function TeacherReviewAnnotator({
         open={Boolean(activeErrorId && popoverPosition)}
         annotation={activeAnnotation}
         position={popoverPosition}
+        isCreateMode={isCreateMode}
         onClose={() => {
           setActiveErrorId(null);
           setPopoverPosition(null);
+          setIsCreateMode(false);
         }}
         onApplyCorrection={handleApplyCorrection}
         onToggleResolved={handleToggleResolved}
         onDelete={handleDeleteAnnotation}
+        onSaveAnnotation={handleSaveAnnotation}
         editable={editable}
       />
 

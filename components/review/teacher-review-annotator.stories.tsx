@@ -196,7 +196,76 @@ export const DiagnosticAndApplyCorrectionTest: Story = {
 };
 
 /**
- * 4. Read-Only Mode (Student View)
+ * 4. Teacher Edits AI Diagnostic & Suggested Correction
+ */
+export const TeacherEditsAISuggestion: Story = {
+  args: {
+    initialContent: mockEssayHtml,
+    initialAnnotations: mockAnnotations,
+    editable: true,
+    onAnnotationsChange: fn(),
+  },
+  play: async ({ canvasElement, step }) => {
+    const canvas = within(canvasElement);
+
+    await step("1. Click vào highlight lỗi của AI để mở popover", async () => {
+      const lrMark = canvasElement.querySelector(
+        'mark[data-error-id="err-lr"]'
+      ) as HTMLElement;
+      await userEvent.click(lrMark);
+    });
+
+    await step("2. Click nút 'Sửa' (Edit) để mở form chỉnh sửa", async () => {
+      const editBtn = canvas.getByTestId("edit-annotation-btn-err-lr");
+      await userEvent.click(editBtn);
+    });
+
+    await step(
+      "3. Sửa lại từ gợi ý thay thế và câu chẩn đoán của giáo viên",
+      async () => {
+        const correctionInput = canvas.getByTestId(
+          "annotation-correction-input"
+        );
+        await userEvent.clear(correctionInput);
+        await userEvent.type(correctionInput, "highly advantageous in curbing");
+
+        const explanationTextarea = canvas.getByTestId(
+          "annotation-explanation-textarea"
+        );
+        await userEvent.clear(explanationTextarea);
+        await userEvent.type(
+          explanationTextarea,
+          "Giáo viên khuyến nghị dùng cụm từ C2 để nâng band Lexical Resource lên 8.0."
+        );
+      }
+    );
+
+    await step("4. Click nút 'Lưu nhận xét'", async () => {
+      const saveBtn = canvas.getByTestId("save-annotation-btn");
+      await userEvent.click(saveBtn);
+    });
+
+    await step(
+      "5. Kiểm tra popover chuyển về View Mode với nội dung đã được cập nhật",
+      async () => {
+        const updatedExplanation = canvas.getByTestId("diagnostic-explanation");
+        await expect(updatedExplanation).toHaveTextContent(
+          "Giáo viên khuyến nghị dùng cụm từ C2"
+        );
+
+        const updatedCorrection = canvas.getByTestId(
+          "suggested-correction-text"
+        );
+        await expect(updatedCorrection).toHaveTextContent(
+          "highly advantageous in curbing"
+        );
+      }
+    );
+  },
+};
+
+/**
+ * 5. Read-Only Mode (Student View)
  */
 export const ReadOnlyStudentView: Story = {
   args: {

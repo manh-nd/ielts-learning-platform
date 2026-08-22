@@ -87,6 +87,37 @@ export const SEVERITY_META: Record<
   },
 };
 
+export const CATEGORY_PRESETS: Record<Criterion, string[]> = {
+  TASK_ACHIEVEMENT: [
+    "Trình bày quan điểm (Clear Position)",
+    "Phát triển luận điểm (Idea Development)",
+    "Ví dụ & Dẫn chứng (Examples & Evidence)",
+    "Phạm vi yêu cầu đề (Task Coverage)",
+    "Cấu trúc đoạn văn (Paragraph Structure)",
+  ],
+  COHERENCE_COHESION: [
+    "Từ nối & Chuyển tiếp (Discourse Markers)",
+    "Phân đoạn logic (Paragraphing)",
+    "Đại từ & Quy chiếu (Referencing)",
+    "Mạch lạc luận cứ (Logical Flow)",
+    "Liên kết câu (Sentence Linking)",
+  ],
+  LEXICAL_RESOURCE: [
+    "Lặp từ vựng (Word Repetition)",
+    "Kết hợp từ (Collocation)",
+    "Dùng từ chưa tự nhiên (Inappropriate Word Choice)",
+    "Chính tả & Dạng từ (Spelling & Word Formation)",
+    "Nâng cấp từ vựng C1/C2 (Advanced Lexicon)",
+  ],
+  GRAMMATICAL_RANGE_ACCURACY: [
+    "Thì động từ (Verb Tense)",
+    "Hòa hợp chủ vị (Subject-Verb Agreement)",
+    "Mệnh đề phức & Quan hệ (Complex Structures)",
+    "Mạo từ & Giới từ (Articles & Prepositions)",
+    "Dấu câu & Ngắt câu (Punctuation)",
+  ],
+};
+
 export interface ReviewAnnotation {
   errorId: string;
   criterion: Criterion;

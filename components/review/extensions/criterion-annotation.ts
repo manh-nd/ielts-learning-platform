@@ -41,6 +41,13 @@ declare module "@tiptap/core" {
         errorId: string,
         isResolved?: boolean
       ) => ReturnType;
+      /**
+       * Update attributes of an existing annotation mark
+       */
+      updateCriterionAnnotation: (
+        errorId: string,
+        attributes: Partial<CriterionAnnotationAttributes>
+      ) => ReturnType;
     };
   }
 }
@@ -288,6 +295,46 @@ export const CriterionAnnotationMark = Mark.create<CriterionAnnotationOptions>({
             const updatedMark = markType.create({
               ...attrs,
               isResolved: nextResolved,
+            });
+            tr.removeMark(targetFrom, targetTo, markType);
+            tr.addMark(targetFrom, targetTo, updatedMark);
+            dispatch(tr);
+          }
+
+          return true;
+        },
+
+      updateCriterionAnnotation:
+        (errorId: string, attributes: Partial<CriterionAnnotationAttributes>) =>
+        ({ tr, state, dispatch }) => {
+          const markType = state.schema.marks[this.name];
+          if (!markType) return false;
+
+          let targetFrom = -1;
+          let targetTo = -1;
+          let targetAttrs: CriterionAnnotationAttributes | null = null;
+
+          state.doc.descendants((node, pos) => {
+            node.marks.forEach((mark) => {
+              if (mark.type === markType && mark.attrs.errorId === errorId) {
+                if (targetFrom === -1) {
+                  targetFrom = pos;
+                  targetAttrs = mark.attrs as CriterionAnnotationAttributes;
+                }
+                targetTo = pos + node.nodeSize;
+              }
+            });
+          });
+
+          if (targetFrom === -1 || targetTo === -1 || !targetAttrs) {
+            return false;
+          }
+
+          const attrs: CriterionAnnotationAttributes = targetAttrs;
+          if (dispatch) {
+            const updatedMark = markType.create({
+              ...attrs,
+              ...attributes,
             });
             tr.removeMark(targetFrom, targetTo, markType);
             tr.addMark(targetFrom, targetTo, updatedMark);
