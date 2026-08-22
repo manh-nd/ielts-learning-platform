@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, Fragment } from "react";
+import React, { useState, useRef, Fragment } from "react";
 import {
   Card,
   CardContent,
@@ -8,7 +8,6 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-  CardAction,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -48,10 +47,6 @@ import {
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  Eye,
-  CircleCheck,
-  CircleDot,
-  Circle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -527,7 +522,8 @@ export default function VariantB() {
                                       {err.category}
                                     </div>
                                     <div className="text-muted-foreground text-xs line-clamp-2">
-                                      "{err.originalQuote}" - {err.explanation}
+                                      &quot;{err.originalQuote}&quot; -{" "}
+                                      {err.explanation}
                                     </div>
                                   </div>
                                 </label>

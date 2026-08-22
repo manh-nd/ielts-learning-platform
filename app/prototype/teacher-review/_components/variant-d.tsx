@@ -48,15 +48,12 @@ import {
   MOCK_AI_OVERALL,
   MOCK_AI_FEEDBACK,
   MOCK_AI_ERRORS,
-  MOCK_AI_CRITERIA_DETAIL,
   CRITERION_META,
   CRITERIA_ORDER,
   BAND_OPTIONS,
   calculateOverallBand,
-  STATUS_LABELS,
   type AssessmentStatus,
   type Criterion,
-  type AnnotationError,
 } from "../_data/mock";
 
 // ── Helpers ─────────────────────────────────────────────────────

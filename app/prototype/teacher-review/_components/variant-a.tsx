@@ -4,14 +4,7 @@ import * as React from "react";
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardFooter,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -40,16 +33,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-import {
-  Check,
-  Send,
-  Sparkles,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-  Eye,
-  CornerDownRight,
-} from "lucide-react";
+import { Check, Send, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
 
 import {
   MOCK_STUDENT,

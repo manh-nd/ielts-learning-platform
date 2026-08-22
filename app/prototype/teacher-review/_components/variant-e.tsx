@@ -31,7 +31,6 @@ import {
   Send,
   Sparkles,
   CheckCircle2,
-  X,
   CornerDownRight,
   Bot,
 } from "lucide-react";
@@ -42,7 +41,6 @@ import {
   MOCK_ESSAY,
   MOCK_ESSAY_WORD_COUNT,
   MOCK_AI_SCORES,
-  MOCK_AI_OVERALL,
   MOCK_AI_FEEDBACK,
   MOCK_AI_ERRORS,
   CRITERION_META,

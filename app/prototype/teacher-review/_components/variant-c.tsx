@@ -361,7 +361,7 @@ export function VariantC() {
                                       className="flex flex-col gap-1 text-xs p-2 rounded bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30"
                                     >
                                       <div className="font-medium text-red-800 dark:text-red-300">
-                                        "{err.originalQuote}"
+                                        &quot;{err.originalQuote}&quot;
                                       </div>
                                       <div className="text-muted-foreground">
                                         {err.explanation}
