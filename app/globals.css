@@ -206,3 +206,82 @@
   height: 0;
   pointer-events: none;
 }
+
+/* IELTS Criterion Annotation Highlights */
+mark.criterion-mark {
+  cursor: pointer;
+  border-bottom-width: 2px;
+  border-bottom-style: solid;
+  border-radius: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  margin-left: -0.125rem;
+  margin-right: -0.125rem;
+  transition: all 0.15s ease-in-out;
+  color: inherit;
+  font-weight: 500;
+}
+
+mark.criterion-mark:hover {
+  filter: brightness(0.95);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.dark mark.criterion-mark:hover {
+  filter: brightness(1.15);
+}
+
+/* 4 IELTS Criteria Colors */
+mark.criterion-task_achievement {
+  border-bottom-color: #10b981;
+  background-color: rgba(16, 185, 129, 0.16);
+}
+
+.dark mark.criterion-task_achievement {
+  border-bottom-color: #34d399;
+  background-color: rgba(16, 185, 129, 0.28);
+}
+
+mark.criterion-coherence_cohesion {
+  border-bottom-color: #f59e0b;
+  background-color: rgba(245, 158, 11, 0.16);
+}
+
+.dark mark.criterion-coherence_cohesion {
+  border-bottom-color: #fbbf24;
+  background-color: rgba(245, 158, 11, 0.28);
+}
+
+mark.criterion-lexical_resource {
+  border-bottom-color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.16);
+}
+
+.dark mark.criterion-lexical_resource {
+  border-bottom-color: #60a5fa;
+  background-color: rgba(59, 130, 246, 0.28);
+}
+
+mark.criterion-grammatical_range_accuracy {
+  border-bottom-color: #f43f5e;
+  background-color: rgba(244, 63, 94, 0.16);
+}
+
+.dark mark.criterion-grammatical_range_accuracy {
+  border-bottom-color: #fb7185;
+  background-color: rgba(244, 63, 94, 0.28);
+}
+
+/* Resolved state */
+mark.criterion-mark.is-resolved {
+  opacity: 0.65;
+  border-bottom-style: dashed;
+  border-bottom-color: #059669;
+  background-color: rgba(16, 185, 129, 0.08);
+}
+
+/* Filter muted state */
+.filter-active mark.criterion-mark.is-filtered-out {
+  opacity: 0.25;
+  border-bottom-color: transparent !important;
+  background-color: transparent !important;
+}
