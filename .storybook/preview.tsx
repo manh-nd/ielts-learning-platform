@@ -2,6 +2,9 @@ import type { Preview } from "@storybook/react";
 import { withThemeByClassName } from "@storybook/addon-themes";
 import { Inter, Geist, Geist_Mono } from "next/font/google";
 import "../app/globals.css";
+import { setupAudioApiMocks } from "./mocks/audio-api.mock";
+
+setupAudioApiMocks();
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const geistSans = Geist({
@@ -37,6 +40,10 @@ const customViewports = {
 };
 
 const preview: Preview = {
+  initialGlobals: {
+    viewport: "desktop",
+    theme: "light",
+  },
   parameters: {
     nextjs: {
       appDirectory: true,
@@ -47,7 +54,6 @@ const preview: Preview = {
     },
     viewport: {
       viewports: customViewports,
-      defaultViewport: "desktop",
     },
     backgrounds: {
       disable: true,
