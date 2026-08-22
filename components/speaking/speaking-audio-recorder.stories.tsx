@@ -147,7 +147,8 @@ export const FullRecordingCycleTest: Story = {
     // 3. Verify Recording state & timer
     const recordingPanel = await canvas.findByTestId("recording-panel");
     await expect(recordingPanel).toBeInTheDocument();
-    await expect(statusBadge).toHaveTextContent("Đang ghi âm");
+    const activeBadge = await canvas.findByTestId("status-badge");
+    await expect(activeBadge).toHaveTextContent("Đang ghi âm");
 
     const timer = canvas.getByTestId("recording-timer");
     await expect(timer).toBeInTheDocument();
@@ -159,7 +160,8 @@ export const FullRecordingCycleTest: Story = {
     // 5. Verify Playback state
     const playbackPanel = await canvas.findByTestId("playback-panel");
     await expect(playbackPanel).toBeInTheDocument();
-    await expect(statusBadge).toHaveTextContent("Đã có bản thu");
+    const playbackBadge = await canvas.findByTestId("status-badge");
+    await expect(playbackBadge).toHaveTextContent("Đã có bản thu");
 
     // 6. Test Play audio button
     const playBtn = canvas.getByTestId("play-audio-btn");

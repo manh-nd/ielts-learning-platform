@@ -95,13 +95,13 @@ export const SelectInteractionTest: Story = {
     const canvas = within(canvasElement);
     const trigger = canvas.getByTestId("select-band-trigger");
     await expect(trigger).toBeInTheDocument();
-    await expect(trigger).toHaveTextContent("Band 7.0");
+    await expect(trigger).toHaveTextContent("7.0");
 
     await userEvent.click(trigger);
     const option = await within(document.body).findByTestId("band-8.0");
     await expect(option).toBeInTheDocument();
     await userEvent.click(option);
 
-    await expect(trigger).toHaveTextContent("Band 8.0");
+    await expect(trigger).toHaveTextContent("8.0");
   },
 };
