@@ -3,13 +3,14 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect } from "react";
 
-const VARIANTS = ["D", "A", "B", "C"] as const;
+const VARIANTS = ["D", "E", "A", "B", "C"] as const;
 
 const VARIANT_NAMES: Record<string, string> = {
   A: "Split-Pane Command Center",
   B: "Guided Review Flow",
   C: "Criterion Cards Grid",
   D: "Notion-style Document Review",
+  E: "Google Docs Margin Comments",
 };
 
 export function PrototypeSwitcher() {
