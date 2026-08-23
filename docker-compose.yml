@@ -1,0 +1,123 @@
+services:
+  # ============================================================================
+  # PostgreSQL Database Service
+  # ============================================================================
+  postgres:
+    image: postgres:18-alpine
+    container_name: ielts-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ielts_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_secure_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal_network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-ielts_platform}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+
+  # ============================================================================
+  # Next.js Application Service (Native Bun Runtime)
+  # ============================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: ielts-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - path: .env.production
+        required: false
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_secure_password}@postgres:5432/${POSTGRES_DB:-ielts_platform}
+    networks:
+      - internal_network
+      - npm_network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'bun -e "fetch(''http://127.0.0.1:3000/api/health'').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"',
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "3.5"
+          memory: 16G
+        reservations:
+          cpus: "1.0"
+          memory: 2G
+
+  # ============================================================================
+  # SeaweedFS Object Storage Service (S3-Compatible Local Storage - ADR-0003)
+  # ============================================================================
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: ielts-seaweedfs
+    restart: unless-stopped
+    command: "server -s3 -dir=/data -ip.bind=0.0.0.0 -s3.port=8333 -filer=true"
+    volumes:
+      - seaweedfs_data:/data
+    networks:
+      - internal_network
+      - npm_network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
+# ==============================================================================
+# Networks Configuration
+# ==============================================================================
+networks:
+  # Internal bridge network for communication between app, database, and seaweedfs
+  internal_network:
+    driver: bridge
+
+  # External network managed by Nginx Proxy Manager (NPM)
+  # Pre-created with: docker network create npm_network
+  npm_network:
+    external: true
+
+# ==============================================================================
+# Persistent Volumes
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+  seaweedfs_data:
+    driver: local

@@ -21,3 +21,10 @@ Canonical triage label vocabulary. See `docs/agents/triage-labels.md`.
 ### Domain docs
 
 Single-context layout (`CONTEXT.md` and `docs/adr/` at repo root). See `docs/agents/domain.md`.
+
+### Rich Text Editor (Tiptap)
+
+We use **Tiptap v3** (`@tiptap/core@^3`, `@tiptap/react@^3`, `@tiptap/starter-kit@^3`).
+
+- React Composable API: Use `useEditor` or `<EditorContent />` with `immediatelyRender: false` in Next.js / SSR.
+- Refer to `.agents/skills/tiptap/SKILL.md` before implementing annotations or editor extensions.

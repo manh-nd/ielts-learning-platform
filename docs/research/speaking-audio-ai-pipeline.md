@@ -98,19 +98,20 @@ To match official IELTS test formats while minimizing network risks:
 
 ## 2. Audio Storage & Upload Architecture
 
-### 2.1 Cloudflare R2 vs AWS S3 Cost & Performance Analysis
+### 2.1 Storage Strategy: Self-Hosted SeaweedFS on VM (MVP) to Cloudflare R2 / AWS S3 (ADR-0003)
 
-| Feature / Metric             | Cloudflare R2                                   | AWS S3 (Standard)            |
-| :--------------------------- | :---------------------------------------------- | :--------------------------- |
-| **Storage Cost**             | **$0.015 / GB / month** (10 GB free)            | $0.023 / GB / month          |
-| **Data Egress (Download)**   | **$0.00 / GB (Free Egress)**                    | **~$0.09 / GB** (Expensive)  |
-| **Class A Ops (PUT / POST)** | $4.50 / million (1M free/mo)                    | $5.00 / million              |
-| **Class B Ops (GET)**        | $0.36 / million (10M free/mo)                   | $0.40 / million              |
-| **S3 API Compatibility**     | 100% S3-compatible (`@aws-sdk/client-s3`)       | Native                       |
-| **Vercel Serverless Limits** | Bypasses 4.5MB payload limit via Presigned URLs | Bypasses 4.5MB payload limit |
+| Feature / Metric           | Self-Hosted SeaweedFS (Oracle Cloud VM)     | Cloudflare R2 (Phase 2 Cloud Migration)   | AWS S3 (Standard)             |
+| :------------------------- | :------------------------------------------ | :---------------------------------------- | :---------------------------- |
+| **Storage Cost**           | **$0.00** (Included in VM Block Volume)     | **$0.015 / GB / month** (10 GB free)      | $0.023 / GB / month           |
+| **Data Egress (Download)** | **$0.00 / GB** (Free internal/VM egress)    | **$0.00 / GB (Free Egress)**              | **~$0.09 / GB** (Expensive)   |
+| **License**                | **Apache 2.0** (Open & Commercial friendly) | Managed Cloud                             | Managed Cloud                 |
+| **RAM Footprint**          | **~100MB - 150MB RAM** (Ultra-lightweight)  | **0 MB RAM** on VM                        | **0 MB RAM** on VM            |
+| **S3 API Compatibility**   | 100% S3-compatible (`@aws-sdk/client-s3`)   | 100% S3-compatible (`@aws-sdk/client-s3`) | Native                        |
+| **Presigned URL Flow**     | Native S3 Presigned PUT / GET               | Native S3 Presigned PUT / GET             | Native S3 Presigned PUT / GET |
 
 > [!IMPORTANT]
-> Because students and teachers frequently replay audio files during grading, **Cloudflare R2's $0 egress** prevents unexpected bandwidth bills and provides significant cost savings compared to AWS S3.
+> **MVP Decision (ADR-0003):** To minimize initial external dependencies, eliminate third-party cloud friction, and avoid MinIO's AGPLv3/Docker Hub distribution changes, MVP uses **SeaweedFS** (`chrislusf/seaweedfs`) deployed directly on the Oracle Cloud VM disk via Docker Compose.
+> Because the application code interfaces through `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`, upgrading to **Cloudflare R2** in Phase 2 requires **zero code changes** — only swapping environment variables (`S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET_NAME`).
 
 ### 2.2 Direct-to-Storage Presigned Upload Architecture
 
@@ -119,17 +120,17 @@ sequenceDiagram
     autonumber
     actor Student as Student Browser
     participant App as Next.js API (/api/speaking/upload-url)
-    participant R2 as Cloudflare R2 Storage
+    participant Storage as SeaweedFS / S3 Storage (s3.yourdomain.com)
     participant AI as AI Evaluation Service (Gemini API)
     participant DB as Postgres Database
 
     Student->>App: 1. POST /api/speaking/upload-url { testId, part, questionId, mimeType }
     App->>App: Verify user session & test authorization
-    App->>R2: Generate S3 Presigned PUT URL (Expires in 300s)
+    App->>Storage: Generate S3 Presigned PUT URL (Expires in 300s)
     App-->>Student: Return { uploadUrl, fileKey, publicUrl }
 
-    Student->>R2: 2. HTTP PUT uploadUrl (Raw Audio Blob with Content-Type header)
-    R2-->>Student: 200 OK (ETag)
+    Student->>Storage: 2. HTTP PUT uploadUrl (Raw Audio Blob with Content-Type header)
+    Storage-->>Student: 200 OK (ETag)
 
     Student->>App: 3. POST /api/speaking/evaluate { testId, questionId, fileKey, audioUrl }
     App->>DB: Save submission record (status: "evaluating")
