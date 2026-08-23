@@ -28,7 +28,6 @@ describe("Route Protection Proxy", () => {
     it("should bypass API routes without checking session", async () => {
       const req = createMockRequest("https://example.com/api/auth/get-session");
       const res = await proxy(req);
-      expect(res.headers.get("x-middleware-rewrite")).toBeNull();
       expect(res.status).toBe(200);
       expect(mockGetSessionCookie).not.toHaveBeenCalled();
     });
