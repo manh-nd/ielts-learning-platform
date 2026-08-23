@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, userEvent, within } from "@storybook/test";
-import React, { useState } from "react";
+import { useState } from "react";
 import { AssessmentScorecard } from "./assessment-scorecard";
 import { AssessmentScores } from "./types";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useId, useMemo, useCallback, memo } from "react";
+import { useState, useId, useMemo, useCallback, memo } from "react";
 import { Slider as SliderPrimitive } from "@base-ui/react/slider";
 import { Criterion, CRITERION_META } from "./types";
 import {

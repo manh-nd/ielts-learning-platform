@@ -14,7 +14,7 @@ export async function POST() {
     const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 mins expiry
 
     const tokenData = await geminiRotator.executeWithRotation(
-      async (client, key) => {
+      async (_client, key) => {
         // Direct REST call to Gemini Developer API v1alpha auth_tokens
         const response = await fetch(
           "https://generativelanguage.googleapis.com/v1alpha/auth_tokens",

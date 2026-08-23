@@ -1,17 +1,32 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import unusedImports from "eslint-plugin-unused-imports";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    languageOptions: {
+      parserOptions: {
+        jsxPragma: null,
+      },
+    },
+    plugins: {
+      "unused-imports": unusedImports,
+    },
     rules: {
-      "@typescript-eslint/no-unused-vars": [
+      "react/jsx-uses-react": "off",
+      "react/react-in-jsx-scope": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": [
         "error",
         {
-          argsIgnorePattern: "^_",
+          vars: "all",
           varsIgnorePattern: "^_",
+          args: "after-used",
+          argsIgnorePattern: "^_",
           caughtErrorsIgnorePattern: "^_",
         },
       ],
@@ -29,3 +44,4 @@ const eslintConfig = defineConfig([
 ]);
 
 export default eslintConfig;
+

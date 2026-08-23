@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, userEvent, within } from "@storybook/test";
-import React, { useState } from "react";
+import { useState } from "react";
 import { CriteriaScoreSlider } from "./criteria-score-slider";
 import { WRITING_CRITERIA_ORDER, WritingCriterion } from "./types";
 

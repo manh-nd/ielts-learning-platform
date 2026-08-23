@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { IeltsTaskType, SaveStatus } from "./types";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";

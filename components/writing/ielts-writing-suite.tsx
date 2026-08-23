@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { WritingPrompt, WritingSubmissionPayload, WritingDraft } from "./types";
 import { TiptapEditor } from "@/components/ui/tiptap-editor";
 import { WritingPromptHeader } from "./writing-prompt-header";

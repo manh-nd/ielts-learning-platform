@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { User, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TranscriptItem } from "./types";

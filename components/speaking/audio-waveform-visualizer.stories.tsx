@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { AudioWaveformVisualizer } from "./audio-waveform-visualizer";
 
 const meta: Meta<typeof AudioWaveformVisualizer> = {

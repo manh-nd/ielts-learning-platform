@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { Wifi, Loader2, Volume2, Mic, Radio, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
