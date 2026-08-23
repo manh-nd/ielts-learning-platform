@@ -74,7 +74,7 @@ export function LoginForm({
   };
 
   return (
-    <div className={cn("space-y-5", className)}>
+    <div className={cn("space-y-4", className)}>
       {/* OAuth Button */}
       <OAuthGoogleButton
         onClick={onGoogleSignIn}
@@ -84,9 +84,9 @@ export function LoginForm({
       />
 
       {/* Divider */}
-      <div className="relative flex items-center justify-center my-2">
-        <div className="w-full border-t border-border/70" />
-        <span className="absolute bg-card px-3 text-xs uppercase font-medium tracking-wider text-muted-foreground">
+      <div className="relative flex items-center justify-center">
+        <div className="w-full border-t border-border/60" />
+        <span className="absolute bg-card px-2 text-[0.7rem] uppercase tracking-wider text-muted-foreground">
           hoặc email
         </span>
       </div>
@@ -95,28 +95,21 @@ export function LoginForm({
       {errorMessage && (
         <div
           role="alert"
-          className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive dark:bg-destructive/20"
+          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive dark:bg-destructive/20"
         >
           <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
-          <div className="flex-1 font-medium leading-relaxed">
-            {errorMessage}
-          </div>
+          <div className="flex-1 font-medium">{errorMessage}</div>
         </div>
       )}
 
       {/* Credentials Form */}
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
         {/* Email Field */}
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="login-email"
-            className="text-xs font-semibold text-foreground"
-          >
-            Địa chỉ Email
-          </Label>
+        <div className="space-y-1">
+          <Label htmlFor="login-email">Địa chỉ Email</Label>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-              <MailIcon className="size-4" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-muted-foreground">
+              <MailIcon className="size-3.5" />
             </div>
             <Input
               id="login-email"
@@ -133,45 +126,40 @@ export function LoginForm({
               }}
               disabled={isLoading || isGoogleLoading}
               aria-invalid={Boolean(clientErrors.email)}
-              className="pl-9.5 h-10.5 text-sm"
+              className="pl-8"
             />
           </div>
           {clientErrors.email && (
-            <p className="text-xs text-destructive font-medium mt-1">
+            <p className="text-[0.7rem] text-destructive font-medium">
               {clientErrors.email}
             </p>
           )}
         </div>
 
         {/* Password Field */}
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <Label
-              htmlFor="login-password"
-              className="text-xs font-semibold text-foreground"
-            >
-              Mật khẩu
-            </Label>
+            <Label htmlFor="login-password">Mật khẩu</Label>
             {onForgotPasswordClick ? (
               <button
                 type="button"
                 onClick={onForgotPasswordClick}
-                className="text-xs text-primary hover:underline font-medium transition-colors"
+                className="text-[0.7rem] text-primary hover:underline font-medium transition-colors"
               >
                 Quên mật khẩu?
               </button>
             ) : (
               <a
                 href="#forgot-password"
-                className="text-xs text-primary hover:underline font-medium transition-colors"
+                className="text-[0.7rem] text-primary hover:underline font-medium transition-colors"
               >
                 Quên mật khẩu?
               </a>
             )}
           </div>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-              <LockIcon className="size-4" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-muted-foreground">
+              <LockIcon className="size-3.5" />
             </div>
             <Input
               id="login-password"
@@ -188,24 +176,24 @@ export function LoginForm({
               }}
               disabled={isLoading || isGoogleLoading}
               aria-invalid={Boolean(clientErrors.password)}
-              className="pl-9.5 pr-10 h-10.5 text-sm"
+              className="pl-8 pr-9"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               tabIndex={-1}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-muted-foreground hover:text-foreground transition-colors"
             >
               {showPassword ? (
-                <EyeOffIcon className="size-4" />
+                <EyeOffIcon className="size-3.5" />
               ) : (
-                <EyeIcon className="size-4" />
+                <EyeIcon className="size-3.5" />
               )}
             </button>
           </div>
           {clientErrors.password && (
-            <p className="text-xs text-destructive font-medium mt-1">
+            <p className="text-[0.7rem] text-destructive font-medium">
               {clientErrors.password}
             </p>
           )}
@@ -216,37 +204,37 @@ export function LoginForm({
           type="submit"
           size="default"
           disabled={isLoading || isGoogleLoading}
-          className="w-full h-11 mt-2 rounded-lg text-sm font-semibold justify-center gap-2 shadow-sm"
+          className="w-full h-9 mt-2 font-medium justify-center gap-1.5"
         >
           {isLoading ? (
             <>
-              <Loader2Icon className="size-4.5 animate-spin" />
+              <Loader2Icon className="size-4 animate-spin" />
               <span>Đang đăng nhập...</span>
             </>
           ) : (
             <>
               <span>Đăng nhập</span>
-              <ArrowRightIcon className="size-4" />
+              <ArrowRightIcon className="size-3.5" />
             </>
           )}
         </Button>
       </form>
 
       {/* Switch to SignUp */}
-      <div className="pt-3 text-center text-sm text-muted-foreground">
+      <div className="pt-2 text-center text-xs text-muted-foreground">
         Chưa có tài khoản?{" "}
         {onSignUpClick ? (
           <button
             type="button"
             onClick={onSignUpClick}
-            className="text-primary font-semibold hover:underline transition-colors"
+            className="text-primary font-semibold hover:underline"
           >
             Đăng ký ngay
           </button>
         ) : (
           <a
             href="/signup"
-            className="text-primary font-semibold hover:underline transition-colors"
+            className="text-primary font-semibold hover:underline"
           >
             Đăng ký ngay
           </a>

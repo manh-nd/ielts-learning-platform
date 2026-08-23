@@ -16,7 +16,7 @@ export interface OAuthGoogleButtonProps extends Omit<
 export function GoogleIcon({ className }: { className?: string }) {
   return (
     <svg
-      className={cn("size-4.5 shrink-0", className)}
+      className={cn("size-4 shrink-0", className)}
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
@@ -57,14 +57,14 @@ export function OAuthGoogleButton({
       disabled={disabled || isLoading}
       onClick={onClick}
       className={cn(
-        "w-full h-11 justify-center gap-3 rounded-lg border-border/80 bg-background hover:bg-muted/60 font-medium text-sm text-foreground transition-all shadow-xs",
+        "w-full h-9 justify-center gap-2 border-border/80 bg-background hover:bg-muted/60 font-medium text-xs text-foreground transition-all shadow-xs",
         className
       )}
       {...props}
     >
       {isLoading ? (
         <>
-          <Loader2Icon className="size-4.5 animate-spin text-muted-foreground" />
+          <Loader2Icon className="size-4 animate-spin text-muted-foreground" />
           <span>{loadingText}</span>
         </>
       ) : (

@@ -108,7 +108,7 @@ export function SignUpForm({
   };
 
   return (
-    <div className={cn("space-y-5", className)}>
+    <div className={cn("space-y-4", className)}>
       {/* OAuth Button */}
       <OAuthGoogleButton
         onClick={onGoogleSignIn}
@@ -118,9 +118,9 @@ export function SignUpForm({
       />
 
       {/* Divider */}
-      <div className="relative flex items-center justify-center my-2">
-        <div className="w-full border-t border-border/70" />
-        <span className="absolute bg-card px-3 text-xs uppercase font-medium tracking-wider text-muted-foreground">
+      <div className="relative flex items-center justify-center">
+        <div className="w-full border-t border-border/60" />
+        <span className="absolute bg-card px-2 text-[0.7rem] uppercase tracking-wider text-muted-foreground">
           hoặc điền thông tin
         </span>
       </div>
@@ -129,28 +129,21 @@ export function SignUpForm({
       {errorMessage && (
         <div
           role="alert"
-          className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 p-3.5 text-xs text-destructive dark:bg-destructive/20"
+          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive dark:bg-destructive/20"
         >
           <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
-          <div className="flex-1 font-medium leading-relaxed">
-            {errorMessage}
-          </div>
+          <div className="flex-1 font-medium">{errorMessage}</div>
         </div>
       )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
         {/* Full Name */}
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="signup-name"
-            className="text-xs font-semibold text-foreground"
-          >
-            Họ và tên
-          </Label>
+        <div className="space-y-1">
+          <Label htmlFor="signup-name">Họ và tên</Label>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-              <UserIcon className="size-4" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-muted-foreground">
+              <UserIcon className="size-3.5" />
             </div>
             <Input
               id="signup-name"
@@ -167,27 +160,22 @@ export function SignUpForm({
               }}
               disabled={isLoading || isGoogleLoading}
               aria-invalid={Boolean(clientErrors.name)}
-              className="pl-9.5 h-10.5 text-sm"
+              className="pl-8"
             />
           </div>
           {clientErrors.name && (
-            <p className="text-xs text-destructive font-medium mt-1">
+            <p className="text-[0.7rem] text-destructive font-medium">
               {clientErrors.name}
             </p>
           )}
         </div>
 
         {/* Email */}
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="signup-email"
-            className="text-xs font-semibold text-foreground"
-          >
-            Địa chỉ Email
-          </Label>
+        <div className="space-y-1">
+          <Label htmlFor="signup-email">Địa chỉ Email</Label>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-              <MailIcon className="size-4" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-muted-foreground">
+              <MailIcon className="size-3.5" />
             </div>
             <Input
               id="signup-email"
@@ -204,27 +192,22 @@ export function SignUpForm({
               }}
               disabled={isLoading || isGoogleLoading}
               aria-invalid={Boolean(clientErrors.email)}
-              className="pl-9.5 h-10.5 text-sm"
+              className="pl-8"
             />
           </div>
           {clientErrors.email && (
-            <p className="text-xs text-destructive font-medium mt-1">
+            <p className="text-[0.7rem] text-destructive font-medium">
               {clientErrors.email}
             </p>
           )}
         </div>
 
         {/* Password */}
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="signup-password"
-            className="text-xs font-semibold text-foreground"
-          >
-            Mật khẩu
-          </Label>
+        <div className="space-y-1">
+          <Label htmlFor="signup-password">Mật khẩu</Label>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-              <LockIcon className="size-4" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-muted-foreground">
+              <LockIcon className="size-3.5" />
             </div>
             <Input
               id="signup-password"
@@ -241,34 +224,32 @@ export function SignUpForm({
               }}
               disabled={isLoading || isGoogleLoading}
               aria-invalid={Boolean(clientErrors.password)}
-              className="pl-9.5 pr-10 h-10.5 text-sm"
+              className="pl-8 pr-9"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
               tabIndex={-1}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-muted-foreground hover:text-foreground transition-colors"
             >
               {showPassword ? (
-                <EyeOffIcon className="size-4" />
+                <EyeOffIcon className="size-3.5" />
               ) : (
-                <EyeIcon className="size-4" />
+                <EyeIcon className="size-3.5" />
               )}
             </button>
           </div>
 
           {/* Password Strength Meter */}
           {password.length > 0 && (
-            <div className="space-y-2 pt-1.5 pb-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">
-                  Độ an toàn mật khẩu:
-                </span>
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-[0.7rem]">
+                <span className="text-muted-foreground">Độ mạnh mật khẩu:</span>
                 <span
                   className={cn(
                     "font-semibold",
-                    passwordStrength.score <= 1 && "text-destructive",
+                    passwordStrength.score === 1 && "text-destructive",
                     passwordStrength.score === 2 && "text-amber-500",
                     passwordStrength.score >= 3 && "text-emerald-500"
                   )}
@@ -276,11 +257,11 @@ export function SignUpForm({
                   {passwordStrength.label}
                 </span>
               </div>
-              <div className="flex h-2 w-full gap-1.5 overflow-hidden rounded-full bg-muted/60">
+              <div className="flex h-1.5 w-full gap-1 overflow-hidden rounded-full bg-muted/60">
                 {[1, 2, 3, 4].map((step) => {
                   let barColor = "bg-muted";
                   if (passwordStrength.score >= step) {
-                    if (passwordStrength.score <= 1)
+                    if (passwordStrength.score === 1)
                       barColor = "bg-destructive";
                     else if (passwordStrength.score === 2)
                       barColor = "bg-amber-500";
@@ -299,89 +280,84 @@ export function SignUpForm({
               </div>
 
               {/* Criteria Checklist */}
-              <div className="grid grid-cols-2 gap-1.5 pt-1 text-xs">
+              <div className="grid grid-cols-2 gap-1 pt-1 text-[0.68rem]">
                 <div
                   className={cn(
-                    "flex items-center gap-1.5",
+                    "flex items-center gap-1",
                     passwordStrength.criteria.minLength
                       ? "text-emerald-600 dark:text-emerald-400 font-medium"
                       : "text-muted-foreground"
                   )}
                 >
                   {passwordStrength.criteria.minLength ? (
-                    <CheckCircle2Icon className="size-3.5 shrink-0" />
+                    <CheckCircle2Icon className="size-3 shrink-0" />
                   ) : (
-                    <CircleIcon className="size-3.5 shrink-0 text-muted-foreground/50" />
+                    <CircleIcon className="size-3 shrink-0 text-muted-foreground/50" />
                   )}
                   <span>Tối thiểu 8 ký tự</span>
                 </div>
                 <div
                   className={cn(
-                    "flex items-center gap-1.5",
+                    "flex items-center gap-1",
                     passwordStrength.criteria.hasUppercase
                       ? "text-emerald-600 dark:text-emerald-400 font-medium"
                       : "text-muted-foreground"
                   )}
                 >
                   {passwordStrength.criteria.hasUppercase ? (
-                    <CheckCircle2Icon className="size-3.5 shrink-0" />
+                    <CheckCircle2Icon className="size-3 shrink-0" />
                   ) : (
-                    <CircleIcon className="size-3.5 shrink-0 text-muted-foreground/50" />
+                    <CircleIcon className="size-3 shrink-0 text-muted-foreground/50" />
                   )}
-                  <span>1 chữ in hoa (A-Z)</span>
+                  <span>1 chữ hoa (A-Z)</span>
                 </div>
                 <div
                   className={cn(
-                    "flex items-center gap-1.5",
+                    "flex items-center gap-1",
                     passwordStrength.criteria.hasLowercase
                       ? "text-emerald-600 dark:text-emerald-400 font-medium"
                       : "text-muted-foreground"
                   )}
                 >
                   {passwordStrength.criteria.hasLowercase ? (
-                    <CheckCircle2Icon className="size-3.5 shrink-0" />
+                    <CheckCircle2Icon className="size-3 shrink-0" />
                   ) : (
-                    <CircleIcon className="size-3.5 shrink-0 text-muted-foreground/50" />
+                    <CircleIcon className="size-3 shrink-0 text-muted-foreground/50" />
                   )}
                   <span>1 chữ thường (a-z)</span>
                 </div>
                 <div
                   className={cn(
-                    "flex items-center gap-1.5",
+                    "flex items-center gap-1",
                     passwordStrength.criteria.hasNumberOrSpecial
                       ? "text-emerald-600 dark:text-emerald-400 font-medium"
                       : "text-muted-foreground"
                   )}
                 >
                   {passwordStrength.criteria.hasNumberOrSpecial ? (
-                    <CheckCircle2Icon className="size-3.5 shrink-0" />
+                    <CheckCircle2Icon className="size-3 shrink-0" />
                   ) : (
-                    <CircleIcon className="size-3.5 shrink-0 text-muted-foreground/50" />
+                    <CircleIcon className="size-3 shrink-0 text-muted-foreground/50" />
                   )}
-                  <span>Số / ký tự đặc biệt</span>
+                  <span>Số hoặc ký tự đặc biệt</span>
                 </div>
               </div>
             </div>
           )}
 
           {clientErrors.password && (
-            <p className="text-xs text-destructive font-medium mt-1">
+            <p className="text-[0.7rem] text-destructive font-medium">
               {clientErrors.password}
             </p>
           )}
         </div>
 
         {/* Confirm Password */}
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="signup-confirm-password"
-            className="text-xs font-semibold text-foreground"
-          >
-            Xác nhận mật khẩu
-          </Label>
+        <div className="space-y-1">
+          <Label htmlFor="signup-confirm-password">Xác nhận mật khẩu</Label>
           <div className="relative">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-muted-foreground">
-              <LockIcon className="size-4" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5 text-muted-foreground">
+              <LockIcon className="size-3.5" />
             </div>
             <Input
               id="signup-confirm-password"
@@ -401,7 +377,7 @@ export function SignUpForm({
               }}
               disabled={isLoading || isGoogleLoading}
               aria-invalid={Boolean(clientErrors.confirmPassword)}
-              className="pl-9.5 pr-10 h-10.5 text-sm"
+              className="pl-8 pr-9"
             />
             <button
               type="button"
@@ -412,17 +388,17 @@ export function SignUpForm({
                   : "Hiện xác nhận mật khẩu"
               }
               tabIndex={-1}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground transition-colors"
+              className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-muted-foreground hover:text-foreground transition-colors"
             >
               {showConfirmPassword ? (
-                <EyeOffIcon className="size-4" />
+                <EyeOffIcon className="size-3.5" />
               ) : (
-                <EyeIcon className="size-4" />
+                <EyeIcon className="size-3.5" />
               )}
             </button>
           </div>
           {clientErrors.confirmPassword && (
-            <p className="text-xs text-destructive font-medium mt-1">
+            <p className="text-[0.7rem] text-destructive font-medium">
               {clientErrors.confirmPassword}
             </p>
           )}
@@ -433,37 +409,37 @@ export function SignUpForm({
           type="submit"
           size="default"
           disabled={isLoading || isGoogleLoading}
-          className="w-full h-11 mt-2 rounded-lg text-sm font-semibold justify-center gap-2 shadow-sm"
+          className="w-full h-9 mt-2 font-medium justify-center gap-1.5"
         >
           {isLoading ? (
             <>
-              <Loader2Icon className="size-4.5 animate-spin" />
+              <Loader2Icon className="size-4 animate-spin" />
               <span>Đang tạo tài khoản...</span>
             </>
           ) : (
             <>
               <span>Tạo tài khoản</span>
-              <ArrowRightIcon className="size-4" />
+              <ArrowRightIcon className="size-3.5" />
             </>
           )}
         </Button>
       </form>
 
       {/* Switch to Login */}
-      <div className="pt-3 text-center text-sm text-muted-foreground">
+      <div className="pt-2 text-center text-xs text-muted-foreground">
         Đã có tài khoản?{" "}
         {onLoginClick ? (
           <button
             type="button"
             onClick={onLoginClick}
-            className="text-primary font-semibold hover:underline transition-colors"
+            className="text-primary font-semibold hover:underline"
           >
             Đăng nhập ngay
           </button>
         ) : (
           <a
             href="/login"
-            className="text-primary font-semibold hover:underline transition-colors"
+            className="text-primary font-semibold hover:underline"
           >
             Đăng nhập ngay
           </a>

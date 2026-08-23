@@ -67,32 +67,32 @@ export function AuthRedirectView({
         className
       )}
     >
-      <Card className="w-full max-w-[480px] shadow-2xl border-border/70 bg-card/98 backdrop-blur-md rounded-2xl p-6 sm:p-8 space-y-6 text-center">
-        <CardHeader className="space-y-2 p-0">
+      <Card className="w-full max-w-[420px] sm:w-[420px] shadow-lg border-border/70 bg-card/98 backdrop-blur-sm rounded-xl p-5 space-y-4 text-center">
+        <CardHeader className="space-y-1.5 p-0 pb-1">
           <div className="flex justify-center mb-1">
             <div
               className={cn(
-                "inline-flex size-14 items-center justify-center rounded-2xl ring-1 transition-colors shadow-xs",
+                "inline-flex size-11 items-center justify-center rounded-xl ring-1 transition-colors",
                 isError
                   ? "bg-destructive/10 text-destructive ring-destructive/20"
                   : "bg-primary/10 text-primary ring-primary/20"
               )}
             >
               {isError ? (
-                <AlertTriangleIcon className="size-7" />
+                <AlertTriangleIcon className="size-5" />
               ) : (
-                <GraduationCapIcon className="size-7" />
+                <GraduationCapIcon className="size-5" />
               )}
             </div>
           </div>
 
-          <CardTitle className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+          <CardTitle className="text-lg font-bold tracking-tight text-foreground">
             {isError
               ? "Không thể hoàn tất điều hướng"
               : "Đang xác thực và chuyển hướng..."}
           </CardTitle>
 
-          <CardDescription className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+          <CardDescription className="text-xs text-muted-foreground max-w-xs mx-auto leading-relaxed">
             {isError
               ? errorMessage ||
                 "Đã xảy ra lỗi trong quá trình xác thực phiên làm việc hoặc phiên đăng nhập đã hết hạn."
@@ -102,15 +102,15 @@ export function AuthRedirectView({
 
         <CardContent className="p-0 py-2">
           {isError ? (
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-2">
               {onRetry && (
                 <Button
                   onClick={onRetry}
                   variant="default"
                   size="default"
-                  className="w-full h-11 rounded-lg text-sm font-semibold justify-center gap-2"
+                  className="w-full h-9 rounded-md text-xs font-medium justify-center gap-1.5"
                 >
-                  <RotateCcwIcon className="size-4" />
+                  <RotateCcwIcon className="size-3.5" />
                   <span>Thử lại</span>
                 </Button>
               )}
@@ -119,29 +119,32 @@ export function AuthRedirectView({
                   onClick={onBackToLogin}
                   variant="outline"
                   size="default"
-                  className="w-full h-11 rounded-lg text-sm font-medium justify-center gap-2"
+                  className="w-full h-9 rounded-md text-xs font-medium justify-center gap-1.5"
                 >
-                  <LogInIcon className="size-4" />
+                  <LogInIcon className="size-3.5" />
                   <span>Quay lại trang Đăng nhập</span>
                 </Button>
               ) : (
                 <Button
                   render={
-                    <a href="/login" className="inline-flex items-center gap-2">
-                      <LogInIcon className="size-4" />
+                    <a
+                      href="/login"
+                      className="inline-flex items-center gap-1.5"
+                    >
+                      <LogInIcon className="size-3.5" />
                       <span>Quay lại trang Đăng nhập</span>
                     </a>
                   }
                   variant="outline"
                   size="default"
-                  className="w-full h-11 rounded-lg text-sm font-medium justify-center"
+                  className="w-full h-9 rounded-md text-xs font-medium justify-center"
                 />
               )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center gap-3 py-3">
+            <div className="flex flex-col items-center justify-center gap-2.5 py-2">
               <div className="relative flex items-center justify-center">
-                <Loader2Icon className="size-9 animate-spin text-primary" />
+                <Loader2Icon className="size-7 animate-spin text-primary" />
               </div>
               <p className="text-xs text-muted-foreground">
                 Đang chuyển tới{" "}
@@ -154,8 +157,8 @@ export function AuthRedirectView({
         </CardContent>
 
         {!isError && (
-          <CardFooter className="flex flex-col items-center justify-center border-t border-border/50 pt-5 p-0 text-center text-xs text-muted-foreground">
-            <p className="mb-2 text-xs">
+          <CardFooter className="flex flex-col items-center justify-center border-t border-border/40 pt-4 p-0 text-center text-xs text-muted-foreground">
+            <p className="mb-2 text-[0.7rem]">
               Nếu trang không tự động chuyển hướng trong giây lát:
             </p>
             {onManualRedirect ? (
@@ -164,25 +167,25 @@ export function AuthRedirectView({
                 variant="outline"
                 size="sm"
                 onClick={onManualRedirect}
-                className="gap-2 h-10 px-4 rounded-lg text-xs font-medium"
+                className="gap-1.5 h-8 px-3 rounded-md text-xs font-medium"
               >
                 <span>Tiếp tục tới {getDestinationLabel()}</span>
-                <ArrowRightIcon className="size-3.5" />
+                <ArrowRightIcon className="size-3" />
               </Button>
             ) : (
               <Button
                 render={
                   <a
                     href={getTargetUrl()}
-                    className="inline-flex items-center gap-2"
+                    className="inline-flex items-center gap-1.5"
                   >
                     <span>Tiếp tục tới {getDestinationLabel()}</span>
-                    <ArrowRightIcon className="size-3.5" />
+                    <ArrowRightIcon className="size-3" />
                   </a>
                 }
                 variant="outline"
                 size="sm"
-                className="h-10 px-4 rounded-lg text-xs font-medium"
+                className="h-8 px-3 rounded-md text-xs font-medium"
               />
             )}
           </CardFooter>

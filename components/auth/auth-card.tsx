@@ -30,35 +30,35 @@ export function AuthCard({
   return (
     <div
       className={cn(
-        "w-full max-w-[480px] mx-auto px-4 py-8 sm:py-12",
+        "w-full max-w-[420px] sm:w-[420px] mx-auto px-4 py-8",
         className
       )}
       {...props}
     >
-      <Card className="shadow-xl sm:shadow-2xl border-border/70 bg-card/98 backdrop-blur-md rounded-2xl overflow-hidden p-6 sm:p-8 space-y-6">
-        <CardHeader className="text-center space-y-2 p-0">
+      <Card className="w-full shadow-lg border-border/70 bg-card/98 backdrop-blur-sm rounded-xl p-5 space-y-4">
+        <CardHeader className="text-center space-y-1 p-0 pb-1">
           <div className="flex justify-center mb-1">
-            <div className="inline-flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20 shadow-xs">
-              <GraduationCapIcon className="size-6" />
+            <div className="inline-flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">
+              <GraduationCapIcon className="size-5" />
             </div>
           </div>
-          <span className="text-[0.72rem] font-bold uppercase tracking-widest text-primary/80">
+          <span className="text-[0.7rem] font-bold uppercase tracking-widest text-primary/80">
             {brandName}
           </span>
-          <CardTitle className="text-2xl font-bold tracking-tight text-foreground sm:text-2xl">
+          <CardTitle className="text-xl font-bold tracking-tight text-foreground">
             {title}
           </CardTitle>
           {description && (
-            <CardDescription className="text-sm text-muted-foreground leading-relaxed max-w-sm mx-auto">
+            <CardDescription className="text-xs text-muted-foreground leading-relaxed max-w-xs mx-auto">
               {description}
             </CardDescription>
           )}
         </CardHeader>
 
-        <CardContent className="p-0 space-y-5">{children}</CardContent>
+        <CardContent className="p-0 space-y-4">{children}</CardContent>
 
         {footer && (
-          <CardFooter className="flex flex-col items-center justify-center border-t border-border/50 pt-5 p-0 text-center text-xs text-muted-foreground">
+          <CardFooter className="flex flex-col items-center justify-center border-t border-border/40 pt-4 p-0 text-center text-xs text-muted-foreground">
             {footer}
           </CardFooter>
         )}

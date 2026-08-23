@@ -19,7 +19,7 @@ const meta: Meta<typeof LoginForm> = {
   },
   decorators: [
     (Story) => (
-      <div className="w-[480px] p-6 sm:p-8 bg-card rounded-2xl border border-border/70 shadow-xl">
+      <div className="w-[420px] p-5 bg-card rounded-xl border border-border/60 shadow-md">
         <Story />
       </div>
     ),
