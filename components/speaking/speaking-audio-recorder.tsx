@@ -12,6 +12,7 @@ import {
   Loader2,
   ShieldAlert,
   HelpCircle,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,10 @@ export interface SpeakingAudioRecorderProps {
    */
   maxDurationSeconds?: number;
   /**
+   * Enable real-time WASM/DSP noise suppression filter
+   */
+  enableNoiseSuppression?: boolean;
+  /**
    * Callback fired when recording finishes and blob is produced
    */
   onRecordingComplete?: (blob: Blob, duration: number) => void;
@@ -83,6 +88,7 @@ export function SpeakingAudioRecorder({
   title = "IELTS Speaking Audio Response",
   description = "Ghi âm câu trả lời của bạn. Bạn có thể nghe lại trước khi nộp bài.",
   maxDurationSeconds,
+  enableNoiseSuppression = true,
   onRecordingComplete,
   onAudioSubmit,
   className,
@@ -96,6 +102,8 @@ export function SpeakingAudioRecorder({
     audioUrl: recordedUrl,
     analyserNode,
     error: recorderError,
+    isNoiseSuppressionActive,
+    toggleNoiseSuppression,
     startRecording,
     stopRecording,
     pauseRecording,
@@ -103,6 +111,7 @@ export function SpeakingAudioRecorder({
     resetRecording,
   } = useAudioRecorder({
     maxDurationSeconds,
+    enableNoiseSuppression,
     onRecordingComplete,
   });
 
@@ -205,7 +214,7 @@ export function SpeakingAudioRecorder({
     <Card
       data-testid="speaking-audio-recorder"
       className={cn(
-        "w-full max-w-2xl mx-auto shadow-sm border overflow-hidden transition-all",
+        "w-full max-w-2xl mx-auto shadow-sm border overflow-hidden py-0 gap-0 transition-all",
         recorderStatus === "recording" && "ring-2 ring-destructive/30",
         className
       )}
@@ -221,7 +230,7 @@ export function SpeakingAudioRecorder({
       )}
 
       {/* Header Bar */}
-      <CardHeader className="pb-3 border-b bg-muted/20">
+      <CardHeader className="px-6 py-4 border-b bg-muted/20">
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle className="text-base font-semibold text-foreground">
@@ -233,6 +242,27 @@ export function SpeakingAudioRecorder({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* AI Noise Suppression Toggle Badge */}
+            <button
+              type="button"
+              onClick={() => toggleNoiseSuppression()}
+              data-testid="noise-suppression-toggle-badge"
+              title={
+                isNoiseSuppressionActive
+                  ? "Bộ lọc khử ồn WASM đang BẬT - Nhấn để TẮT"
+                  : "Bộ lọc khử ồn WASM đang TẮT - Nhấn để BẬT"
+              }
+              className={cn(
+                "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors cursor-pointer select-none",
+                isNoiseSuppressionActive
+                  ? "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+                  : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+              )}
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>WASM Filter {isNoiseSuppressionActive ? "ON" : "OFF"}</span>
+            </button>
+
             {/* Status Badges */}
             {recorderStatus === "idle" && !initialAudioUrl && (
               <Badge variant="outline" data-testid="status-badge">
@@ -319,7 +349,7 @@ export function SpeakingAudioRecorder({
         {recorderStatus === "idle" && !initialAudioUrl && (
           <div
             data-testid="idle-panel"
-            className="flex flex-col items-center justify-center py-6 text-center space-y-4"
+            className="flex flex-col items-center justify-center py-2 text-center space-y-4"
           >
             <div className="relative">
               <Button

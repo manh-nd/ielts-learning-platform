@@ -52,6 +52,11 @@ export interface LiveSpeakingConfig {
    */
   onError?: (error: Error) => void;
   /**
+   * Enable real-time WASM/DSP background noise suppression filter
+   * @default true
+   */
+  enableNoiseSuppression?: boolean;
+  /**
    * Callback fired whenever transcripts update
    */
   onTranscriptUpdate?: (transcripts: TranscriptItem[]) => void;
@@ -62,11 +67,13 @@ export interface UseGeminiLiveReturn {
   voiceActivity: VoiceActivityState;
   transcripts: TranscriptItem[];
   isMuted: boolean;
+  isNoiseSuppressionActive: boolean;
   error: Error | null;
   inputVolume: number; // 0.0 to 1.0 for live amplitude metering
   connect: () => Promise<void>;
   disconnect: () => void;
   toggleMute: () => void;
+  toggleNoiseSuppression: (enabled?: boolean) => void;
   sendTextMessage: (text: string) => void;
   clearTranscripts: () => void;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, MicOff, PhoneOff, Play, Loader2 } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Play, Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LiveSessionStatus } from "./types";
@@ -8,10 +8,12 @@ import { LiveSessionStatus } from "./types";
 export interface LiveSessionControlsProps {
   status: LiveSessionStatus;
   isMuted: boolean;
+  isNoiseSuppressionActive?: boolean;
   inputVolume?: number; // 0.0 to 1.0
   onConnect: () => void;
   onDisconnect: () => void;
   onToggleMute: () => void;
+  onToggleNoiseSuppression?: () => void;
   className?: string;
   connectLabel?: string;
 }
@@ -19,10 +21,12 @@ export interface LiveSessionControlsProps {
 export function LiveSessionControls({
   status,
   isMuted,
+  isNoiseSuppressionActive = true,
   inputVolume = 0,
   onConnect,
   onDisconnect,
   onToggleMute,
+  onToggleNoiseSuppression,
   className,
   connectLabel = "Bắt đầu thi với Giám khảo AI",
 }: LiveSessionControlsProps) {
@@ -54,7 +58,7 @@ export function LiveSessionControls({
     <div
       data-testid="live-session-controls"
       className={cn(
-        "flex items-center justify-center gap-4 p-3 bg-background/80 backdrop-blur-xs border rounded-2xl shadow-xs",
+        "flex items-center justify-center gap-3 p-3 bg-background/80 backdrop-blur-xs border rounded-2xl shadow-xs",
         className
       )}
     >
@@ -89,6 +93,32 @@ export function LiveSessionControls({
           />
         )}
       </div>
+
+      {/* Noise Suppression Toggle */}
+      {onToggleNoiseSuppression && (
+        <Button
+          type="button"
+          size="icon"
+          variant={isNoiseSuppressionActive ? "default" : "outline"}
+          data-testid="noise-suppression-toggle-btn"
+          disabled={isConnecting}
+          onClick={onToggleNoiseSuppression}
+          title={
+            isNoiseSuppressionActive
+              ? "Bộ lọc khử ồn AI (WASM) đang BẬT"
+              : "Bộ lọc khử ồn AI (WASM) đang TẮT"
+          }
+          className={cn(
+            "w-11 h-11 rounded-full shadow-xs transition-colors",
+            isNoiseSuppressionActive
+              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+              : "text-muted-foreground"
+          )}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span className="sr-only">Bật/tắt khử ồn WASM</span>
+        </Button>
+      )}
 
       {/* End Call / Disconnect Button */}
       <Button

@@ -72,6 +72,16 @@ _Avoid_: DeletedPrompt, DisabledQuestion
 A self-service practice test taken by a Learner using a randomly selected active Prompt. AI assesses directly and publishes immediately without Teacher approval.
 _Avoid_: PracticeTest, QuickTest, SelfTest
 
+### Speaking & Audio Responses
+
+**SpeakingResponse**:
+A single audio recording and transcript corresponding to a specific question or cue card within a SubmissionAttempt or MockTest.
+_Avoid_: AudioRecord, SpeakingItem, VoiceAnswer
+
+**SpeakingReviewAnnotation**:
+A teacher-authored evaluation note attached to an exact audio timestamp and category (pronunciation, grammar, lexical, fluency) within a SpeakingResponse.
+_Avoid_: AudioMarker, VoiceNote, TimeTag
+
 ### Classroom & Organization
 
 **Classroom**:

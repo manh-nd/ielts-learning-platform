@@ -33,7 +33,7 @@ Dưới đây là số liệu hạn mức Free Tier chính xác được trích 
 
 ## 2. Chiến Lược Phân Tầng Mô Hình (Model Tiering & Cascading Architecture)
 
-Vì các model Flagship (`gemini-3.7-flash`, `gemini-2.5-flash`) bị giới hạn ngặt nghèo ở mức **20 RPD (20 lượt/ngày)**, kiến trúc chấm điểm của hệ thống IELTS được thiết kế theo 3 tầng (3-tier cascade):
+Vì model Flagship (`gemini-3.7-flash`) bị giới hạn ngặt nghèo ở mức **20 RPD (20 lượt/ngày)**, kiến trúc chấm điểm của hệ thống IELTS được thiết kế theo các tầng cascade:
 
 ```
                                   [ Yêu cầu Chấm bài Nộp ]

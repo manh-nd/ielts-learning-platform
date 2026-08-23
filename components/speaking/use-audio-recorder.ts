@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import {
+  createNoiseSuppressorNode,
+  NoiseSuppressorGraph,
+  NoiseSuppressionMetrics,
+} from "@/lib/audio/noise-suppressor";
 
 export type AudioRecorderStatus =
   | "idle"
@@ -38,6 +43,11 @@ export interface UseAudioRecorderOptions {
    * Custom audio constraints for getUserMedia.
    */
   audioConstraints?: MediaStreamConstraints;
+  /**
+   * Enable real-time WASM/DSP background noise suppression filter.
+   * @default true
+   */
+  enableNoiseSuppression?: boolean;
 }
 
 export interface UseAudioRecorderReturn {
@@ -47,6 +57,9 @@ export interface UseAudioRecorderReturn {
   audioUrl: string | null;
   analyserNode: AnalyserNode | null;
   error: AudioRecorderError | null;
+  isNoiseSuppressionActive: boolean;
+  noiseMetrics: NoiseSuppressionMetrics | null;
+  toggleNoiseSuppression: (enabled?: boolean) => void;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   pauseRecording: () => void;
@@ -97,6 +110,7 @@ export function useAudioRecorder(
     onRecordingComplete,
     onMaxDurationReached,
     audioConstraints = DEFAULT_IELTS_AUDIO_CONSTRAINTS,
+    enableNoiseSuppression = true,
   } = options;
 
   const [status, setStatus] = useState<AudioRecorderStatus>("idle");
@@ -105,11 +119,17 @@ export function useAudioRecorder(
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null);
   const [error, setError] = useState<AudioRecorderError | null>(null);
+  const [isNoiseSuppressionActive, setIsNoiseSuppressionActive] =
+    useState<boolean>(enableNoiseSuppression);
+  const [noiseMetrics, setNoiseMetrics] =
+    useState<NoiseSuppressionMetrics | null>(null);
 
   // References to keep non-reactive mutable state
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const noiseSuppressorGraphRef = useRef<NoiseSuppressorGraph | null>(null);
+  const isNoiseSuppressionActiveRef = useRef<boolean>(enableNoiseSuppression);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const durationRef = useRef<number>(0);
@@ -119,8 +139,21 @@ export function useAudioRecorder(
     durationRef.current = duration;
   }, [duration]);
 
+  useEffect(() => {
+    isNoiseSuppressionActiveRef.current = isNoiseSuppressionActive;
+  }, [isNoiseSuppressionActive]);
+
   // Cleanup helper to release media tracks and audio contexts
   const cleanupMediaResources = useCallback(() => {
+    if (noiseSuppressorGraphRef.current) {
+      try {
+        noiseSuppressorGraphRef.current.disconnect();
+      } catch {
+        // Ignore disconnect errors
+      }
+      noiseSuppressorGraphRef.current = null;
+    }
+
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach((track) => {
         try {
@@ -163,6 +196,18 @@ export function useAudioRecorder(
     }
   }, []);
 
+  const toggleNoiseSuppression = useCallback((enabled?: boolean) => {
+    setIsNoiseSuppressionActive((prev) => {
+      const next = enabled !== undefined ? enabled : !prev;
+      isNoiseSuppressionActiveRef.current = next;
+      if (noiseSuppressorGraphRef.current) {
+        noiseSuppressorGraphRef.current.setEnabled(next);
+        setNoiseMetrics(noiseSuppressorGraphRef.current.getMetrics());
+      }
+      return next;
+    });
+  }, []);
+
   const startRecording = useCallback(async () => {
     // Check browser compatibility
     if (
@@ -196,8 +241,9 @@ export function useAudioRecorder(
       const stream =
         await navigator.mediaDevices.getUserMedia(audioConstraints);
       mediaStreamRef.current = stream;
+      let streamToRecord = stream;
 
-      // Setup Web Audio API Analyser for Live Waveform
+      // Setup Web Audio API with Noise Suppressor & Analyser
       const AudioCtxClass =
         window.AudioContext ||
         // @ts-expect-error webkit prefix fallback
@@ -207,18 +253,44 @@ export function useAudioRecorder(
         const audioCtx = new AudioCtxClass();
         audioContextRef.current = audioCtx;
         const source = audioCtx.createMediaStreamSource(stream);
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.8;
-        source.connect(analyser);
-        setAnalyserNode(analyser);
+
+        try {
+          const suppressorGraph = createNoiseSuppressorNode(audioCtx, {
+            enabled: isNoiseSuppressionActiveRef.current,
+            sampleRate: audioCtx.sampleRate,
+          });
+          noiseSuppressorGraphRef.current = suppressorGraph;
+
+          source.connect(suppressorGraph.inputNode);
+
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.8;
+          suppressorGraph.outputNode.connect(analyser);
+          setAnalyserNode(analyser);
+
+          if (
+            suppressorGraph.cleanStream &&
+            suppressorGraph.cleanStream.getAudioTracks().length > 0
+          ) {
+            streamToRecord = suppressorGraph.cleanStream;
+          }
+          setNoiseMetrics(suppressorGraph.getMetrics());
+        } catch {
+          // Fallback if node setup fails
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.8;
+          source.connect(analyser);
+          setAnalyserNode(analyser);
+        }
       }
 
       // Initialize MediaRecorder
       const mimeType = getPreferredAudioMimeType();
       const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream);
+        ? new MediaRecorder(streamToRecord, { mimeType })
+        : new MediaRecorder(streamToRecord);
 
       mediaRecorderRef.current = recorder;
 
@@ -386,6 +458,9 @@ export function useAudioRecorder(
     audioUrl,
     analyserNode,
     error,
+    isNoiseSuppressionActive,
+    noiseMetrics,
+    toggleNoiseSuppression,
     startRecording,
     stopRecording,
     pauseRecording,

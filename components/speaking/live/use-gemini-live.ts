@@ -16,6 +16,10 @@ import {
   calculateRMSVolume,
 } from "@/lib/audio/pcm-utils";
 import { AudioStreamPlayer } from "@/lib/audio/audio-stream-player";
+import {
+  SpectralGateNoiseSuppressor,
+  INoiseSuppressorProcessor,
+} from "@/lib/audio/noise-suppressor";
 
 export const DEFAULT_EXAMINER_SYSTEM_INSTRUCTION = `
 You are an expert, certified Senior IELTS Speaking Examiner conducting a live, one-on-one IELTS Speaking examination.
@@ -64,6 +68,7 @@ export function useGeminiLive(
     voiceName = "Puck",
     tokenEndpoint = "/api/speaking/live-token",
     mockMode = false,
+    enableNoiseSuppression = true,
     onStatusChange,
     onError,
     onTranscriptUpdate,
@@ -74,6 +79,8 @@ export function useGeminiLive(
     useState<VoiceActivityState>("idle");
   const [transcripts, setTranscripts] = useState<TranscriptItem[]>([]);
   const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isNoiseSuppressionActive, setIsNoiseSuppressionActive] =
+    useState<boolean>(enableNoiseSuppression);
   const [error, setError] = useState<Error | null>(null);
   const [inputVolume, setInputVolume] = useState<number>(0);
 
@@ -84,12 +91,18 @@ export function useGeminiLive(
   const audioPlayerRef = useRef<AudioStreamPlayer | null>(null);
   const liveSessionRef = useRef<LiveClientSession | null>(null);
   const isMutedRef = useRef<boolean>(false);
+  const isNoiseSuppressionActiveRef = useRef<boolean>(enableNoiseSuppression);
+  const noiseSuppressorRef = useRef<INoiseSuppressorProcessor | null>(null);
   const mockTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync muted ref
+  // Sync muted & noise suppression refs
   useEffect(() => {
     isMutedRef.current = isMuted;
   }, [isMuted]);
+
+  useEffect(() => {
+    isNoiseSuppressionActiveRef.current = isNoiseSuppressionActive;
+  }, [isNoiseSuppressionActive]);
 
   // Status change notify
   const updateStatus = useCallback(
@@ -117,6 +130,11 @@ export function useGeminiLive(
     if (mockTimerRef.current) {
       clearInterval(mockTimerRef.current);
       mockTimerRef.current = null;
+    }
+
+    if (noiseSuppressorRef.current) {
+      noiseSuppressorRef.current.reset();
+      noiseSuppressorRef.current = null;
     }
 
     if (processorNodeRef.current) {
@@ -369,6 +387,12 @@ export function useGeminiLive(
       const inputAudioCtx = new AudioCtx();
       inputAudioContextRef.current = inputAudioCtx;
 
+      // Initialize real-time noise suppressor for live stream
+      noiseSuppressorRef.current = new SpectralGateNoiseSuppressor({
+        sampleRate: inputAudioCtx.sampleRate,
+        enabled: isNoiseSuppressionActiveRef.current,
+      });
+
       const sourceNode = inputAudioCtx.createMediaStreamSource(stream);
       const bufferSize = 2048;
       const processor = inputAudioCtx.createScriptProcessor(bufferSize, 1, 1);
@@ -377,7 +401,12 @@ export function useGeminiLive(
       processor.onaudioprocess = (e) => {
         if (isMutedRef.current || !liveSessionRef.current) return;
 
-        const inputChannelData = e.inputBuffer.getChannelData(0);
+        const rawChannelData = e.inputBuffer.getChannelData(0);
+        const inputChannelData =
+          noiseSuppressorRef.current && isNoiseSuppressionActiveRef.current
+            ? noiseSuppressorRef.current.process(rawChannelData)
+            : rawChannelData;
+
         const volume = calculateRMSVolume(inputChannelData);
         setInputVolume(volume);
 
@@ -447,6 +476,18 @@ export function useGeminiLive(
     setIsMuted((prev) => !prev);
   }, []);
 
+  // Noise suppression toggle
+  const toggleNoiseSuppression = useCallback((enabled?: boolean) => {
+    setIsNoiseSuppressionActive((prev) => {
+      const next = enabled !== undefined ? enabled : !prev;
+      isNoiseSuppressionActiveRef.current = next;
+      if (noiseSuppressorRef.current) {
+        noiseSuppressorRef.current.setEnabled(next);
+      }
+      return next;
+    });
+  }, []);
+
   // Send text message directly
   const sendTextMessage = useCallback((text: string) => {
     if (!text.trim() || !liveSessionRef.current) return;
@@ -475,11 +516,13 @@ export function useGeminiLive(
     voiceActivity,
     transcripts,
     isMuted,
+    isNoiseSuppressionActive,
     error,
     inputVolume,
     connect,
     disconnect,
     toggleMute,
+    toggleNoiseSuppression,
     sendTextMessage,
     clearTranscripts,
   };

@@ -243,3 +243,28 @@ export const PermissionDeniedRecoveryTest: Story = {
     await expect(recordingPanel).toBeInTheDocument();
   },
 };
+
+/**
+ * 9. Interaction Test: WASM AI Noise Filter Toggle
+ */
+export const WasmNoiseFilterToggleTest: Story = {
+  args: {
+    title: "Interaction Test: WASM AI Noise Filter",
+    description:
+      "Automated test for toggling WASM background noise filter ON/OFF.",
+    enableNoiseSuppression: true,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const filterBtn = canvas.getByTestId("noise-suppression-toggle-badge");
+    await expect(filterBtn).toHaveTextContent("WASM Filter ON");
+
+    // Click to toggle OFF
+    await userEvent.click(filterBtn);
+    await expect(filterBtn).toHaveTextContent("WASM Filter OFF");
+
+    // Click to toggle back ON
+    await userEvent.click(filterBtn);
+    await expect(filterBtn).toHaveTextContent("WASM Filter ON");
+  },
+};

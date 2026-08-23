@@ -37,10 +37,12 @@ export function LiveSpeakingExaminerRoom({
     voiceActivity,
     transcripts,
     isMuted,
+    isNoiseSuppressionActive,
     inputVolume,
     connect,
     disconnect,
     toggleMute,
+    toggleNoiseSuppression,
   } = useGeminiLive({
     candidateName,
     targetPart,
@@ -54,13 +56,13 @@ export function LiveSpeakingExaminerRoom({
     <Card
       data-testid="live-speaking-examiner-room"
       className={cn(
-        "w-full max-w-4xl mx-auto shadow-md border overflow-hidden transition-all",
+        "w-full max-w-4xl mx-auto shadow-md border overflow-hidden py-0 gap-0 transition-all",
         isConnected && "ring-1 ring-indigo-500/30",
         className
       )}
     >
       {/* Header */}
-      <CardHeader className="pb-4 border-b bg-muted/20">
+      <CardHeader className="px-6 py-4 border-b bg-muted/20">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
@@ -92,7 +94,7 @@ export function LiveSpeakingExaminerRoom({
       </CardHeader>
 
       {/* Main Content Studio */}
-      <CardContent className="p-5 space-y-5">
+      <CardContent className="p-6 space-y-5">
         {/* Stage Visualization Area */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* AI Examiner Card */}
@@ -188,7 +190,7 @@ export function LiveSpeakingExaminerRoom({
       </CardContent>
 
       {/* Footer Controls */}
-      <CardFooter className="flex items-center justify-between border-t bg-muted/10 p-4">
+      <CardFooter className="flex items-center justify-between border-t bg-muted/10 px-6 py-4">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           <span>Bảo mật qua Ephemeral Token</span>
@@ -197,10 +199,12 @@ export function LiveSpeakingExaminerRoom({
         <LiveSessionControls
           status={status}
           isMuted={isMuted}
+          isNoiseSuppressionActive={isNoiseSuppressionActive}
           inputVolume={inputVolume}
           onConnect={connect}
           onDisconnect={disconnect}
           onToggleMute={toggleMute}
+          onToggleNoiseSuppression={toggleNoiseSuppression}
         />
       </CardFooter>
     </Card>
