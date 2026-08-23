@@ -18,7 +18,7 @@ const meta: Meta<typeof SignUpForm> = {
   },
   decorators: [
     (Story) => (
-      <div className="w-[400px] p-4 bg-card rounded-xl border border-border/60 shadow-md">
+      <div className="w-[480px] p-6 sm:p-8 bg-card rounded-2xl border border-border/70 shadow-xl">
         <Story />
       </div>
     ),
