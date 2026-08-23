@@ -5,3 +5,4 @@ export * from "./login-form";
 export * from "./sign-up-form";
 export * from "./user-nav-menu";
 export * from "./auth-redirect-view";
+export * from "./protected-header";
