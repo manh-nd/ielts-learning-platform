@@ -129,7 +129,7 @@ export function AssessmentScorecard({
   return (
     <Card
       className={cn(
-        "rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden transition-all",
+        "rounded-2xl border bg-card text-card-foreground shadow-sm overflow-hidden transition-all py-0 gap-0",
         className
       )}
       data-testid={testId}
