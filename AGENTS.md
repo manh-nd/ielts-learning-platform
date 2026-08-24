@@ -35,6 +35,20 @@ We use **Playwright** (`@playwright/test`) for full user-journey testing:
 
 - E2E tests are located in `e2e/` (`landing.spec.ts`, `auth.spec.ts`, `protected-routes.spec.ts`, `error-states.spec.ts`).
 - Run unit tests: `bun run test` (excludes `e2e/`).
-- Run E2E tests: `bun run test:e2e` (runs against dedicated `PORT=3001` via `bunx next start -p 3001`).
-- Interactive UI test runner: `bun run test:e2e:ui`.
 - In test environments, `ENABLE_E2E_MOCK_AUTH=true` enables mock session cookies (`e2e_mock_session`) so tests execute in ~7s without requiring an active PostgreSQL container.
+
+### Storybook Interaction & Vitest Testing
+
+We use **Storybook 10** (`@storybook/nextjs-vite` + `@storybook/addon-vitest`):
+
+- Run interaction & a11y tests headlessly: `bun run test:storybook` (`vitest --project=storybook --run`).
+- Accessibility validation is strictly enforced with zero violations: `a11y: { test: "error" }`.
+- All stories use imports from `storybook/test` (e.g. `expect`, `userEvent`, `within`, `fn`).
+
+### Visual Regression Testing (Playwright)
+
+- Visual regression config: `playwright.visual.config.ts` targeting static Storybook build (`storybook-static`).
+- Test suite: `e2e/visual/storybook-visual.spec.ts` capturing 5 core component suites across viewports (1280px Desktop & 375px Mobile) and color schemes (Light & Dark).
+- Run visual tests locally: `bun run test:visual:local`.
+- Update snapshots locally: `bunx playwright test -c playwright.visual.config.ts --update-snapshots`.
+- Run / update snapshots with Linux Docker container: `bun run test:visual` / `bun run test:visual:update`.

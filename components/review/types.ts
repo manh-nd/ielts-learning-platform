@@ -35,7 +35,7 @@ export const CRITERION_META: Record<Criterion, CriterionInfo> = {
     bgDark: "dark:bg-emerald-950/50",
     border: "border-emerald-500 dark:border-emerald-400",
     text: "text-emerald-900 dark:text-emerald-200",
-    badgeBg: "bg-emerald-500 text-white",
+    badgeBg: "bg-emerald-700 text-white dark:bg-emerald-600",
   },
   COHERENCE_COHESION: {
     label: "Coherence & Cohesion",
@@ -45,7 +45,7 @@ export const CRITERION_META: Record<Criterion, CriterionInfo> = {
     bgDark: "dark:bg-amber-950/50",
     border: "border-amber-500 dark:border-amber-400",
     text: "text-amber-900 dark:text-amber-200",
-    badgeBg: "bg-amber-500 text-white",
+    badgeBg: "bg-amber-700 text-white dark:bg-amber-600",
   },
   LEXICAL_RESOURCE: {
     label: "Lexical Resource",
@@ -55,7 +55,7 @@ export const CRITERION_META: Record<Criterion, CriterionInfo> = {
     bgDark: "dark:bg-blue-950/50",
     border: "border-blue-500 dark:border-blue-400",
     text: "text-blue-900 dark:text-blue-200",
-    badgeBg: "bg-blue-500 text-white",
+    badgeBg: "bg-blue-700 text-white dark:bg-blue-600",
   },
   GRAMMATICAL_RANGE_ACCURACY: {
     label: "Grammatical Range & Accuracy",
@@ -65,7 +65,7 @@ export const CRITERION_META: Record<Criterion, CriterionInfo> = {
     bgDark: "dark:bg-rose-950/50",
     border: "border-rose-500 dark:border-rose-400",
     text: "text-rose-900 dark:text-rose-200",
-    badgeBg: "bg-rose-500 text-white",
+    badgeBg: "bg-rose-700 text-white dark:bg-rose-600",
   },
 };
 

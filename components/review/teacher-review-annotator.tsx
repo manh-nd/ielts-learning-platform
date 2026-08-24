@@ -155,18 +155,52 @@ export function TeacherReviewAnnotator({
     },
   });
 
+  const handleContainerClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      const target = event.target as HTMLElement;
+      const markEl =
+        target.closest("mark.criterion-mark") ||
+        target.closest("mark[data-error-id]");
+      if (markEl && containerRef.current) {
+        const errorId = markEl.getAttribute("data-error-id");
+        if (errorId) {
+          const rect = markEl.getBoundingClientRect();
+          const containerRect = containerRef.current.getBoundingClientRect();
+
+          setPopoverPosition({
+            top: rect.bottom - containerRect.top + 8,
+            left: Math.max(
+              12,
+              Math.min(
+                rect.left - containerRect.left,
+                containerRect.width - 390
+              )
+            ),
+          });
+          setIsCreateMode(false);
+          setActiveErrorId(errorId);
+        }
+      }
+    },
+    []
+  );
+
   // Apply filter class to container or individual marks
   useEffect(() => {
     if (!containerRef.current) return;
     const container = containerRef.current;
 
-    const allMarks = container.querySelectorAll("mark.criterion-mark");
+    const allMarks = container.querySelectorAll("mark");
+    const targetClass =
+      activeFilter !== "ALL"
+        ? `criterion-${(activeFilter as string).toLowerCase()}`
+        : null;
+
     allMarks.forEach((el) => {
-      const markCrit = el.getAttribute("data-criterion");
-      if (activeFilter === "ALL") {
+      if (!targetClass) {
         el.classList.remove("is-filtered-out");
       } else {
-        if (markCrit === activeFilter) {
+        if (el.classList.contains(targetClass)) {
           el.classList.remove("is-filtered-out");
         } else {
           el.classList.add("is-filtered-out");
@@ -378,8 +412,11 @@ export function TeacherReviewAnnotator({
   return (
     <div
       ref={containerRef}
+      onClick={handleContainerClick}
+      data-active-filter={activeFilter}
       className={cn(
         "relative rounded-xl border bg-background text-foreground shadow-xs transition-all duration-200",
+        activeFilter !== "ALL" && "filter-active",
         className
       )}
       data-testid={testId}

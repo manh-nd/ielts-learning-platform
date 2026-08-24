@@ -438,7 +438,7 @@ export function DiagnosticPopover({
                   type="button"
                   size="sm"
                   onClick={() => onApplyCorrection(annotation.errorId)}
-                  className="mt-2.5 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs h-7 gap-1.5 shadow-xs"
+                  className="mt-2.5 w-full bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs h-7 gap-1.5 shadow-xs"
                   data-testid={`apply-correction-btn-${annotation.errorId}`}
                 >
                   <Sparkles className="h-3.5 w-3.5" />

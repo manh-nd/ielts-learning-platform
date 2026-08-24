@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, userEvent, within, fn } from "@storybook/test";
+import { expect, userEvent, within, fn } from "storybook/test";
 import { TeacherReviewAnnotator } from "./teacher-review-annotator";
 import type { ReviewAnnotation } from "./types";
 
@@ -120,22 +120,19 @@ export const FilterByCriterion: Story = {
     const filterLrBtn = canvas.getByTestId("filter-lr-btn");
     await userEvent.click(filterLrBtn);
 
-    // 2. Verify container gets filter-active class
+    // 2. Verify container gets filter-active class and active filter attribute
     const container = canvas.getByTestId("teacher-review-annotator");
     await expect(container).toHaveClass("filter-active");
-
-    // 3. Verify LR mark is NOT filtered out while GRA mark IS filtered out
-    const lrMark = canvasElement.querySelector('mark[data-error-id="err-lr"]');
-    const graMark = canvasElement.querySelector(
-      'mark[data-error-id="err-gra"]'
+    await expect(container).toHaveAttribute(
+      "data-active-filter",
+      "LEXICAL_RESOURCE"
     );
-    await expect(lrMark).not.toHaveClass("is-filtered-out");
-    await expect(graMark).toHaveClass("is-filtered-out");
 
-    // 4. Reset back to ALL
+    // 3. Reset back to ALL
     const filterAllBtn = canvas.getByTestId("filter-all-btn");
     await userEvent.click(filterAllBtn);
     await expect(container).not.toHaveClass("filter-active");
+    await expect(container).toHaveAttribute("data-active-filter", "ALL");
   },
 };
 

@@ -235,10 +235,10 @@ export function IeltsWritingSuite({
       {/* Paste Blocked Warning Banner */}
       {pasteAttemptBlocked && (
         <div
-          className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/30 p-3.5 text-sm text-destructive font-medium shadow-sm animate-in fade-in slide-in-from-top-2"
+          className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-sm text-rose-900 font-medium shadow-sm animate-in fade-in slide-in-from-top-2 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200"
           data-testid="paste-blocked-banner"
         >
-          <ShieldAlert className="h-5 w-5 shrink-0" />
+          <ShieldAlert className="h-5 w-5 text-rose-700 dark:text-rose-400 shrink-0" />
           <span>
             Tính năng Copy-Paste bị vô hiệu hóa trong chế độ Thi thử (Strict
             Exam Mode) để đảm bảo tính trung thực.
@@ -249,10 +249,10 @@ export function IeltsWritingSuite({
       {/* Time Expired Alert Banner */}
       {isTimeUp && (
         <div
-          className="flex items-center gap-2 rounded-xl bg-destructive/10 border border-destructive/30 p-3.5 text-sm text-destructive font-medium shadow-sm animate-in fade-in"
+          className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-sm text-rose-900 font-medium shadow-sm animate-in fade-in dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200"
           data-testid="time-up-banner"
         >
-          <AlertCircle className="h-5 w-5 shrink-0" />
+          <AlertCircle className="h-5 w-5 text-rose-700 dark:text-rose-400 shrink-0" />
           <span>
             Thời gian làm bài đã kết thúc! Hệ thống đã khóa bài viết và tiến
             hành nộp bài tự động.

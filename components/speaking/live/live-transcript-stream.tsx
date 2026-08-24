@@ -80,18 +80,18 @@ export function LiveTranscriptStream({
                     className={cn(
                       "font-semibold text-[11px]",
                       isExaminer
-                        ? "text-indigo-600 dark:text-indigo-400"
-                        : "text-primary-foreground/90"
+                        ? "text-indigo-800 dark:text-indigo-300"
+                        : "text-primary-foreground font-semibold"
                     )}
                   >
                     {isExaminer ? "Giám khảo IELTS" : "Bạn"}
                   </span>
                   <span
                     className={cn(
-                      "text-[10px] opacity-60 font-mono",
+                      "text-[10px] font-mono",
                       isExaminer
-                        ? "text-muted-foreground"
-                        : "text-primary-foreground"
+                        ? "text-foreground/70"
+                        : "text-primary-foreground font-semibold"
                     )}
                   >
                     {new Date(item.timestamp).toLocaleTimeString([], {

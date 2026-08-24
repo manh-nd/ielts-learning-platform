@@ -1,21 +1,14 @@
 import { useEffect } from "react";
 import type { Preview } from "@storybook/react";
 import { withThemeByClassName } from "@storybook/addon-themes";
-import { Inter, Geist, Geist_Mono } from "next/font/google";
 import "../app/globals.css";
 import { setupAudioApiMocks } from "./mocks/audio-api.mock";
 
 setupAudioApiMocks();
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = { variable: "font-sans" };
+const geistSans = { variable: "font-sans" };
+const geistMono = { variable: "font-mono" };
 
 const customViewports = {
   mobileSmall: {
@@ -66,7 +59,7 @@ const preview: Preview = {
       },
     },
     a11y: {
-      test: "todo",
+      test: "error",
     },
   },
   decorators: [

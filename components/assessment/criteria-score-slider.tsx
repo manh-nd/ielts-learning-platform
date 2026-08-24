@@ -219,8 +219,8 @@ function CriteriaScoreSliderBase({
                       className={cn(
                         "flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium border transition-colors",
                         hasAiDelta
-                          ? "bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400"
-                          : "bg-muted text-muted-foreground border-transparent"
+                          ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200"
+                          : "bg-muted text-foreground/80 border-border/60"
                       )}
                       data-testid={`ai-proposal-score-${meta.short.toLowerCase()}`}
                     >
@@ -272,8 +272,8 @@ function CriteriaScoreSliderBase({
               className={cn(
                 "text-[10px] h-5 px-1 font-mono font-bold",
                 delta > 0
-                  ? "border-emerald-500 text-emerald-600 bg-emerald-500/10 dark:text-emerald-400"
-                  : "border-rose-500 text-rose-600 bg-rose-500/10 dark:text-rose-400"
+                  ? "border-emerald-600 text-emerald-800 bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700 dark:bg-emerald-950/40"
+                  : "border-rose-600 text-rose-800 bg-rose-50 dark:text-rose-300 dark:border-rose-700 dark:bg-rose-950/40"
               )}
               data-testid={`delta-badge-${meta.short.toLowerCase()}`}
             >
@@ -356,7 +356,7 @@ function CriteriaScoreSliderBase({
           </SliderPrimitive.Root>
 
           {/* Scale markers: 0.0, 3.0, 6.0, 9.0 */}
-          <div className="flex justify-between text-[9px] font-mono text-muted-foreground/60 px-0.5 mt-0.5">
+          <div className="flex justify-between text-[9px] font-mono text-muted-foreground font-medium px-0.5 mt-0.5">
             <span>0.0</span>
             <span>3.0</span>
             <span>6.0</span>
@@ -384,19 +384,12 @@ function CriteriaScoreSliderBase({
       <Dialog open={isRubricDialogOpen} onOpenChange={setIsRubricDialogOpen}>
         {isRubricDialogOpen && (
           <DialogContent
-            className="sm:max-w-2xl max-h-[85vh] overflow-y-auto font-sans"
+            className="max-w-2xl max-h-[85vh] overflow-y-auto font-sans"
             data-testid={`full-rubric-dialog-${meta.short.toLowerCase()}`}
           >
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-base font-bold font-sans">
-                <span
-                  className={cn(
-                    "px-2 py-0.5 rounded text-xs font-bold text-white",
-                    meta.badgeBg
-                  )}
-                >
-                  {meta.short}
-                </span>
+              <DialogTitle className="flex items-center gap-2 text-sm sm:text-base">
+                <BookOpen className="h-4 w-4 text-primary" />
                 <span>Bảng Ma Trận IELTS Band Descriptors — {meta.label}</span>
               </DialogTitle>
               <DialogDescription className="text-xs">
@@ -428,10 +421,10 @@ function CriteriaScoreSliderBase({
                           className={cn(
                             "inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold text-white",
                             b >= 7
-                              ? "bg-emerald-500"
+                              ? "bg-emerald-700"
                               : b >= 5
-                                ? "bg-amber-500"
-                                : "bg-rose-500"
+                                ? "bg-amber-700"
+                                : "bg-rose-700"
                           )}
                         >
                           {b}.0

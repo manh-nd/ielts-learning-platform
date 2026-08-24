@@ -272,7 +272,7 @@ export function TeacherReviewWorkspace({
               "py-1.5 px-2 rounded-md font-medium text-center transition-all truncate text-[11px]",
               mobileViewMode === "essay"
                 ? "bg-background text-foreground shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-foreground/80 hover:text-foreground"
             )}
           >
             Bài làm ({annotations.length})
@@ -283,7 +283,7 @@ export function TeacherReviewWorkspace({
               "py-1.5 px-2 rounded-md font-medium text-center transition-all truncate text-[11px]",
               mobileViewMode === "scorecard"
                 ? "bg-background text-foreground shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-foreground/80 hover:text-foreground"
             )}
           >
             Bảng điểm{" "}
@@ -296,7 +296,7 @@ export function TeacherReviewWorkspace({
               "py-1.5 px-2 rounded-md font-medium text-center transition-all truncate text-[11px]",
               mobileViewMode === "diff"
                 ? "bg-background text-foreground shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-foreground/80 hover:text-foreground"
             )}
           >
             Diff {modifiedDiffsCount > 0 && `(${modifiedDiffsCount})`}
@@ -307,7 +307,7 @@ export function TeacherReviewWorkspace({
               "py-1.5 px-2 rounded-md font-medium text-center transition-all truncate text-[11px]",
               mobileViewMode === "summary"
                 ? "bg-background text-foreground shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-foreground"
+                : "text-foreground/80 hover:text-foreground"
             )}
           >
             Nhận xét

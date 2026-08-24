@@ -280,10 +280,10 @@ export function TeacherSpeakingReviewWorkspace({
                   className={cn(
                     "text-[11px] font-semibold",
                     status === "published"
-                      ? "bg-emerald-500 text-white"
+                      ? "bg-emerald-700 text-white"
                       : status === "approved"
-                        ? "bg-blue-500 text-white"
-                        : "bg-amber-500 text-white"
+                        ? "bg-blue-700 text-white"
+                        : "bg-amber-700 text-white"
                   )}
                 >
                   {status === "published"
@@ -320,7 +320,7 @@ export function TeacherSpeakingReviewWorkspace({
               variant={status === "published" ? "secondary" : "default"}
               onClick={handlePublishReview}
               disabled={status === "published"}
-              className="gap-1.5 text-xs h-9 font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="gap-1.5 text-xs h-9 font-semibold bg-emerald-700 hover:bg-emerald-800 text-white"
               data-testid="publish-review-button"
             >
               <Award className="h-4 w-4" />
@@ -446,7 +446,8 @@ export function TeacherSpeakingReviewWorkspace({
                         style={{
                           left: `${Math.min(95, Math.max(2, leftPct))}%`,
                         }}
-                        className="absolute -top-2.5 -translate-x-1/2 p-1 rounded-full bg-purple-500 text-white shadow-md hover:scale-125 transition-transform"
+                        aria-label={`Lỗi phát âm: ${note.word} tại ${formatTime(sec)}`}
+                        className="absolute -top-2.5 -translate-x-1/2 p-1 rounded-full bg-purple-700 text-white shadow-md hover:scale-125 transition-transform"
                         title={`Lỗi phát âm: "${note.word}" tại ${formatTime(sec)}`}
                       >
                         <Tag className="h-2.5 w-2.5" />
@@ -461,6 +462,7 @@ export function TeacherSpeakingReviewWorkspace({
                     <Button
                       size="sm"
                       onClick={handleTogglePlay}
+                      aria-label={isPlaying ? "Tạm dừng audio" : "Phát audio"}
                       className="h-9 w-9 p-0 rounded-full bg-primary text-primary-foreground"
                       data-testid="audio-play-pause-button"
                     >
@@ -475,6 +477,7 @@ export function TeacherSpeakingReviewWorkspace({
                       size="sm"
                       variant="ghost"
                       onClick={() => handleSeek(0)}
+                      aria-label="Phát lại từ đầu"
                       className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                       title="Phát lại từ đầu"
                     >
@@ -506,10 +509,10 @@ export function TeacherSpeakingReviewWorkspace({
               {/* Interactive Transcript */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <FileText className="h-3.5 w-3.5 text-primary" />
                     Transcript & Phân Tích Lỗi Từng Câu
-                  </h4>
+                  </div>
                   <span className="text-[11px] text-muted-foreground">
                     Click vào từ có gạch chân để nghe lại mốc giây đó
                   </span>
@@ -553,6 +556,7 @@ export function TeacherSpeakingReviewWorkspace({
                             onClick={() =>
                               handleSeek(note.timestampSeconds || 0)
                             }
+                            aria-label={`Nghe lại từ ${note.word} tại ${formatTime(note.timestampSeconds)}`}
                             className="h-6 px-1.5 text-[11px] font-mono text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50"
                           >
                             {formatTime(note.timestampSeconds)}
@@ -574,6 +578,7 @@ export function TeacherSpeakingReviewWorkspace({
                   </span>
                   <select
                     value={newCommentCategory}
+                    aria-label="Loại nhận xét"
                     onChange={(e) =>
                       setNewCommentCategory(
                         e.target
@@ -581,14 +586,15 @@ export function TeacherSpeakingReviewWorkspace({
                       )
                     }
                     className="text-xs bg-muted/50 border rounded px-2 py-1"
+                    data-testid="annotation-category-select"
                   >
                     <option value="pronunciation">
                       Phát âm (Pronunciation)
                     </option>
+                    <option value="lexical">Từ vựng (Lexical Resource)</option>
                     <option value="grammar">Ngữ pháp (Grammar)</option>
-                    <option value="lexical">Từ vựng (Lexical)</option>
-                    <option value="fluency">Độ trôi chảy (Fluency)</option>
-                    <option value="general">Chung (General)</option>
+                    <option value="fluency">Lưu loát (Fluency)</option>
+                    <option value="general">Khác (General)</option>
                   </select>
                 </div>
 
@@ -596,7 +602,7 @@ export function TeacherSpeakingReviewWorkspace({
                   <input
                     id="annotation-input-box"
                     type="text"
-                    placeholder="Nhập nhận xét hoặc lưu ý cho học viên..."
+                    placeholder={`Nhập nhận xét cho mốc ${formatTime(currentTime)} (ví dụ: phát âm chưa chuẩn âm đuôi /s/)...`}
                     value={newCommentText}
                     onChange={(e) => setNewCommentText(e.target.value)}
                     onKeyDown={(e) => {
@@ -641,6 +647,7 @@ export function TeacherSpeakingReviewWorkspace({
                           size="icon"
                           variant="ghost"
                           onClick={() => handleDeleteAnnotation(item.id)}
+                          aria-label="Xóa ghim"
                           className="h-6 w-6 text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="h-3 w-3" />

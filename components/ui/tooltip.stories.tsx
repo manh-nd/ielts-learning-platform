@@ -28,7 +28,15 @@ type Story = StoryObj<typeof Tooltip>;
 export const Default: Story = {
   render: () => (
     <Tooltip>
-      <TooltipTrigger render={<Button variant="outline" size="icon" />}>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="Thông tin tiêu chí IELTS"
+          />
+        }
+      >
         <Info className="size-3.5" />
       </TooltipTrigger>
       <TooltipContent>

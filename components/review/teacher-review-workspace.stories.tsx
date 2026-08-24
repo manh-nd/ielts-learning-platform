@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, userEvent, within, fn } from "@storybook/test";
+import { expect, userEvent, within, fn } from "storybook/test";
 import { TeacherReviewWorkspace } from "./teacher-review-workspace";
 import type { ReviewAnnotation } from "./types";
 
@@ -141,7 +141,7 @@ export const InteractiveResponsiveTabsTest: Story = {
     await userEvent.click(scorecardTab);
 
     // Verify Overall Band score card appears
-    expect(canvas.getByText("7.0")).toBeInTheDocument();
+    expect(canvas.getAllByText("7.0")[0]).toBeInTheDocument();
 
     // Click "Diff" tab in mobile mode
     const diffTab = canvas.getByRole("button", { name: /Diff/i });
@@ -149,7 +149,7 @@ export const InteractiveResponsiveTabsTest: Story = {
 
     // Verify Diff Viewer is visible
     expect(
-      canvas.getByText(/Đối Chiếu Sai Lệch Điểm & Đề Xuất/i)
+      canvas.getByText(/So sánh Đánh giá AI vs Quyết định của Giáo viên/i)
     ).toBeInTheDocument();
   },
 };

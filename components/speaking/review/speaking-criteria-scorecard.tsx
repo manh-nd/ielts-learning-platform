@@ -47,7 +47,7 @@ export const SPEAKING_CRITERIA_META: Record<
     bgLight: "bg-emerald-50 dark:bg-emerald-950/40",
     border: "border-emerald-500",
     text: "text-emerald-700 dark:text-emerald-300",
-    badgeBg: "bg-emerald-500 text-white",
+    badgeBg: "bg-emerald-700 text-white",
   },
   lexicalResource: {
     key: "lexicalResource",
@@ -58,7 +58,7 @@ export const SPEAKING_CRITERIA_META: Record<
     bgLight: "bg-blue-50 dark:bg-blue-950/40",
     border: "border-blue-500",
     text: "text-blue-700 dark:text-blue-300",
-    badgeBg: "bg-blue-500 text-white",
+    badgeBg: "bg-blue-700 text-white",
   },
   grammaticalRangeAndAccuracy: {
     key: "grammaticalRangeAndAccuracy",
@@ -69,7 +69,7 @@ export const SPEAKING_CRITERIA_META: Record<
     bgLight: "bg-amber-50 dark:bg-amber-950/40",
     border: "border-amber-500",
     text: "text-amber-700 dark:text-amber-300",
-    badgeBg: "bg-amber-500 text-white",
+    badgeBg: "bg-amber-700 text-white",
   },
   pronunciation: {
     key: "pronunciation",
@@ -80,7 +80,7 @@ export const SPEAKING_CRITERIA_META: Record<
     bgLight: "bg-purple-50 dark:bg-purple-950/40",
     border: "border-purple-500",
     text: "text-purple-700 dark:text-purple-300",
-    badgeBg: "bg-purple-500 text-white",
+    badgeBg: "bg-purple-700 text-white",
   },
 };
 
@@ -212,9 +212,9 @@ export function SpeakingCriteriaScorecard({
             <Award className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <h3 className="font-bold text-base text-foreground tracking-tight leading-tight">
+            <h2 className="font-bold text-base text-foreground tracking-tight leading-tight">
               Bảng Điểm 4 Tiêu Chí IELTS Speaking
-            </h3>
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               Chuẩn hóa điểm số theo tiêu chuẩn khảo thí IELTS
             </p>
@@ -236,14 +236,14 @@ export function SpeakingCriteriaScorecard({
               <Cpu className="h-3 w-3" />
               <span>{traceMetadata.modelUsed}</span>
               {traceMetadata.isFallback && (
-                <span className="font-sans text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400">
+                <span className="font-sans text-[10px] uppercase font-bold text-amber-800 dark:text-amber-300">
                   (Fallback)
                 </span>
               )}
             </Badge>
             <Badge
               variant="secondary"
-              className="gap-1 py-0.5 px-2 text-[11px] font-mono text-muted-foreground rounded-md"
+              className="gap-1 py-0.5 px-2 text-[11px] font-mono text-foreground/80 font-medium rounded-md"
             >
               <Clock className="h-3 w-3" />
               <span>{(traceMetadata.durationMs / 1000).toFixed(1)}s</span>
@@ -330,7 +330,7 @@ export function SpeakingCriteriaScorecard({
                     <span className="font-semibold text-sm text-foreground">
                       {meta.label}
                     </span>
-                    <span className="text-xs text-muted-foreground ml-2 hidden sm:inline">
+                    <span className="text-xs text-foreground/80 ml-2 hidden sm:inline">
                       ({meta.vietnameseLabel})
                     </span>
                   </div>
@@ -340,7 +340,7 @@ export function SpeakingCriteriaScorecard({
                 <div className="flex items-center gap-2">
                   {aiScore !== undefined && (
                     <div className="flex items-center gap-1 text-xs">
-                      <span className="text-muted-foreground font-mono">
+                      <span className="text-foreground/80 font-mono">
                         AI: {aiScore.toFixed(1)}
                       </span>
                       {hasDiff && (
@@ -349,8 +349,8 @@ export function SpeakingCriteriaScorecard({
                           className={cn(
                             "px-1.5 py-0 text-[10px] font-mono",
                             delta > 0
-                              ? "text-emerald-700 border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300"
-                              : "text-rose-700 border-rose-400 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300"
+                              ? "text-emerald-800 border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300"
+                              : "text-rose-800 border-rose-400 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300"
                           )}
                         >
                           {delta > 0
@@ -373,6 +373,7 @@ export function SpeakingCriteriaScorecard({
                       size="icon"
                       variant="ghost"
                       onClick={() => onResetCriterionToAi(criterionKey)}
+                      aria-label="Khôi phục về điểm AI"
                       className="h-7 w-7 text-muted-foreground hover:text-foreground"
                       title="Khôi phục về điểm AI"
                     >
@@ -389,6 +390,7 @@ export function SpeakingCriteriaScorecard({
                     min={0}
                     max={9}
                     step={0.5}
+                    aria-label={`Điểm tiêu chí ${meta.label}`}
                     value={[currentScore]}
                     onValueChange={(val) =>
                       handleSliderChange(
@@ -398,7 +400,7 @@ export function SpeakingCriteriaScorecard({
                     }
                     data-testid={`slider-${criterionKey}`}
                   />
-                  <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5 font-mono px-0.5">
+                  <div className="flex justify-between text-[10px] text-foreground/80 font-medium mt-1.5 font-mono px-0.5">
                     <span>Band 0.0</span>
                     <span>5.0</span>
                     <span>6.0</span>

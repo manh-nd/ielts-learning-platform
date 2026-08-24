@@ -67,7 +67,7 @@ export function LiveSpeakingExaminerRoom({
           <div>
             <div className="flex items-center gap-2">
               <CardTitle className="text-base font-bold text-foreground flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <Sparkles className="w-4 h-4 text-indigo-700 dark:text-indigo-400" />
                 {title}
               </CardTitle>
               <Badge
@@ -120,9 +120,9 @@ export function LiveSpeakingExaminerRoom({
               )}
             </div>
 
-            <h4 className="font-semibold text-sm text-foreground">
+            <div className="font-semibold text-sm text-foreground">
               Giám khảo IELTS (Dr. Harrison)
-            </h4>
+            </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {voiceActivity === "ai_speaking"
                 ? "Đang đặt câu hỏi & lắng nghe phản xạ..."
@@ -155,9 +155,9 @@ export function LiveSpeakingExaminerRoom({
               )}
             </div>
 
-            <h4 className="font-semibold text-sm text-foreground">
+            <div className="font-semibold text-sm text-foreground">
               {candidateName}
-            </h4>
+            </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {isMuted
                 ? "Microphone đang tắt tiếng (Muted)"
@@ -179,7 +179,7 @@ export function LiveSpeakingExaminerRoom({
             {mockMode && (
               <Badge
                 variant="outline"
-                className="text-[10px] text-amber-600 dark:text-amber-400"
+                className="text-[10px] text-amber-800 dark:text-amber-300 font-semibold"
               >
                 Mock Simulation Mode
               </Badge>
@@ -192,7 +192,7 @@ export function LiveSpeakingExaminerRoom({
       {/* Footer Controls */}
       <CardFooter className="flex items-center justify-between border-t bg-muted/10 px-6 py-4">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <ShieldCheck className="w-4 h-4 text-emerald-800 dark:text-emerald-300" />
           <span>Bảo mật qua Ephemeral Token</span>
         </div>
 

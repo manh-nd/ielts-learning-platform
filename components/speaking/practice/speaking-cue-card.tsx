@@ -46,13 +46,16 @@ export function SpeakingCueCard({
                 IELTS Part 2 Cue Card
               </Badge>
               {question.topic && (
-                <span className="text-xs font-medium text-muted-foreground truncate">
+                <span className="text-xs font-medium text-foreground/80 truncate">
                   Topic: {question.topic}
                 </span>
               )}
             </div>
           </div>
-          <Badge className="bg-primary/15 text-primary border-primary/20 text-xs font-semibold px-2.5 py-0.5 hover:bg-primary/20 shrink-0">
+          <Badge
+            variant="outline"
+            className="bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300 text-xs font-semibold px-2.5 py-0.5 shrink-0"
+          >
             2 Phút Nói
           </Badge>
         </div>

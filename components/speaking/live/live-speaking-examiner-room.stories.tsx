@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, within, userEvent } from "@storybook/test";
+import { expect, within, userEvent } from "storybook/test";
 import { LiveSpeakingExaminerRoom } from "./live-speaking-examiner-room";
 
 const meta = {

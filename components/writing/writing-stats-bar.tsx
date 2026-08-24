@@ -50,7 +50,7 @@ export function WritingStatsBar({
     if (wordCount === 0) {
       return {
         label: `Mục tiêu: ${minWords} từ`,
-        color: "bg-muted text-muted-foreground border-border",
+        color: "bg-muted text-foreground/80 border-border",
         status: "empty",
       };
     }

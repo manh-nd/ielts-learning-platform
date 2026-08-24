@@ -329,12 +329,12 @@ export function AudioWaveformVisualizer({
     <div
       ref={containerRef}
       data-testid="audio-waveform-container"
-      role={!isLive && onSeek ? "slider" : "region"}
+      role={!isLive && Boolean(onSeek) ? "slider" : "region"}
       aria-label={isLive ? "Live Audio Waveform" : "Audio Playback Waveform"}
-      aria-valuemin={!isLive ? 0 : undefined}
-      aria-valuemax={!isLive ? audioDuration : undefined}
-      aria-valuenow={!isLive ? currentTime : undefined}
-      tabIndex={!isLive && onSeek ? 0 : undefined}
+      aria-valuemin={!isLive && Boolean(onSeek) ? 0 : undefined}
+      aria-valuemax={!isLive && Boolean(onSeek) ? audioDuration : undefined}
+      aria-valuenow={!isLive && Boolean(onSeek) ? currentTime : undefined}
+      tabIndex={!isLive && Boolean(onSeek) ? 0 : undefined}
       onMouseDown={handleMouseDown}
       style={{ height }}
       className={cn(

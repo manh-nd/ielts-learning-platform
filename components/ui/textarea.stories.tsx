@@ -27,6 +27,7 @@ export const Disabled: Story = {
     <div className="w-96">
       <Textarea
         disabled
+        aria-label="Nội dung bị khóa"
         value="This essay submission is locked and cannot be edited while under review."
       />
     </div>

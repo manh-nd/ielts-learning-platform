@@ -195,7 +195,7 @@ export function FeedbackDiffViewer({
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                         : delta < 0
                           ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
-                          : "bg-muted text-muted-foreground"
+                          : "bg-muted text-foreground/80 font-medium"
                     )}
                   >
                     {delta > 0 ? (
@@ -251,7 +251,7 @@ export function FeedbackDiffViewer({
                     ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                     : overallDelta < 0
                       ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
-                      : "bg-muted text-muted-foreground"
+                      : "bg-muted text-foreground/80 font-medium"
                 )}
               >
                 {overallDelta > 0 ? (
@@ -273,10 +273,12 @@ export function FeedbackDiffViewer({
             </div>
 
             <div className="flex items-baseline justify-between pt-1 border-t text-xs">
-              <div className="flex items-center gap-1 text-muted-foreground">
+              <div className="flex items-center gap-1 text-foreground/80">
                 <Bot className="h-3 w-3" />
                 <span>AI:</span>
-                <strong>{aiOverall.toFixed(1)}</strong>
+                <strong className="text-foreground">
+                  {aiOverall.toFixed(1)}
+                </strong>
               </div>
               <ArrowRight className="h-3 w-3 text-muted-foreground/50" />
               <div className="flex items-center gap-1 font-bold text-primary">
@@ -301,19 +303,19 @@ export function FeedbackDiffViewer({
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-muted-foreground">Đã chấp nhận (Accepted)</span>
-          <span className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+          <span className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
             {stats.accepted} ({stats.agreementRate}%)
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-muted-foreground">Bác bỏ (Rejected)</span>
-          <span className="text-sm font-semibold text-rose-600 dark:text-rose-400">
+          <span className="text-sm font-semibold text-rose-800 dark:text-rose-300">
             {stats.rejected}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span className="text-muted-foreground">Giáo viên bổ sung</span>
-          <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+          <span className="text-sm font-semibold text-blue-800 dark:text-blue-300">
             +{stats.teacherAdded} lỗi
           </span>
         </div>
@@ -418,7 +420,7 @@ export function FeedbackDiffViewer({
                   {/* Quote and Revision Diff */}
                   <div className="flex flex-wrap items-center gap-2 rounded bg-muted/30 p-2 font-mono text-[11px]">
                     <span className="text-muted-foreground">Nguyên văn:</span>
-                    <span className="line-through text-muted-foreground/80 font-medium">
+                    <span className="line-through text-foreground/80 font-medium">
                       &quot;{item.originalQuote}&quot;
                     </span>
 

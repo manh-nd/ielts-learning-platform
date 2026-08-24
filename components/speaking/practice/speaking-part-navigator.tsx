@@ -115,7 +115,7 @@ export function SpeakingPartNavigator({
                   className={cn(
                     "w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 transition-colors",
                     step.isComplete
-                      ? "bg-emerald-500 text-white"
+                      ? "bg-emerald-700 text-white"
                       : isActive
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted-foreground/20 text-muted-foreground"
@@ -143,7 +143,7 @@ export function SpeakingPartNavigator({
                   >
                     {step.label}
                   </div>
-                  <div className="text-[10px] text-muted-foreground truncate hidden sm:block">
+                  <div className="text-[10px] text-foreground/80 font-medium truncate hidden sm:block">
                     {step.sublabel}
                   </div>
                 </div>
@@ -154,7 +154,7 @@ export function SpeakingPartNavigator({
                 className={cn(
                   "text-[10px] font-mono h-5 px-1.5 shrink-0 ml-1.5",
                   step.isComplete &&
-                    "bg-emerald-600 hover:bg-emerald-600 text-white"
+                    "bg-emerald-700 hover:bg-emerald-800 text-white"
                 )}
               >
                 {step.badgeText}

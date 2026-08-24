@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, userEvent, within, fn } from "@storybook/test";
+import { expect, userEvent, within, fn } from "storybook/test";
 import { SignUpForm } from "./sign-up-form";
 
 const meta: Meta<typeof SignUpForm> = {
@@ -58,8 +58,8 @@ export const InteractivePasswordStrengthTest: Story = {
     expect(canvas.getByText("Trung bình")).toBeInTheDocument();
     expect(canvas.getByText("Tối thiểu 8 ký tự")).toBeInTheDocument();
 
-    // Type strong password with uppercase, number and symbol
-    await userEvent.type(passwordInput, "A1!");
+    // Type very strong password with 12+ chars, uppercase, number and symbol
+    await userEvent.type(passwordInput, "A1!xyz");
     expect(canvas.getByText("Rất mạnh")).toBeInTheDocument();
   },
 };

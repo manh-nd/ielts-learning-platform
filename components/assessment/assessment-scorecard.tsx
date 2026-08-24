@@ -120,10 +120,10 @@ export function AssessmentScorecard({
 
   // Color helper for Band Scores
   const getBandBadgeColor = (val: number) => {
-    if (val >= 7.5) return "bg-emerald-600 text-white dark:bg-emerald-500";
-    if (val >= 6.5) return "bg-teal-600 text-white dark:bg-teal-500";
-    if (val >= 5.5) return "bg-amber-500 text-white dark:bg-amber-600";
-    return "bg-rose-500 text-white dark:bg-rose-600";
+    if (val >= 7.5) return "bg-emerald-700 text-white dark:bg-emerald-600";
+    if (val >= 6.5) return "bg-teal-700 text-white dark:bg-teal-600";
+    if (val >= 5.5) return "bg-amber-700 text-white dark:bg-amber-600";
+    return "bg-rose-700 text-white dark:bg-rose-600";
   };
 
   return (
@@ -226,12 +226,12 @@ export function AssessmentScorecard({
                   className={cn(
                     "text-[10px] h-5 px-1.5 font-mono font-bold",
                     overallDelta > 0
-                      ? "border-emerald-500 text-emerald-600 bg-emerald-500/10 dark:text-emerald-400"
-                      : "border-rose-500 text-rose-600 bg-rose-500/10 dark:text-rose-400"
+                      ? "border-emerald-600 text-emerald-800 bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700 dark:bg-emerald-950/40"
+                      : "border-rose-600 text-rose-800 bg-rose-50 dark:text-rose-300 dark:border-rose-700 dark:bg-rose-950/40"
                   )}
                   data-testid="overall-delta-badge"
                 >
-                  Delta: {overallDelta > 0 ? `+${overallDelta}` : overallDelta}
+                  {overallDelta > 0 ? `+${overallDelta}` : overallDelta}
                 </Badge>
               )}
             </div>

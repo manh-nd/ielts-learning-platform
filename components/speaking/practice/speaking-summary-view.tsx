@@ -170,7 +170,7 @@ export function SpeakingSummaryView({
                     <>
                       <Badge
                         variant="secondary"
-                        className="font-mono text-xs flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                        className="font-mono text-xs flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300"
                       >
                         <Clock className="w-3 h-3" />
                         {formatDuration(answer.durationSeconds)}
@@ -212,7 +212,7 @@ export function SpeakingSummaryView({
                     <>
                       <Badge
                         variant="outline"
-                        className="text-amber-600 dark:text-amber-400 border-amber-500/30 bg-amber-500/10 text-xs"
+                        className="text-amber-800 dark:text-amber-300 font-semibold border-amber-500/30 bg-amber-500/10 text-xs"
                       >
                         Chưa ghi âm
                       </Badge>
@@ -273,8 +273,8 @@ export function SpeakingSummaryView({
               className={cn(
                 "text-xs py-1 px-2.5 font-semibold",
                 isAllAnswered
-                  ? "bg-emerald-600 hover:bg-emerald-600 text-white"
-                  : "bg-amber-600 hover:bg-amber-600 text-white"
+                  ? "bg-emerald-700 hover:bg-emerald-800 text-white"
+                  : "bg-amber-700 hover:bg-amber-800 text-white"
               )}
             >
               {totalAnswered}/{allQuestions.length} Câu hoàn thành
@@ -285,13 +285,13 @@ export function SpeakingSummaryView({
 
       <CardContent className="p-5 space-y-6">
         {!isAllAnswered && (
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3 text-amber-900 dark:text-amber-200">
-            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200">
+            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />
             <div className="text-xs space-y-0.5">
               <p className="font-semibold">
                 Bạn còn câu hỏi chưa hoàn thành ghi âm!
               </p>
-              <p className="text-amber-800/80 dark:text-amber-300/80">
+              <p className="text-amber-900 dark:text-amber-200 font-medium">
                 Hãy thu âm đầy đủ các câu hỏi để bài thi được đánh giá trọn vẹn
                 4 tiêu chí IELTS Speaking.
               </p>

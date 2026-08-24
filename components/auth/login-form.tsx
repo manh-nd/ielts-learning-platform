@@ -100,7 +100,7 @@ export function LoginForm({
       {errorMessage && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive dark:bg-destructive/20"
+          className="flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
         >
           <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
           <div className="flex-1 font-medium">{errorMessage}</div>

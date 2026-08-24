@@ -42,7 +42,7 @@ export function AuthCard({
               <GraduationCapIcon className="size-5" />
             </div>
           </div>
-          <span className="text-[0.7rem] font-bold uppercase tracking-widest text-primary/80">
+          <span className="text-[0.7rem] font-bold uppercase tracking-widest text-primary">
             {brandName}
           </span>
           <CardTitle className="text-xl font-bold tracking-tight text-foreground">

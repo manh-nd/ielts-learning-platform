@@ -88,6 +88,7 @@ export function WritingScratchpad({
             variant="ghost"
             size="sm"
             onClick={onClose}
+            aria-label="Đóng nháp"
             className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
             data-testid="close-scratchpad-btn"
           >

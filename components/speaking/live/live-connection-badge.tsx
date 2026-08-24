@@ -21,9 +21,12 @@ export function LiveConnectionBadge({
       <Badge
         variant="outline"
         data-testid="live-status-badge"
-        className={cn("gap-1.5 text-xs text-muted-foreground", className)}
+        className={cn(
+          "gap-1.5 text-xs text-foreground/80 font-medium",
+          className
+        )}
       >
-        <Radio className="w-3 h-3 text-muted-foreground" />
+        <Radio className="w-3 h-3 text-primary" />
         Sẵn sàng kết nối
       </Badge>
     );
@@ -35,7 +38,7 @@ export function LiveConnectionBadge({
         variant="outline"
         data-testid="live-status-badge"
         className={cn(
-          "gap-1.5 text-xs border-amber-500/30 text-amber-600 dark:text-amber-400 animate-pulse",
+          "gap-1.5 text-xs border-amber-500/30 text-amber-800 dark:text-amber-300 font-semibold animate-pulse",
           className
         )}
       >
@@ -51,7 +54,7 @@ export function LiveConnectionBadge({
         variant="outline"
         data-testid="live-status-badge"
         className={cn(
-          "gap-1.5 text-xs border-blue-500/30 text-blue-600 dark:text-blue-400 animate-pulse",
+          "gap-1.5 text-xs border-blue-500/30 text-blue-800 dark:text-blue-300 font-semibold animate-pulse",
           className
         )}
       >
@@ -67,7 +70,7 @@ export function LiveConnectionBadge({
         <Badge
           data-testid="live-status-badge"
           className={cn(
-            "gap-1.5 text-xs bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm animate-pulse border-none",
+            "gap-1.5 text-xs bg-indigo-700 text-white hover:bg-indigo-800 shadow-sm animate-pulse border-none",
             className
           )}
         >
@@ -82,7 +85,7 @@ export function LiveConnectionBadge({
         <Badge
           data-testid="live-status-badge"
           className={cn(
-            "gap-1.5 text-xs bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm animate-pulse border-none",
+            "gap-1.5 text-xs bg-emerald-700 text-white hover:bg-emerald-800 shadow-sm animate-pulse border-none",
             className
           )}
         >
@@ -96,7 +99,7 @@ export function LiveConnectionBadge({
       <Badge
         data-testid="live-status-badge"
         className={cn(
-          "gap-1.5 text-xs bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30",
+          "gap-1.5 text-xs bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300",
           className
         )}
       >

@@ -27,7 +27,7 @@ The specific SubmissionAttempt locked in and evaluated when the Teacher starts r
 _Avoid_: TargetAttempt, LockedAttempt
 
 **HomeworkAssessment**:
-The root record governing the full assessment lifecycle for a single ReviewedAttempt — from AI proposal through Teacher evaluation, approval, and publication.
+The root record governing the full assessment lifecycle for a single ReviewedAttempt — from AI proposal through Teacher evaluation and publication.
 _Avoid_: AssessmentRecord, GradingSession, ReviewResult
 
 ### Assessment Lifecycle & Proposals
@@ -40,12 +40,8 @@ _Avoid_: AssessmentResult, AIScore, SystemGrade
 The professional evaluation created, verified, or corrected by a Teacher.
 _Avoid_: ManualGrade, FinalScore
 
-**ApprovedAssessment**:
-An assessment whose scores and feedback have been formally confirmed by the Teacher as ready, but not yet visible to the Learner.
-_Avoid_: VerifiedAssessment, ConfirmedResult
-
 **PublishedAssessment**:
-The official, finalized assessment visible to the Learner.
+The official assessment visible to the Learner immediately after the Teacher completes review by choosing “Duyệt”.
 _Avoid_: PublicGrade, FinalResult
 
 **EvaluationFeedback (AI Feedback Dataset)**:

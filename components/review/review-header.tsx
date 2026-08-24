@@ -126,7 +126,7 @@ export function ReviewHeader({
               }
               className={cn(
                 "gap-1 py-0.5 px-2 text-[10px] font-medium",
-                isPublished && "bg-emerald-600 text-white",
+                isPublished && "bg-emerald-700 text-white",
                 isApproved &&
                   "bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/60 dark:text-purple-200",
                 status === "in_review" &&
@@ -167,7 +167,7 @@ export function ReviewHeader({
             }
             className={cn(
               "hidden lg:inline-flex gap-1 py-1 px-2.5 text-xs font-medium shrink-0",
-              isPublished && "bg-emerald-600 text-white",
+              isPublished && "bg-emerald-700 text-white",
               isApproved &&
                 "bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/60 dark:text-purple-200",
               status === "in_review" &&
@@ -215,7 +215,7 @@ export function ReviewHeader({
                 variant="default"
                 size="xs"
                 onClick={onPublishClick}
-                className="text-[11px] sm:text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shrink-0 ml-auto lg:ml-0"
+                className="text-[11px] sm:text-xs gap-1 bg-emerald-700 hover:bg-emerald-800 text-white font-medium shrink-0 ml-auto lg:ml-0"
               >
                 <Send className="h-3.5 w-3.5" />
                 <span>Công bố kết quả</span>

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, userEvent, within, fn } from "@storybook/test";
+import { expect, userEvent, within, fn } from "storybook/test";
 import { OAuthGoogleButton } from "./oauth-google-button";
 
 const meta: Meta<typeof OAuthGoogleButton> = {

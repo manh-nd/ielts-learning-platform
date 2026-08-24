@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, within, userEvent, fn } from "@storybook/test";
+import { expect, within, userEvent, fn } from "storybook/test";
 import { SpeakingPracticeSuite } from "./speaking-practice-suite";
 import { SpeakingTestConfig } from "./types";
 
@@ -204,8 +204,9 @@ export const InteractiveFullTestPlay: Story = {
     const submitBtn = canvas.getByTestId("submit-speaking-test-btn");
     await userEvent.click(submitBtn);
 
-    // 15. Confirm submit
-    const confirmFinalSubmitBtn = canvas.getByTestId(
+    // 15. Confirm submit (dialog renders in portal on document.body)
+    const bodyCanvas = within(canvasElement.ownerDocument.body);
+    const confirmFinalSubmitBtn = await bodyCanvas.findByTestId(
       "confirm-final-submit-btn"
     );
     await userEvent.click(confirmFinalSubmitBtn);

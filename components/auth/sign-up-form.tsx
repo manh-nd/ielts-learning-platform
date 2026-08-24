@@ -134,7 +134,7 @@ export function SignUpForm({
       {errorMessage && (
         <div
           role="alert"
-          className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive dark:bg-destructive/20"
+          className="flex items-start gap-2 rounded-lg border border-rose-300 bg-rose-50 p-3 text-xs text-rose-900 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200"
         >
           <AlertCircleIcon className="size-4 shrink-0 mt-0.5" />
           <div className="flex-1 font-medium">{errorMessage}</div>
@@ -254,9 +254,12 @@ export function SignUpForm({
                 <span
                   className={cn(
                     "font-semibold",
-                    passwordStrength.score === 1 && "text-destructive",
-                    passwordStrength.score === 2 && "text-amber-500",
-                    passwordStrength.score >= 3 && "text-emerald-500"
+                    passwordStrength.score === 1 &&
+                      "text-rose-700 dark:text-rose-300",
+                    passwordStrength.score === 2 &&
+                      "text-amber-800 dark:text-amber-300",
+                    passwordStrength.score >= 3 &&
+                      "text-emerald-800 dark:text-emerald-300"
                   )}
                 >
                   {passwordStrength.label}
@@ -266,11 +269,10 @@ export function SignUpForm({
                 {[1, 2, 3, 4].map((step) => {
                   let barColor = "bg-muted";
                   if (passwordStrength.score >= step) {
-                    if (passwordStrength.score === 1)
-                      barColor = "bg-destructive";
+                    if (passwordStrength.score === 1) barColor = "bg-rose-600";
                     else if (passwordStrength.score === 2)
-                      barColor = "bg-amber-500";
-                    else barColor = "bg-emerald-500";
+                      barColor = "bg-amber-600";
+                    else barColor = "bg-emerald-600";
                   }
                   return (
                     <div
@@ -290,7 +292,7 @@ export function SignUpForm({
                   className={cn(
                     "flex items-center gap-1",
                     passwordStrength.criteria.minLength
-                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                      ? "text-emerald-800 dark:text-emerald-300 font-medium"
                       : "text-muted-foreground"
                   )}
                 >
@@ -305,7 +307,7 @@ export function SignUpForm({
                   className={cn(
                     "flex items-center gap-1",
                     passwordStrength.criteria.hasUppercase
-                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                      ? "text-emerald-800 dark:text-emerald-300 font-medium"
                       : "text-muted-foreground"
                   )}
                 >
@@ -320,7 +322,7 @@ export function SignUpForm({
                   className={cn(
                     "flex items-center gap-1",
                     passwordStrength.criteria.hasLowercase
-                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                      ? "text-emerald-800 dark:text-emerald-300 font-medium"
                       : "text-muted-foreground"
                   )}
                 >
@@ -335,7 +337,7 @@ export function SignUpForm({
                   className={cn(
                     "flex items-center gap-1",
                     passwordStrength.criteria.hasNumberOrSpecial
-                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                      ? "text-emerald-800 dark:text-emerald-300 font-medium"
                       : "text-muted-foreground"
                   )}
                 >

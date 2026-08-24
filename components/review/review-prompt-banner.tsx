@@ -60,7 +60,7 @@ export function ReviewPromptBanner({
           </span>
           <Badge
             variant="outline"
-            className="text-[9px] sm:text-[10px] text-amber-600 border-amber-300 dark:border-amber-700 shrink-0 gap-1 hidden sm:inline-flex"
+            className="text-[9px] sm:text-[10px] text-amber-800 border-amber-400 bg-amber-50/50 dark:text-amber-300 dark:border-amber-700 dark:bg-amber-950/40 shrink-0 gap-1 hidden sm:inline-flex"
           >
             <Award className="h-2.5 w-2.5" />
             <span>Mục tiêu: {targetBand.toFixed(1)}</span>

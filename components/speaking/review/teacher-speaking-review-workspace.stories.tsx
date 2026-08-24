@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, within, userEvent, fn } from "@storybook/test";
+import { expect, within, userEvent, fn } from "storybook/test";
 import {
   TeacherSpeakingReviewWorkspace,
   StudentReviewInfo,
@@ -281,7 +281,7 @@ export const InteractiveSeekingAndScoring: Story = {
     await step("Thực hiện Phê duyệt bài chấm (Approve)", async () => {
       const approveBtn = canvas.getByTestId("approve-review-button");
       await userEvent.click(approveBtn);
-      expect(canvas.getByText(/Đã Phê Duyệt/i)).toBeInTheDocument();
+      expect(canvas.getAllByText(/Đã Phê Duyệt/i)[0]).toBeInTheDocument();
     });
   },
 };

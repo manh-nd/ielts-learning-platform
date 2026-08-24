@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, within } from "@storybook/test";
+import { expect, within } from "storybook/test";
 import { FeedbackDiffViewer } from "./feedback-diff-viewer";
 import type { AssessmentScores, FeedbackDiffItem } from "./types";
 
