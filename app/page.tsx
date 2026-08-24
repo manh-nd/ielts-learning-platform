@@ -9,8 +9,9 @@ import {
   KeyRoundIcon,
   UserCheckIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
   return (
@@ -41,16 +42,16 @@ export default function Home() {
             >
               Đăng nhập
             </Link>
-            <Button
-              size="sm"
-              className="h-8 px-3.5 text-xs font-medium cursor-pointer"
-              render={
-                <Link href="/signup">
-                  <span>Bắt đầu ngay</span>
-                  <ArrowRightIcon className="size-3 ml-1" />
-                </Link>
-              }
-            />
+            <Link
+              href="/signup"
+              className={cn(
+                buttonVariants({ size: "sm" }),
+                "h-8 px-3.5 text-xs font-medium cursor-pointer"
+              )}
+            >
+              <span>Bắt đầu ngay</span>
+              <ArrowRightIcon className="size-3 ml-1" />
+            </Link>
           </nav>
         </div>
       </header>
@@ -78,27 +79,26 @@ export default function Home() {
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2 w-full max-w-xs sm:max-w-md">
-          <Button
-            size="lg"
-            className="w-full sm:w-auto h-11 px-6 font-semibold text-sm justify-center gap-2 cursor-pointer shadow-md"
-            render={
-              <Link href="/signup">
-                <span>Tạo tài khoản Học viên</span>
-                <ArrowRightIcon className="size-4" />
-              </Link>
-            }
-          />
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full sm:w-auto h-11 px-6 font-medium text-sm justify-center gap-2 cursor-pointer"
-            render={
-              <Link href="/login">
-                <ShieldCheckIcon className="size-4 text-primary" />
-                <span>Đăng nhập hệ thống</span>
-              </Link>
-            }
-          />
+          <Link
+            href="/signup"
+            className={cn(
+              buttonVariants({ size: "lg" }),
+              "w-full sm:w-auto h-11 px-6 font-semibold text-sm justify-center gap-2 cursor-pointer shadow-md"
+            )}
+          >
+            <span>Tạo tài khoản Học viên</span>
+            <ArrowRightIcon className="size-4" />
+          </Link>
+          <Link
+            href="/login"
+            className={cn(
+              buttonVariants({ variant: "outline", size: "lg" }),
+              "w-full sm:w-auto h-11 px-6 font-medium text-sm justify-center gap-2 cursor-pointer"
+            )}
+          >
+            <ShieldCheckIcon className="size-4 text-primary" />
+            <span>Đăng nhập hệ thống</span>
+          </Link>
         </div>
 
         {/* Dev Credentials Quick Access Helper */}

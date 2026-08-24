@@ -67,33 +67,44 @@ export async function seedUsers(users: DevSeedUser[] = DEV_SAMPLE_USERS) {
 
       if (existingUsers.length > 0) {
         const existing = existingUsers[0];
-        // Ensure role is correctly synchronized
-        if (existing.role !== targetRole || !existing.emailVerified) {
-          await db
-            .update(schema.user)
-            .set({
-              role: targetRole,
-              emailVerified: true,
-              updatedAt: new Date(),
-            })
-            .where(eq(schema.user.id, existing.id));
-          results.push({
-            name: item.name,
-            email: item.email,
-            role: targetRole,
-            status: "updated",
-            passwordHint: item.password,
-          });
+        const existingAccounts = await db
+          .select()
+          .from(schema.account)
+          .where(eq(schema.account.userId, existing.id));
+
+        if (existingAccounts.length === 0) {
+          // User exists but has no password account (e.g. from previous interrupted seed)
+          // Delete incomplete record so auth.api.signUpEmail creates user + account cleanly
+          await db.delete(schema.user).where(eq(schema.user.id, existing.id));
         } else {
-          results.push({
-            name: item.name,
-            email: item.email,
-            role: targetRole,
-            status: "exists",
-            passwordHint: item.password,
-          });
+          // Ensure role and emailVerified are correctly synchronized
+          if (existing.role !== targetRole || !existing.emailVerified) {
+            await db
+              .update(schema.user)
+              .set({
+                role: targetRole,
+                emailVerified: true,
+                updatedAt: new Date(),
+              })
+              .where(eq(schema.user.id, existing.id));
+            results.push({
+              name: item.name,
+              email: item.email,
+              role: targetRole,
+              status: "updated",
+              passwordHint: item.password,
+            });
+          } else {
+            results.push({
+              name: item.name,
+              email: item.email,
+              role: targetRole,
+              status: "exists",
+              passwordHint: item.password,
+            });
+          }
+          continue;
         }
-        continue;
       }
 
       // 2. Create new user via Better Auth API

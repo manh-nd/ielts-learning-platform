@@ -18,21 +18,36 @@ export async function proxy(request: NextRequest) {
   }
 
   // 2. Check for session token in request cookies
-  const sessionToken = getSessionCookie(request);
+  const isDevOrTest =
+    process.env.NODE_ENV !== "production" ||
+    process.env.ENABLE_E2E_MOCK_AUTH === "true";
+  const e2eMockSession = isDevOrTest
+    ? request.cookies.get("e2e_mock_session")?.value
+    : undefined;
+  const sessionToken = getSessionCookie(request) || e2eMockSession;
   const isAuthenticated = Boolean(sessionToken);
 
   // 3. Extract cached user data if available in Proxy (Optimistic Check)
   let userRole: string | undefined;
   if (isAuthenticated) {
-    try {
-      const cached = await getCookieCache(request, {
-        secret: process.env.BETTER_AUTH_SECRET,
-        strategy: "compact",
-      });
-      userRole = (cached?.user as { role?: string } | undefined)?.role;
-    } catch {
-      // Cookie cache decode error or secret missing; fallback to unverified role at proxy
-      userRole = undefined;
+    if (isDevOrTest && e2eMockSession) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(e2eMockSession));
+        userRole = decoded?.user?.role;
+      } catch {
+        userRole = undefined;
+      }
+    } else {
+      try {
+        const cached = await getCookieCache(request, {
+          secret: process.env.BETTER_AUTH_SECRET,
+          strategy: "compact",
+        });
+        userRole = (cached?.user as { role?: string } | undefined)?.role;
+      } catch {
+        // Cookie cache decode error or secret missing; fallback to unverified role at proxy
+        userRole = undefined;
+      }
     }
   }
 

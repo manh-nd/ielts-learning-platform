@@ -1,0 +1,90 @@
+import { test, expect } from "@playwright/test";
+import {
+  mockAuthenticatedUser,
+  MOCK_TEACHER,
+  MOCK_LEARNER,
+} from "./fixtures/auth-fixtures";
+
+test.describe("Protected Routes & Role Authorization", () => {
+  test.describe("Unauthenticated Access Protection", () => {
+    test("should redirect unauthenticated visitor from /teacher/review to /login", async ({
+      page,
+    }) => {
+      await page.goto("/teacher/review");
+      await expect(page).toHaveURL(/\/login\?redirectTo=%2Fteacher%2Freview/);
+      await expect(
+        page.getByText("Đăng nhập tài khoản", { exact: true })
+      ).toBeVisible();
+    });
+
+    test("should redirect unauthenticated visitor from /learner/dashboard to /login", async ({
+      page,
+    }) => {
+      await page.goto("/learner/dashboard");
+      await expect(page).toHaveURL(
+        /\/login\?redirectTo=%2Flearner%2Fdashboard/
+      );
+      await expect(
+        page.getByText("Đăng nhập tài khoản", { exact: true })
+      ).toBeVisible();
+    });
+  });
+
+  test.describe("Role-Based Dashboard Navigation (Mocked Session)", () => {
+    test("should allow Teacher to access /teacher/review and display teacher workspace", async ({
+      page,
+    }) => {
+      await mockAuthenticatedUser(page, MOCK_TEACHER);
+      await page.goto("/teacher/review");
+
+      // Verify header & brand
+      await expect(page.getByText("IELTS Master").first()).toBeVisible();
+
+      // Verify review workspace elements
+      await expect(
+        page.getByText(/Không gian Chấm bài & Phản hồi Chuyên sâu/i)
+      ).toBeVisible();
+      await expect(page.getByText("Nguyễn Minh Khang")).toBeVisible();
+    });
+
+    test("should allow Learner to access /learner/dashboard and display practice options", async ({
+      page,
+    }) => {
+      await mockAuthenticatedUser(page, MOCK_LEARNER);
+      await page.goto("/learner/dashboard");
+
+      // Verify dashboard content
+      await expect(page.locator("h1")).toContainText("Xin chào");
+      await expect(
+        page.getByText("IELTS Speaking Live AI Examiner")
+      ).toBeVisible();
+      await expect(
+        page.getByText("IELTS Writing Essay Assessment")
+      ).toBeVisible();
+    });
+
+    test("should handle user dropdown menu and trigger logout", async ({
+      page,
+    }) => {
+      await mockAuthenticatedUser(page, MOCK_TEACHER);
+      await page.goto("/teacher/review");
+
+      // Open user dropdown menu
+      const userMenuTrigger = page.locator(
+        "button[aria-label='Menu tài khoản']"
+      );
+      await expect(userMenuTrigger).toBeVisible();
+      await userMenuTrigger.click();
+
+      // Verify menu content
+      await expect(page.getByText(MOCK_TEACHER.name).first()).toBeVisible();
+      await expect(page.getByText("Giáo viên").first()).toBeVisible();
+
+      // Click logout
+      const logoutItem = page.getByRole("menuitem", { name: /Đăng xuất/i });
+      await logoutItem.click();
+
+      await expect(page).toHaveURL(/\/login/);
+    });
+  });
+});

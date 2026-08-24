@@ -116,59 +116,61 @@ export function TeacherReviewWorkspace({
   const diffItems = useMemo<FeedbackDiffItem[]>(() => {
     const diffs: FeedbackDiffItem[] = [];
 
-    // Check AI annotations
-    initialAnnotations.forEach((aiAnn) => {
-      const current = annotations.find((a) => a.errorId === aiAnn.errorId);
-      if (!current) {
-        diffs.push({
-          errorId: aiAnn.errorId,
-          criterion: aiAnn.criterion,
-          originalQuote: aiAnn.originalQuote || "",
-          aiSuggestedCorrection: aiAnn.suggestedCorrection,
-          teacherFinalText: "[Đã loại bỏ đề xuất này]",
-          explanation: aiAnn.explanation,
-          resolution: "rejected",
-          teacherNote: "Giáo viên xác định không phải lỗi nghiêm trọng.",
-        });
-      } else if (current.isResolved) {
-        diffs.push({
-          errorId: aiAnn.errorId,
-          criterion: aiAnn.criterion,
-          originalQuote: aiAnn.originalQuote || "",
-          aiSuggestedCorrection: aiAnn.suggestedCorrection,
-          teacherFinalText: current.suggestedCorrection || "",
-          explanation: current.explanation,
-          resolution: "accepted",
-          teacherNote: "Đã chấp nhận và áp dụng gợi ý sửa của AI.",
-        });
-      } else if (
-        current.suggestedCorrection !== aiAnn.suggestedCorrection ||
-        current.explanation !== aiAnn.explanation ||
-        current.severity !== aiAnn.severity
-      ) {
-        diffs.push({
-          errorId: aiAnn.errorId,
-          criterion: aiAnn.criterion,
-          originalQuote: aiAnn.originalQuote || "",
-          aiSuggestedCorrection: aiAnn.suggestedCorrection,
-          teacherFinalText: current.suggestedCorrection || "",
-          explanation: current.explanation,
-          resolution: "modified",
-          teacherNote: "Giáo viên đã sửa lại đề xuất chẩn đoán.",
-        });
-      } else {
-        diffs.push({
-          errorId: aiAnn.errorId,
-          criterion: aiAnn.criterion,
-          originalQuote: aiAnn.originalQuote || "",
-          aiSuggestedCorrection: aiAnn.suggestedCorrection,
-          teacherFinalText: aiAnn.suggestedCorrection,
-          explanation: aiAnn.explanation,
-          resolution: "accepted",
-          teacherNote: "Giữ nguyên đề xuất của AI.",
-        });
-      }
-    });
+    // Check AI annotations (excluding teacher-authored ones)
+    initialAnnotations
+      .filter((a) => a.source !== "teacher")
+      .forEach((aiAnn) => {
+        const current = annotations.find((a) => a.errorId === aiAnn.errorId);
+        if (!current) {
+          diffs.push({
+            errorId: aiAnn.errorId,
+            criterion: aiAnn.criterion,
+            originalQuote: aiAnn.originalQuote || "",
+            aiSuggestedCorrection: aiAnn.suggestedCorrection,
+            teacherFinalText: "[Đã loại bỏ đề xuất này]",
+            explanation: aiAnn.explanation,
+            resolution: "rejected",
+            teacherNote: "Giáo viên xác định không phải lỗi nghiêm trọng.",
+          });
+        } else if (current.isResolved) {
+          diffs.push({
+            errorId: aiAnn.errorId,
+            criterion: aiAnn.criterion,
+            originalQuote: aiAnn.originalQuote || "",
+            aiSuggestedCorrection: aiAnn.suggestedCorrection,
+            teacherFinalText: current.suggestedCorrection || "",
+            explanation: current.explanation,
+            resolution: "accepted",
+            teacherNote: "Đã chấp nhận và áp dụng gợi ý sửa của AI.",
+          });
+        } else if (
+          current.suggestedCorrection !== aiAnn.suggestedCorrection ||
+          current.explanation !== aiAnn.explanation ||
+          current.severity !== aiAnn.severity
+        ) {
+          diffs.push({
+            errorId: aiAnn.errorId,
+            criterion: aiAnn.criterion,
+            originalQuote: aiAnn.originalQuote || "",
+            aiSuggestedCorrection: aiAnn.suggestedCorrection,
+            teacherFinalText: current.suggestedCorrection || "",
+            explanation: current.explanation,
+            resolution: "modified",
+            teacherNote: "Giáo viên đã sửa lại đề xuất chẩn đoán.",
+          });
+        } else {
+          diffs.push({
+            errorId: aiAnn.errorId,
+            criterion: aiAnn.criterion,
+            originalQuote: aiAnn.originalQuote || "",
+            aiSuggestedCorrection: aiAnn.suggestedCorrection,
+            teacherFinalText: aiAnn.suggestedCorrection,
+            explanation: aiAnn.explanation,
+            resolution: "accepted",
+            teacherNote: "Giữ nguyên đề xuất của AI.",
+          });
+        }
+      });
 
     // Check teacher-added annotations
     annotations

@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 export interface SignUpFormProps {
   onSubmit?: (data: SignUpFormData) => void | Promise<void>;
   onGoogleSignIn?: () => void | Promise<void>;
+  showGoogleOAuth?: boolean;
   isLoading?: boolean;
   isGoogleLoading?: boolean;
   errorMessage?: string | null;
@@ -33,6 +34,7 @@ export interface SignUpFormProps {
 export function SignUpForm({
   onSubmit,
   onGoogleSignIn,
+  showGoogleOAuth = false,
   isLoading = false,
   isGoogleLoading = false,
   errorMessage = null,
@@ -109,21 +111,24 @@ export function SignUpForm({
 
   return (
     <div className={cn("space-y-4", className)}>
-      {/* OAuth Button */}
-      <OAuthGoogleButton
-        onClick={onGoogleSignIn}
-        isLoading={isGoogleLoading}
-        disabled={isLoading}
-        label="Đăng ký với Google"
-      />
+      {/* OAuth Button & Divider (Only if enabled) */}
+      {showGoogleOAuth && (
+        <>
+          <OAuthGoogleButton
+            onClick={onGoogleSignIn}
+            isLoading={isGoogleLoading}
+            disabled={isLoading}
+            label="Đăng ký với Google"
+          />
 
-      {/* Divider */}
-      <div className="relative flex items-center justify-center">
-        <div className="w-full border-t border-border/60" />
-        <span className="absolute bg-card px-2 text-[0.7rem] uppercase tracking-wider text-muted-foreground">
-          hoặc điền thông tin
-        </span>
-      </div>
+          <div className="relative flex items-center justify-center">
+            <div className="w-full border-t border-border/60" />
+            <span className="absolute bg-card px-2 text-[0.7rem] uppercase tracking-wider text-muted-foreground">
+              hoặc điền thông tin
+            </span>
+          </div>
+        </>
+      )}
 
       {/* Server Error Banner */}
       {errorMessage && (

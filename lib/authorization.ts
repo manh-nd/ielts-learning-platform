@@ -12,7 +12,33 @@ export async function getServerSession(
   reqHeaders?: Headers
 ): Promise<Session | null> {
   const h = reqHeaders ?? (await headers());
-  return auth.api.getSession({ headers: h });
+
+  // In non-production environments or E2E mock test mode, support mock sessions via cookie
+  const isDevOrTest =
+    process.env.NODE_ENV !== "production" ||
+    process.env.ENABLE_E2E_MOCK_AUTH === "true";
+
+  if (isDevOrTest) {
+    const cookieStr = h.get("cookie") || "";
+    const mockUserMatch = cookieStr.match(/e2e_mock_session=([^;]+)/);
+    if (mockUserMatch) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(mockUserMatch[1]));
+        if (decoded?.user && decoded?.session) {
+          return decoded as Session;
+        }
+      } catch {
+        // Fallback to real Better Auth lookup
+      }
+    }
+  }
+
+  try {
+    return await auth.api.getSession({ headers: h });
+  } catch {
+    // If DB is down or connection refused, gracefully return null
+    return null;
+  }
 }
 
 /**

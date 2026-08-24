@@ -374,14 +374,14 @@ export function FeedbackDiffViewer({
               Không có lỗi nào thuộc danh mục này.
             </div>
           ) : (
-            filteredItems.map((item) => {
+            filteredItems.map((item, index) => {
               const critMeta = CRITERION_META[item.criterion];
               const resMeta = RESOLUTION_META[item.resolution];
               const ResIcon = resMeta.icon;
 
               return (
                 <div
-                  key={item.errorId}
+                  key={`${item.errorId}-${item.resolution}-${index}`}
                   className={cn(
                     "rounded-lg border bg-background p-3.5 text-xs transition-all space-y-2",
                     resMeta.borderClass

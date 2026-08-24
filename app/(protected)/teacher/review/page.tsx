@@ -75,7 +75,20 @@ export default async function TeacherReviewPage() {
           aiScores={sampleAiScores}
           initialAnnotations={[
             {
-              errorId: "anno-1",
+              errorId: "ai-anno-1",
+              criterion: "GRAMMATICAL_RANGE_ACCURACY",
+              category: "Sự hòa hợp chủ ngữ - vị ngữ (Subject-Verb Agreement)",
+              severity: "minor_slip",
+              originalQuote: "has been a subject",
+              suggestedCorrection: "have been a subject",
+              explanation:
+                "Chủ ngữ 'unpaid community activities' là danh từ số nhiều, nên động từ cần chia là 'have been'.",
+              source: "ai",
+              offsetStart: 80,
+              offsetEnd: 98,
+            },
+            {
+              errorId: "teacher-anno-1",
               criterion: "LEXICAL_RESOURCE",
               category: "Nâng cấp từ vựng C1/C2 (Advanced Lexicon)",
               severity: "minor_slip",
