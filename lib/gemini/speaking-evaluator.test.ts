@@ -86,6 +86,8 @@ const mockValidScorecard = {
         "Focus on complex conditional drills",
         "Pronunciation shadowing",
       ],
+      practiceMonologue:
+        "Growing up in Hanoi, I was constantly surrounded by rich historical architecture and a dynamic modern vibe, which shaped my appreciation for cultural heritage.",
     },
   },
   partEvaluations: [

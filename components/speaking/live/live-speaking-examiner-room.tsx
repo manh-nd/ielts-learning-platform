@@ -1,6 +1,7 @@
 "use client";
 
-import { Sparkles, User, ShieldCheck } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Sparkles, User, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -11,46 +12,173 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { LiveConnectionBadge } from "./live-connection-badge";
 import { LiveTranscriptStream } from "./live-transcript-stream";
 import { LiveSessionControls } from "./live-session-controls";
+import { LiveSpeakingCueCardModal } from "./live-speaking-cue-card-modal";
+import { LiveSpeakingResultView } from "./live-speaking-result-view";
 import { useGeminiLive } from "./use-gemini-live";
 import { LiveSpeakingConfig } from "./types";
+import { IeltsSpeakingEvaluationResult } from "@/lib/gemini/speaking-schema";
 
 export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
   title?: string;
   subtitle?: string;
   className?: string;
+  onBackToDashboard?: () => void;
+  onRestart?: () => void;
 }
 
 export function LiveSpeakingExaminerRoom({
   title = "Phòng Thi Thử IELTS Speaking Trực Tiếp",
   subtitle = "Đối thoại thời gian thực 1-on-1 với Giám khảo AI (Gemini 3.1 Flash Live)",
   candidateName = "Thí sinh",
+  topic,
   targetPart = "full",
   mockMode = false,
   className,
+  onBackToDashboard,
+  onRestart,
   ...config
 }: LiveSpeakingExaminerRoomProps) {
   const {
     status,
     voiceActivity,
+    examStage,
+    part2Phase,
+    cueCardData,
+    prepTimeRemaining,
+    scratchpadNotes,
     transcripts,
     isMuted,
     isNoiseSuppressionActive,
     inputVolume,
+    recordedAudio,
     connect,
     disconnect,
     toggleMute,
     toggleNoiseSuppression,
+    setScratchpadNotes,
+    finishPart2PrepEarly,
   } = useGeminiLive({
     candidateName,
+    topic,
     targetPart,
     mockMode,
     ...config,
   });
 
+  const [evaluationResult, setEvaluationResult] =
+    useState<IeltsSpeakingEvaluationResult | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  const [isExamFinished, setIsExamFinished] = useState<boolean>(false);
+
   const isConnected = status === "connected";
+
+  // Dispatch evaluation request to server
+  const triggerEvaluation = useCallback(
+    async (audioBase64?: string, audioDuration?: number) => {
+      setIsEvaluating(true);
+      setEvalError(null);
+
+      try {
+        const payload = {
+          topicTitle: topic?.title || "General IELTS Speaking Mock Test",
+          candidateName,
+          transcripts: transcripts.map((t) => ({
+            sender: t.sender,
+            text: t.text,
+            timestamp: t.timestamp,
+          })),
+          part1Question:
+            topic?.part1.questions[0] || "Introduction and interview questions",
+          part2Topic: topic?.part2.topicTitle || "Individual long turn topic",
+          part3Theme: topic?.part3.theme || "Two-way discussion topic",
+          audioBase64: audioBase64 || "",
+          durationSeconds: audioDuration || 120,
+        };
+
+        const res = await fetch("/api/speaking/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(
+            errData.message || `Lỗi khi chấm điểm (${res.status})`
+          );
+        }
+
+        const data = (await res.json()) as {
+          result: IeltsSpeakingEvaluationResult;
+        };
+        setEvaluationResult(data.result);
+      } catch (err: unknown) {
+        console.error("[LiveExaminerRoom] Evaluation failed:", err);
+        setEvalError(
+          (err as Error)?.message || "Không thể thực hiện chấm điểm tự động."
+        );
+      } finally {
+        setIsEvaluating(false);
+      }
+    },
+    [candidateName, topic, transcripts]
+  );
+
+  // Finish exam manually or automatically
+  const handleFinishExam = useCallback(async () => {
+    disconnect();
+    setIsExamFinished(true);
+
+    // Convert recorded audio to Base64 if available
+    let base64Audio = "";
+    if (recordedAudio?.blob) {
+      try {
+        const reader = new FileReader();
+        base64Audio = await new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            const res = reader.result as string;
+            const commaIndex = res.indexOf(",");
+            resolve(commaIndex !== -1 ? res.slice(commaIndex + 1) : res);
+          };
+          reader.readAsDataURL(recordedAudio.blob);
+        });
+      } catch (readErr) {
+        console.warn(
+          "[LiveExaminerRoom] Could not read recorded audio blob:",
+          readErr
+        );
+      }
+    }
+
+    await triggerEvaluation(base64Audio, recordedAudio?.durationSeconds);
+  }, [disconnect, recordedAudio, triggerEvaluation]);
+
+  // If exam has finished, display the comprehensive Result View
+  if (isExamFinished || examStage === "completed") {
+    return (
+      <LiveSpeakingResultView
+        evaluationResult={evaluationResult}
+        isLoading={isEvaluating}
+        error={evalError}
+        recordedAudio={recordedAudio}
+        transcripts={transcripts}
+        onRetryEvaluation={() => triggerEvaluation()}
+        onRestartTest={() => {
+          setIsExamFinished(false);
+          setEvaluationResult(null);
+          onRestart?.();
+        }}
+        onBackToDashboard={() => {
+          onBackToDashboard?.();
+        }}
+      />
+    );
+  }
 
   return (
     <Card
@@ -62,22 +190,28 @@ export function LiveSpeakingExaminerRoom({
       )}
     >
       {/* Header */}
-      <CardHeader className="px-6 py-4 border-b bg-muted/20">
+      <CardHeader className="px-5 py-3.5 border-b bg-muted/20">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <CardTitle className="text-base font-bold text-foreground flex items-center gap-1.5">
+              <CardTitle className="text-sm sm:text-base font-bold text-foreground flex items-center gap-1.5">
                 <Sparkles className="w-4 h-4 text-indigo-700 dark:text-indigo-400" />
                 {title}
               </CardTitle>
               <Badge
                 variant="outline"
-                className="text-[10px] font-mono uppercase"
+                className="text-[10px] font-mono uppercase bg-primary/10 text-primary border-primary/30 font-bold"
               >
-                {targetPart === "full"
-                  ? "Full Test (Part 1-3)"
-                  : targetPart.toUpperCase()}
+                Part {examStage}
               </Badge>
+              {topic && (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-medium hidden sm:inline-flex"
+                >
+                  {topic.title}
+                </Badge>
+              )}
             </div>
             <CardDescription className="text-xs text-muted-foreground mt-0.5">
               {subtitle}
@@ -89,43 +223,54 @@ export function LiveSpeakingExaminerRoom({
               status={status}
               voiceActivity={voiceActivity}
             />
+            {isConnected && (
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleFinishExam}
+                className="h-7 text-xs px-2.5 font-medium cursor-pointer"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                <span>Nộp bài & Chấm điểm</span>
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
 
-      {/* Main Content Studio */}
-      <CardContent className="p-6 space-y-5">
+      {/* Main Content Studio with optimized padding */}
+      <CardContent className="p-4 sm:p-5 space-y-4">
         {/* Stage Visualization Area */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           {/* AI Examiner Card */}
           <div
             data-testid="examiner-stage-card"
             className={cn(
-              "flex flex-col items-center justify-center p-6 rounded-2xl border text-center transition-all bg-gradient-to-b from-indigo-500/5 to-transparent",
+              "flex flex-col items-center justify-center p-4 sm:p-5 rounded-xl border text-center transition-all bg-gradient-to-b from-indigo-500/5 to-transparent",
               voiceActivity === "ai_speaking" &&
-                "ring-2 ring-indigo-500 bg-indigo-500/10 shadow-sm"
+                "ring-2 ring-indigo-500 bg-indigo-500/10 shadow-xs"
             )}
           >
-            <div className="relative mb-3">
+            <div className="relative mb-2.5">
               <div
                 className={cn(
-                  "w-16 h-16 rounded-full flex items-center justify-center bg-indigo-600 text-white shadow-md transition-transform",
-                  voiceActivity === "ai_speaking" && "scale-110"
+                  "w-14 h-14 rounded-full flex items-center justify-center bg-indigo-600 text-white shadow-md transition-transform",
+                  voiceActivity === "ai_speaking" && "scale-105"
                 )}
               >
-                <Sparkles className="w-8 h-8" />
+                <Sparkles className="w-7 h-7" />
               </div>
               {voiceActivity === "ai_speaking" && (
                 <span className="absolute inset-0 rounded-full bg-indigo-500/30 animate-ping pointer-events-none" />
               )}
             </div>
 
-            <div className="font-semibold text-sm text-foreground">
+            <div className="font-semibold text-xs sm:text-sm text-foreground">
               Giám khảo IELTS (Dr. Harrison)
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {voiceActivity === "ai_speaking"
-                ? "Đang đặt câu hỏi & lắng nghe phản xạ..."
+                ? "Đang đặt câu hỏi & lắng nghe..."
                 : isConnected
                   ? "Sẵn sàng hội thoại"
                   : "Chưa kết nối"}
@@ -136,26 +281,26 @@ export function LiveSpeakingExaminerRoom({
           <div
             data-testid="candidate-stage-card"
             className={cn(
-              "flex flex-col items-center justify-center p-6 rounded-2xl border text-center transition-all bg-gradient-to-b from-emerald-500/5 to-transparent",
+              "flex flex-col items-center justify-center p-4 sm:p-5 rounded-xl border text-center transition-all bg-gradient-to-b from-emerald-500/5 to-transparent",
               voiceActivity === "user_speaking" &&
-                "ring-2 ring-emerald-500 bg-emerald-500/10 shadow-sm"
+                "ring-2 ring-emerald-500 bg-emerald-500/10 shadow-xs"
             )}
           >
-            <div className="relative mb-3">
+            <div className="relative mb-2.5">
               <div
                 className={cn(
-                  "w-16 h-16 rounded-full flex items-center justify-center bg-primary text-primary-foreground shadow-md transition-transform",
-                  voiceActivity === "user_speaking" && "scale-110"
+                  "w-14 h-14 rounded-full flex items-center justify-center bg-primary text-primary-foreground shadow-md transition-transform",
+                  voiceActivity === "user_speaking" && "scale-105"
                 )}
               >
-                <User className="w-8 h-8" />
+                <User className="w-7 h-7" />
               </div>
               {voiceActivity === "user_speaking" && (
                 <span className="absolute inset-0 rounded-full bg-emerald-500/30 animate-ping pointer-events-none" />
               )}
             </div>
 
-            <div className="font-semibold text-sm text-foreground">
+            <div className="font-semibold text-xs sm:text-sm text-foreground">
               {candidateName}
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
@@ -164,11 +309,23 @@ export function LiveSpeakingExaminerRoom({
                 : voiceActivity === "user_speaking"
                   ? "Đang trả lời câu hỏi..."
                   : isConnected
-                    ? "Microphone đang bật"
+                    ? "Microphone đang bật (Nói tự nhiên)"
                     : "Sẵn sàng"}
             </p>
           </div>
         </div>
+
+        {/* Part 2 Cue Card Modal & Prep Countdown */}
+        {examStage === 2 && cueCardData && (
+          <LiveSpeakingCueCardModal
+            cueCard={cueCardData}
+            phase={part2Phase}
+            prepTimeRemaining={prepTimeRemaining}
+            notes={scratchpadNotes}
+            onNotesChange={setScratchpadNotes}
+            onFinishPrepEarly={finishPart2PrepEarly}
+          />
+        )}
 
         {/* Real-time Subtitle & Transcript Stream */}
         <div className="space-y-1.5">
@@ -190,10 +347,10 @@ export function LiveSpeakingExaminerRoom({
       </CardContent>
 
       {/* Footer Controls */}
-      <CardFooter className="flex items-center justify-between border-t bg-muted/10 px-6 py-4">
+      <CardFooter className="flex items-center justify-between border-t bg-muted/10 px-5 py-3.5">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="w-4 h-4 text-emerald-800 dark:text-emerald-300" />
-          <span>Bảo mật qua Ephemeral Token</span>
+          <span>Gemini 3.1 Flash Live (WebSockets & Native Audio)</span>
         </div>
 
         <LiveSessionControls

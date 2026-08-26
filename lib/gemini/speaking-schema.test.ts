@@ -138,6 +138,8 @@ describe("IELTS Speaking Zod Schemas Validation", () => {
             "Day 1-5: Grammar drills on past tense",
             "Day 6-10: Vocabulary expansion for abstract topics",
           ],
+          practiceMonologue:
+            "I have been deeply passionate about computer science since my teenage years. Navigating complex algorithms not only challenges my critical thinking but also equips me with valuable problem-solving abilities for the evolving tech industry.",
         },
       },
       partEvaluations: [

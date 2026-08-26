@@ -25,7 +25,6 @@ export async function POST() {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              uses: 3,
               expireTime,
             }),
           }

@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, within, userEvent } from "storybook/test";
 import { LiveSpeakingExaminerRoom } from "./live-speaking-examiner-room";
+import { SPEAKING_MOCK_TOPICS } from "@/lib/data/speaking-mock-topics";
 
 const meta = {
   title: "Speaking/Live/LiveSpeakingExaminerRoom",
@@ -14,6 +15,7 @@ const meta = {
     subtitle:
       "Đối thoại thời gian thực 1-on-1 với Giám khảo AI (Gemini 3.1 Flash Live)",
     candidateName: "Nguyễn Văn Mạnh",
+    topic: SPEAKING_MOCK_TOPICS[0],
     targetPart: "full",
     mockMode: true,
   },
@@ -25,12 +27,14 @@ type Story = StoryObj<typeof meta>;
 export const DefaultMockSimulation: Story = {
   args: {
     mockMode: true,
+    topic: SPEAKING_MOCK_TOPICS[0],
   },
 };
 
 export const LiveSessionInteractiveTest: Story = {
   args: {
     mockMode: true,
+    topic: SPEAKING_MOCK_TOPICS[0],
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

@@ -12,6 +12,10 @@ export class AudioStreamPlayer {
   private readonly sampleRate = 24000; // Gemini Live Output PCM rate
   private onStateChange?: (isPlaying: boolean) => void;
 
+  public get isCurrentlyPlaying(): boolean {
+    return this.isPlaying;
+  }
+
   constructor(onStateChange?: (isPlaying: boolean) => void) {
     this.onStateChange = onStateChange;
   }

@@ -37,6 +37,7 @@ You MUST strictly analyze the raw audio acoustics alongside the spoken content a
 CALIBRATION & SCORING RULES:
 - Band scores MUST be given in increments of 0.5 (e.g. 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0).
 - Do NOT inflate scores. A Band 7 candidate must demonstrate frequent error-free sentences and flexible vocabulary.
+- Compile a practiceMonologue (Band 8.0+ Model Speech): Synthesize the core ideas and stories that the candidate expressed across the session into a single, cohesive, high-scoring 120-160 word model monologue. Polish their ideas with C1/C2 vocabulary, natural discourse markers, and complex structures for them to practice shadow reading.
 - Output MUST strictly conform to the provided JSON schema.
 `;
 

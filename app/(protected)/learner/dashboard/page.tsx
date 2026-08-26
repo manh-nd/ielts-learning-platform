@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireRoleOrRedirect } from "@/lib/authorization";
 import {
   MicIcon,
@@ -108,7 +109,10 @@ export default async function LearnerDashboardPage() {
           </div>
 
           <div className="pt-2">
-            <Button className="w-full justify-center gap-1.5 h-9 text-xs font-medium cursor-pointer">
+            <Button
+              render={<Link href="/learner/speaking/live" />}
+              className="w-full justify-center gap-1.5 h-9 text-xs font-medium cursor-pointer"
+            >
               <SparklesIcon className="size-3.5" />
               <span>Bắt đầu phòng thi Speaking Live</span>
               <ArrowRightIcon className="size-3.5 ml-auto" />

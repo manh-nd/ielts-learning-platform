@@ -264,6 +264,11 @@ export const SpeakingOverallScorecardSchema = z.object({
     actionPlan: z
       .array(z.string())
       .describe("Step-by-step 2-week study plan to reach next target band"),
+    practiceMonologue: z
+      .string()
+      .describe(
+        "Synthesizes all thoughts, experiences, and arguments expressed by the candidate across the session into a single cohesive, high-scoring IELTS Band 8.0+ model speech (120-160 words) for shadow reading practice."
+      ),
   }),
 });
 export type SpeakingOverallScorecard = z.infer<
@@ -494,12 +499,18 @@ export const speakingEvaluationJsonSchema = {
             keyStrengths: { type: "array", items: { type: "string" } },
             priorityImprovements: { type: "array", items: { type: "string" } },
             actionPlan: { type: "array", items: { type: "string" } },
+            practiceMonologue: {
+              type: "string",
+              description:
+                "Band 8.0+ model monologue synthesizing candidate's ideas for shadow reading practice",
+            },
           },
           required: [
             "executiveSummary",
             "keyStrengths",
             "priorityImprovements",
             "actionPlan",
+            "practiceMonologue",
           ],
         },
       },
