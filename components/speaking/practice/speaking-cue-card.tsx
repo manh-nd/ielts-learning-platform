@@ -23,17 +23,17 @@ export function SpeakingCueCard({
     <Card
       data-testid="speaking-cue-card"
       className={cn(
-        "border-2 border-primary/20 bg-card shadow-sm overflow-hidden p-0 py-0 gap-0",
+        "border-2 border-primary/20 bg-card shadow-sm overflow-hidden py-0 gap-0",
         className
       )}
     >
       <CardHeader
         className={cn(
-          "bg-primary/5 px-5 py-3.5 [.border-b]:pb-3.5 border-b border-primary/15 flex flex-row items-center justify-between gap-3",
-          isCompact && "px-4 py-2.5 [.border-b]:pb-2.5"
+          "bg-primary/5 p-4 sm:p-5 pb-4 sm:pb-5 sm:[.border-b]:pb-5 border-b border-primary/15 flex flex-row items-center justify-between gap-3",
+          isCompact && "p-3 sm:p-4 pb-3 sm:pb-4 sm:[.border-b]:pb-4"
         )}
       >
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 w-full">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <BookOpen className="w-4 h-4" />
@@ -62,7 +62,10 @@ export function SpeakingCueCard({
       </CardHeader>
 
       <CardContent
-        className={cn("p-4 sm:p-6 space-y-4", isCompact && "p-4 space-y-3")}
+        className={cn(
+          "p-4 sm:p-5 space-y-4",
+          isCompact && "p-3.5 sm:p-4 space-y-3"
+        )}
       >
         {/* Main Topic Question */}
         <div>

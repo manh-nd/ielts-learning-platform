@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { geminiRotator } from "./index";
 import {
   evaluateSpeakingAudio,
+  transcribeSpeakingAudioVerbatim,
   SpeakingAudioInput,
 } from "./speaking-evaluator";
 
@@ -97,12 +98,34 @@ const mockValidScorecard = {
       promptQuestion: "Let's talk about your hometown.",
       candidateTranscript:
         "I was born and raised in Hanoi, the vibrant capital city of Vietnam.",
+      verifiedTranscript:
+        "I was born and raised in Hanoi, the vibrant capital city of Vietnam.",
       partSummary: "Fluently delivered introduction with great lexical choice.",
       pronunciationNotes: [],
       lexicalUpgrades: [],
       grammarCorrections: [],
     },
   ],
+  evidence: {
+    fluency: {
+      longPauses: [],
+      fillers: ["umm"],
+      repetitions: [],
+      selfCorrections: [],
+    },
+    grammar: {
+      errors: [],
+      complexStructures: ["Growing up in Hanoi, I was constantly surrounded"],
+    },
+    vocabulary: {
+      strongUsage: ["vibrant capital city"],
+      inappropriateUsage: [],
+    },
+    pronunciation: {
+      unclearSegments: [],
+      stressIssues: [],
+    },
+  },
 };
 
 type RotateCallback<T> = (
@@ -113,7 +136,7 @@ type RotateCallback<T> = (
   keyFingerprint: string
 ) => Promise<T>;
 
-describe("Speaking Evaluator Service", () => {
+describe("Speaking Evaluator Service (2-Stage Pipeline)", () => {
   beforeEach(() => {
     geminiRotator.resetKeyStates();
   });
@@ -124,17 +147,64 @@ describe("Speaking Evaluator Service", () => {
     );
   });
 
-  it("should successfully evaluate audio with primary model and record trace metadata", async () => {
+  it("should perform verbatim transcription in Pass 1", async () => {
     const mockClient = {
       models: {
         generateContent: mock(async () => ({
-          text: JSON.stringify(mockValidScorecard),
-          usageMetadata: {
-            promptTokenCount: 1500,
-            candidatesTokenCount: 800,
-            totalTokenCount: 2300,
-          },
+          text: "I was born and... umm... raised in Hanoi, Vietnam.",
         })),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (fn: RotateCallback<unknown>) =>
+        fn(
+          mockClient as unknown as Parameters<
+            Parameters<typeof geminiRotator.executeWithRotation>[0]
+          >[0],
+          "MOCK_KEY_1234",
+          "key_***1234"
+        )
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    const inputAudio: SpeakingAudioInput = {
+      partNumber: 1,
+      itemIndex: 0,
+      promptQuestion: "Hometown",
+      audioBase64:
+        "UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=",
+      mimeType: "audio/webm",
+    };
+
+    const transcript = await transcribeSpeakingAudioVerbatim(inputAudio);
+    expect(transcript).toBe(
+      "I was born and... umm... raised in Hanoi, Vietnam."
+    );
+
+    geminiRotator.executeWithRotation = originalExecute;
+  });
+
+  it("should successfully evaluate audio with 2-stage pipeline and record trace metadata", async () => {
+    const mockClient = {
+      models: {
+        generateContent: mock(
+          async ({ config }: { config?: { responseMimeType?: string } }) => {
+            if (config?.responseMimeType === "application/json") {
+              return {
+                text: JSON.stringify(mockValidScorecard),
+                usageMetadata: {
+                  promptTokenCount: 1500,
+                  candidatesTokenCount: 800,
+                  totalTokenCount: 2300,
+                },
+              };
+            }
+            return {
+              text: "I was born and raised in Hanoi, the vibrant capital city of Vietnam.",
+            };
+          }
+        ),
       },
     };
 
@@ -164,6 +234,7 @@ describe("Speaking Evaluator Service", () => {
 
     const result = await evaluateSpeakingAudio(inputAudio, {
       primaryModel: "gemini-3.7-flash",
+      skipVerbatimPass: false,
     });
 
     expect(result).toBeDefined();
@@ -190,21 +261,32 @@ describe("Speaking Evaluator Service", () => {
   it("should cascade to fallback model (Flash Lite) when primary model fails", async () => {
     const mockClient = {
       models: {
-        generateContent: mock(async ({ model }: { model: string }) => {
-          if (model === "gemini-3.7-flash") {
-            throw new Error(
-              "429 RESOURCE_EXHAUSTED: Daily quota exceeded for 20 RPD"
-            );
+        generateContent: mock(
+          async ({
+            model,
+            config,
+          }: {
+            model: string;
+            config?: { responseMimeType?: string };
+          }) => {
+            if (config?.responseMimeType !== "application/json") {
+              return { text: "Sample transcript" };
+            }
+            if (model === "gemini-3.7-flash") {
+              throw new Error(
+                "429 RESOURCE_EXHAUSTED: Daily quota exceeded for 20 RPD"
+              );
+            }
+            return {
+              text: JSON.stringify(mockValidScorecard),
+              usageMetadata: {
+                promptTokenCount: 1100,
+                candidatesTokenCount: 700,
+                totalTokenCount: 1800,
+              },
+            };
           }
-          return {
-            text: JSON.stringify(mockValidScorecard),
-            usageMetadata: {
-              promptTokenCount: 1100,
-              candidatesTokenCount: 700,
-              totalTokenCount: 1800,
-            },
-          };
-        }),
+        ),
       },
     };
 

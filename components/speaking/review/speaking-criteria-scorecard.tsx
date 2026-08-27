@@ -205,7 +205,7 @@ export function SpeakingCriteriaScorecard({
       )}
       data-testid={testId}
     >
-      <CardHeader className="p-4 sm:p-6 border-b bg-muted/20 space-y-3">
+      <CardHeader className="p-4 sm:p-6 pb-4 sm:pb-6 sm:[.border-b]:pb-6 border-b bg-muted/20 space-y-3">
         {/* Top: Title & Icon */}
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
@@ -321,7 +321,12 @@ export function SpeakingCriteriaScorecard({
               data-testid={`criterion-block-${criterionKey}`}
             >
               {/* Header of Criterion */}
-              <div className="flex items-center justify-between mb-2">
+              <div
+                className={cn(
+                  "flex items-center justify-between",
+                  editable ? "mb-2" : "mb-0"
+                )}
+              >
                 <div className="flex items-center gap-2">
                   <Badge className={cn("px-2 py-0.5 font-bold", meta.badgeBg)}>
                     {meta.short}

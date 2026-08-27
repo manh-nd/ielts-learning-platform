@@ -1,11 +1,19 @@
+import {
+  loadMicrophoneWorklet,
+  resampleFloat32To16kPcm,
+} from "./worklets/microphone-worklet";
+
 /**
  * Low-latency PCM Audio Controller (Recording & Playback)
- * Adapted directly from Lingua Loop reference implementation.
+ * Designed for Gemini Live 3.1 bidirectional audio stream:
+ * - 16kHz 16-bit Mono PCM Input (Microphone via AudioWorklet)
+ * - 24kHz 16-bit Mono PCM Output (AudioBufferSourceNode RingBuffer with instant interruption clear)
  */
 export class PcmAudioController {
   private recordAudioContext: AudioContext | null = null;
   private playAudioContext: AudioContext | null = null;
   private micStream: MediaStream | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private scriptProcessor: ScriptProcessorNode | null = null;
   private activeSourceNodes: AudioBufferSourceNode[] = [];
   private nextScheduledTime: number = 0;
@@ -27,19 +35,27 @@ export class PcmAudioController {
   }
 
   /**
-   * Returns the underlying MediaStream (useful for MediaRecorder).
+   * Returns the underlying MediaStream (useful for parallel MediaRecorder).
    */
   getMediaStream(): MediaStream | null {
     return this.micStream;
   }
 
   /**
-   * Starts recording audio from the microphone, downsampling it to 16kHz 16-bit mono PCM.
+   * Starts recording audio from microphone, downsampling it to 16kHz 16-bit mono PCM.
+   * Utilizes AudioWorkletProcessor where available, with fallback to ScriptProcessor.
    */
   async startRecording(
     onAudioChunk: (base64Chunk: string, rms: number) => void
   ) {
     this.stopRecording();
+
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
+      return;
+    }
 
     this.micStream = await navigator.mediaDevices.getUserMedia({
       audio: {
@@ -57,6 +73,9 @@ export class PcmAudioController {
           webkitAudioContext?: typeof AudioContext;
         }
       ).webkitAudioContext;
+
+    if (!AudioContextClass) return;
+
     this.recordAudioContext = new AudioContextClass();
     const sourceNode = this.recordAudioContext.createMediaStreamSource(
       this.micStream
@@ -67,26 +86,17 @@ export class PcmAudioController {
     this.micAnalyser.fftSize = 256;
     sourceNode.connect(this.micAnalyser);
 
-    const bufferSize = 4096;
-    this.scriptProcessor = this.recordAudioContext.createScriptProcessor(
-      bufferSize,
-      1,
-      1
-    );
-
     const inputSampleRate = this.recordAudioContext.sampleRate;
     const outputSampleRate = 16000;
 
-    this.scriptProcessor.onaudioprocess = (e) => {
-      if (!this.recordAudioContext) return;
-      const inputData = e.inputBuffer.getChannelData(0);
-      const resampledData = this.resampleTo16k(
+    const handleRawFloatChunk = (inputData: Float32Array) => {
+      const resampledData = resampleFloat32To16kPcm(
         inputData,
         inputSampleRate,
         outputSampleRate
       );
 
-      // Measure Mic volume amplitude
+      // Measure Mic volume RMS
       let sum = 0;
       for (let i = 0; i < resampledData.length; i++) {
         const val = resampledData[i] / 32768.0;
@@ -97,13 +107,54 @@ export class PcmAudioController {
         this.onMicLevelCallback(rms);
       }
 
-      // Convert to Base64
+      // Convert Int16Array to Base64
       const base64 = this.arrayBufferToBase64(resampledData.buffer);
       onAudioChunk(base64, rms);
     };
 
-    sourceNode.connect(this.scriptProcessor);
-    this.scriptProcessor.connect(this.recordAudioContext.destination);
+    // Try AudioWorklet first
+    let workletLoaded = false;
+    if (
+      "audioWorklet" in this.recordAudioContext &&
+      this.recordAudioContext.audioWorklet
+    ) {
+      try {
+        await loadMicrophoneWorklet(this.recordAudioContext);
+        this.workletNode = new AudioWorkletNode(
+          this.recordAudioContext,
+          "microphone-pcm-processor"
+        );
+        this.workletNode.port.onmessage = (event) => {
+          if (event.data instanceof Float32Array) {
+            handleRawFloatChunk(event.data);
+          }
+        };
+        sourceNode.connect(this.workletNode);
+        workletLoaded = true;
+      } catch (workletErr) {
+        console.warn(
+          "[PcmAudioController] AudioWorklet init failed, using fallback:",
+          workletErr
+        );
+      }
+    }
+
+    // Fallback to ScriptProcessor if AudioWorklet not available or failed
+    if (!workletLoaded) {
+      const bufferSize = 2048;
+      this.scriptProcessor = this.recordAudioContext.createScriptProcessor(
+        bufferSize,
+        1,
+        1
+      );
+      this.scriptProcessor.onaudioprocess = (e) => {
+        if (!this.recordAudioContext) return;
+        const inputData = e.inputBuffer.getChannelData(0);
+        handleRawFloatChunk(new Float32Array(inputData));
+      };
+      sourceNode.connect(this.scriptProcessor);
+      this.scriptProcessor.connect(this.recordAudioContext.destination);
+    }
 
     if (this.recordAudioContext.state === "suspended") {
       await this.recordAudioContext.resume();
@@ -114,6 +165,11 @@ export class PcmAudioController {
    * Stops recording and releases microphone stream.
    */
   stopRecording() {
+    if (this.workletNode) {
+      this.workletNode.disconnect();
+      this.workletNode.port.onmessage = null;
+      this.workletNode = null;
+    }
     if (this.scriptProcessor) {
       this.scriptProcessor.disconnect();
       this.scriptProcessor.onaudioprocess = null;
@@ -124,7 +180,7 @@ export class PcmAudioController {
       this.micStream = null;
     }
     if (this.recordAudioContext) {
-      this.recordAudioContext.close();
+      this.recordAudioContext.close().catch(() => {});
       this.recordAudioContext = null;
     }
     this.micAnalyser = null;
@@ -145,6 +201,7 @@ export class PcmAudioController {
             webkitAudioContext?: typeof AudioContext;
           }
         ).webkitAudioContext;
+      if (!AudioContextClass) return;
       this.playAudioContext = new AudioContextClass();
 
       // Setup Analyser for Speaker level
@@ -181,7 +238,6 @@ export class PcmAudioController {
     const sourceNode = this.playAudioContext.createBufferSource();
     sourceNode.buffer = audioBuffer;
 
-    // Connect to speaker analyser (which is connected to destination)
     if (this.speakerAnalyser) {
       sourceNode.connect(this.speakerAnalyser);
     } else {
@@ -192,15 +248,13 @@ export class PcmAudioController {
     let startTime = this.nextScheduledTime;
 
     if (startTime < now) {
-      // If queue is empty or play latency is exceeded, schedule immediately with tiny buffer
-      startTime = now + 0.03;
+      startTime = now + 0.02; // 20ms lead-in
     }
 
     sourceNode.start(startTime);
     this.nextScheduledTime = startTime + audioBuffer.duration;
     this.activeSourceNodes.push(sourceNode);
 
-    // Cleanup reference after playback ends
     sourceNode.onended = () => {
       this.activeSourceNodes = this.activeSourceNodes.filter(
         (n) => n !== sourceNode
@@ -212,19 +266,26 @@ export class PcmAudioController {
   }
 
   /**
-   * Immediately stops all active playing source nodes and resets schedule queue.
-   * Call this on user interruption.
+   * Clears all future scheduled audio buffers and resets queue.
+   */
+  clearQueue() {
+    this.nextScheduledTime = 0;
+  }
+
+  /**
+   * Immediately stops all active playing source nodes and clears playback queue.
+   * Call this immediately on barge-in / user interruption.
    */
   stopPlayback() {
     this.activeSourceNodes.forEach((node) => {
       try {
         node.stop();
       } catch {
-        // Node might have already finished
+        // Ignored
       }
     });
     this.activeSourceNodes = [];
-    this.nextScheduledTime = 0;
+    this.clearQueue();
     if (this.onSpeakerLevelCallback) {
       this.onSpeakerLevelCallback(0);
     }
@@ -236,7 +297,7 @@ export class PcmAudioController {
   cleanupPlayback() {
     this.stopPlayback();
     if (this.playAudioContext) {
-      this.playAudioContext.close();
+      this.playAudioContext.close().catch(() => {});
       this.playAudioContext = null;
     }
     this.speakerAnalyser = null;
@@ -250,39 +311,13 @@ export class PcmAudioController {
     this.cleanupPlayback();
   }
 
-  // Volume Amplitude Callbacks
+  // Amplitude callbacks
   onMicLevel(callback: (level: number) => void) {
     this.onMicLevelCallback = callback;
   }
 
   onSpeakerLevel(callback: (level: number) => void) {
     this.onSpeakerLevelCallback = callback;
-  }
-
-  // --- Utility resampler & converter methods ---
-
-  private resampleTo16k(
-    inputBuffer: Float32Array,
-    inputSampleRate: number,
-    outputSampleRate: number
-  ): Int16Array {
-    const ratio = inputSampleRate / outputSampleRate;
-    const newLength = Math.round(inputBuffer.length / ratio);
-    const result = new Int16Array(newLength);
-
-    for (let i = 0; i < newLength; i++) {
-      const index = Math.round(i * ratio);
-      let sample = inputBuffer[index];
-
-      // Clamp float32 to [-1.0, 1.0]
-      if (sample < -1) sample = -1;
-      if (sample > 1) sample = 1;
-
-      // Convert to 16-bit Int
-      result[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-    }
-
-    return result;
   }
 
   private arrayBufferToBase64(buffer: ArrayBufferLike): string {
@@ -292,16 +327,21 @@ export class PcmAudioController {
     for (let i = 0; i < len; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    return window.btoa(binary);
+    return typeof window !== "undefined"
+      ? window.btoa(binary)
+      : Buffer.from(buffer).toString("base64");
   }
 
   private base64ToArrayBuffer(base64: string): ArrayBuffer {
-    const binaryString = window.atob(base64);
-    const len = binaryString.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    if (typeof window !== "undefined") {
+      const binaryString = window.atob(base64);
+      const len = binaryString.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      return bytes.buffer;
     }
-    return bytes.buffer;
+    return Buffer.from(base64, "base64").buffer;
   }
 }

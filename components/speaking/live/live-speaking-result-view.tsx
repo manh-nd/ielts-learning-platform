@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Sparkles,
   RotateCcw,
@@ -15,6 +15,8 @@ import {
   Loader2,
   Copy,
   Check,
+  Play,
+  Pause,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -58,6 +60,58 @@ export function LiveSpeakingResultView({
   className,
 }: LiveSpeakingResultViewProps) {
   const [copiedMonologue, setCopiedMonologue] = useState(false);
+  const [activeClip, setActiveClip] = useState<{
+    startMs: number;
+    endMs: number;
+  } | null>(null);
+  const [isPlayingClip, setIsPlayingClip] = useState(false);
+
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const clipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Play clip helper
+  const handlePlayClip = useCallback((startMs: number, endMs: number) => {
+    const audio = audioElementRef.current;
+    if (!audio) return;
+
+    if (clipTimeoutRef.current) {
+      clearTimeout(clipTimeoutRef.current);
+      clipTimeoutRef.current = null;
+    }
+
+    const durationMs = Math.max(800, endMs - startMs);
+    audio.currentTime = Math.max(0, startMs / 1000);
+    audio.play().catch(() => {});
+    setActiveClip({ startMs, endMs });
+    setIsPlayingClip(true);
+
+    clipTimeoutRef.current = setTimeout(() => {
+      audio.pause();
+      setIsPlayingClip(false);
+      setActiveClip(null);
+    }, durationMs);
+  }, []);
+
+  const handleStopClip = useCallback(() => {
+    const audio = audioElementRef.current;
+    if (audio) {
+      audio.pause();
+    }
+    if (clipTimeoutRef.current) {
+      clearTimeout(clipTimeoutRef.current);
+      clipTimeoutRef.current = null;
+    }
+    setIsPlayingClip(false);
+    setActiveClip(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (clipTimeoutRef.current) {
+        clearTimeout(clipTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -76,17 +130,17 @@ export function LiveSpeakingResultView({
           </div>
           <div className="space-y-1.5">
             <h2 className="text-xl font-bold text-foreground">
-              Đang phân tích & Chấm điểm phiên thi...
+              Đang phân tích & Chấm điểm 2-Stage...
             </h2>
             <p className="text-xs text-muted-foreground max-w-md mx-auto">
-              Hệ thống AI đang gỡ băng, phân tích sóng âm (Pronunciation &
-              Intonation), ngữ pháp và từ vựng theo 4 tiêu chí chuẩn khảo thí
-              IELTS.
+              Pass 1: Gỡ băng nguyên bản Verbatim $\rightarrow$ Pass 2: Phân
+              tích sóng âm đa phương thức & trích xuất mốc thời gian lỗi (FC,
+              LR, GRA, PR).
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono bg-muted/30 px-3 py-1.5 rounded-md border">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>Mô hình: Gemini 3.7 Flash Multimodal Audio Evaluator</span>
+            <span>Mô hình: Gemini 3.7 Flash Multimodal + Verbatim STT</span>
           </div>
         </div>
       </Card>
@@ -139,7 +193,8 @@ export function LiveSpeakingResultView({
     );
   }
 
-  const { overallScorecard, partEvaluations, trace } = evaluationResult;
+  const { overallScorecard, partEvaluations, evidence, trace } =
+    evaluationResult;
   const { criteriaScores, generalFeedback } = overallScorecard;
   const {
     executiveSummary,
@@ -163,8 +218,25 @@ export function LiveSpeakingResultView({
     pronunciation: criteriaScores.pronunciation,
   };
 
+  const formatTimestamp = (ms: number) => {
+    const totalSec = Math.floor(ms / 1000);
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
   return (
     <div className={cn("w-full max-w-4xl mx-auto space-y-6", className)}>
+      {/* Hidden Audio Player for Interactive Clip Playback */}
+      {recordedAudio && (
+        <audio
+          ref={audioElementRef}
+          src={recordedAudio.url}
+          preload="auto"
+          className="hidden"
+        />
+      )}
+
       {/* Top Action Bar */}
       <div className="flex items-center justify-between">
         <Button
@@ -216,7 +288,7 @@ export function LiveSpeakingResultView({
         {/* Tab 1: Overview Feedback */}
         <TabsContent value="overview" className="space-y-4 pt-3">
           {/* Executive Summary */}
-          <Card className="shadow-xs border">
+          <Card className="shadow-xs border py-0 gap-0 overflow-hidden">
             <CardHeader className="p-4 border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-1.5">
                 <FileCheck className="w-4 h-4 text-primary" />
@@ -231,14 +303,14 @@ export function LiveSpeakingResultView({
           {/* Strengths & Weaknesses Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Strengths */}
-            <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs">
+            <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs py-0 gap-0 overflow-hidden">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Điểm mạnh nổi bật (Key Strengths)</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-4 pt-1">
+              <CardContent className="p-4 pt-0">
                 <ul className="space-y-1.5 list-disc pl-4 text-xs text-foreground/90">
                   {keyStrengths.map((item: string, i: number) => (
                     <li key={i}>{item}</li>
@@ -248,14 +320,14 @@ export function LiveSpeakingResultView({
             </Card>
 
             {/* Priority Improvements */}
-            <Card className="border-rose-500/30 bg-rose-500/5 shadow-xs">
+            <Card className="border-rose-500/30 bg-rose-500/5 shadow-xs py-0 gap-0 overflow-hidden">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
                   <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                   <span>Điểm cần cải thiện (Priority Improvements)</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-4 pt-1">
+              <CardContent className="p-4 pt-0">
                 <ul className="space-y-1.5 list-disc pl-4 text-xs text-foreground/90">
                   {priorityImprovements.map((item: string, i: number) => (
                     <li key={i}>{item}</li>
@@ -265,9 +337,81 @@ export function LiveSpeakingResultView({
             </Card>
           </div>
 
-          {/* Band 8.0+ Model Monologue (Shadow Reading Practice) */}
+          {/* Fluency Evidence (Long Pauses / Fillers) */}
+          {evidence?.fluency &&
+            evidence.fluency.longPauses &&
+            evidence.fluency.longPauses.length > 0 && (
+              <Card className="shadow-xs border border-amber-500/30 bg-amber-500/5 py-0 gap-0 overflow-hidden">
+                <CardHeader className="p-4 pb-2">
+                  <CardTitle className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <span>
+                      Dấu hiệu Ngập ngừng kéo dài (Fluency Hesitations & Pauses)
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 space-y-2">
+                  {evidence.fluency.longPauses.map((pause, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2 rounded-md bg-background/80 border text-xs"
+                    >
+                      <div>
+                        <div className="font-semibold text-foreground flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className="font-mono text-[10px]"
+                          >
+                            {formatTimestamp(pause.startMs)} ➔{" "}
+                            {formatTimestamp(pause.endMs)} (
+                            {(pause.durationMs / 1000).toFixed(1)}s)
+                          </Badge>
+                          <span>{pause.transcriptSnippet}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {pause.reason}
+                        </p>
+                      </div>
+
+                      {recordedAudio && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (
+                              isPlayingClip &&
+                              activeClip?.startMs === pause.startMs
+                            ) {
+                              handleStopClip();
+                            } else {
+                              handlePlayClip(pause.startMs, pause.endMs);
+                            }
+                          }}
+                          className="h-7 px-2 text-xs gap-1 cursor-pointer"
+                        >
+                          {isPlayingClip &&
+                          activeClip?.startMs === pause.startMs ? (
+                            <>
+                              <Pause className="w-3 h-3 text-rose-500" />
+                              <span>Dừng</span>
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-3 h-3 text-primary" />
+                              <span>Nghe</span>
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+          {/* Band 8.0+ Model Monologue */}
           {practiceMonologue && (
-            <Card className="shadow-xs border border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 via-background to-amber-500/5 overflow-hidden">
+            <Card className="shadow-xs border border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 via-background to-amber-500/5 py-0 gap-0 overflow-hidden">
               <CardHeader className="p-4 border-b bg-indigo-500/10 pb-3 flex flex-row items-center justify-between space-y-0">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
@@ -326,14 +470,14 @@ export function LiveSpeakingResultView({
 
           {/* Actionable Practice Plan */}
           {actionPlan && actionPlan.length > 0 && (
-            <Card className="shadow-xs border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+            <Card className="shadow-xs border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent py-0 gap-0 overflow-hidden">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <TrendingUp className="w-4 h-4 text-primary" />
                   <span>Lộ trình Luyện tập Khuyến nghị (Action Plan)</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-4 pt-1">
+              <CardContent className="p-4 pt-0">
                 <ul className="space-y-2 text-xs text-foreground/90">
                   {actionPlan.map((plan: string, i: number) => (
                     <li key={i} className="flex items-start gap-2">
@@ -350,7 +494,10 @@ export function LiveSpeakingResultView({
         {/* Tab 2: Part-by-Part Evaluations */}
         <TabsContent value="parts" className="space-y-4 pt-3">
           {partEvaluations.map((partEval, index) => (
-            <Card key={index} className="shadow-xs border">
+            <Card
+              key={index}
+              className="shadow-xs border py-0 gap-0 overflow-hidden"
+            >
               <CardHeader className="p-4 border-b bg-muted/20 pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -370,13 +517,171 @@ export function LiveSpeakingResultView({
               <CardContent className="p-4 space-y-3.5 text-xs">
                 {/* Transcript */}
                 <div>
-                  <span className="font-semibold text-muted-foreground block mb-1">
-                    Nội dung câu trả lời (Transcript):
-                  </span>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-semibold text-muted-foreground block">
+                      Nội dung câu trả lời (Verbatim Transcript):
+                    </span>
+                    {partEval.verifiedTranscript && (
+                      <Badge
+                        variant="secondary"
+                        className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                      >
+                        ✓ Đã xác thực nguyên bản (Audio Verified)
+                      </Badge>
+                    )}
+                  </div>
                   <p className="p-3 rounded-lg bg-muted/30 border font-serif text-foreground/90 italic leading-relaxed">
-                    &ldquo;{partEval.candidateTranscript}&rdquo;
+                    &ldquo;
+                    {partEval.verifiedTranscript ||
+                      partEval.candidateTranscript}
+                    &rdquo;
                   </p>
                 </div>
+
+                {/* Pronunciation Notes with Interactive Audio Clips */}
+                {partEval.pronunciationNotes &&
+                  partEval.pronunciationNotes.length > 0 && (
+                    <div>
+                      <span className="font-semibold text-purple-800 dark:text-purple-300 block mb-1.5">
+                        Lưu ý Phát âm (Phonetic & Stress Notes):
+                      </span>
+                      <div className="space-y-2">
+                        {partEval.pronunciationNotes.map((item, i: number) => {
+                          const hasTimestamp =
+                            item.startMs !== undefined &&
+                            item.endMs !== undefined;
+                          const isThisClipPlaying =
+                            isPlayingClip &&
+                            activeClip?.startMs === item.startMs;
+
+                          return (
+                            <div
+                              key={i}
+                              className="p-2.5 rounded-lg border bg-purple-500/5 space-y-1.5"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-purple-700 dark:text-purple-300 text-sm">
+                                    {item.word}
+                                  </span>
+                                  <span className="font-mono text-xs text-muted-foreground">
+                                    {item.expectedIpa}
+                                  </span>
+                                  {hasTimestamp && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[10px] font-mono"
+                                    >
+                                      ⏱ {formatTimestamp(item.startMs!)}
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                {hasTimestamp && recordedAudio && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      if (isThisClipPlaying) {
+                                        handleStopClip();
+                                      } else {
+                                        handlePlayClip(
+                                          item.startMs!,
+                                          item.endMs!
+                                        );
+                                      }
+                                    }}
+                                    className="h-6 px-2 text-[11px] gap-1 cursor-pointer bg-background"
+                                  >
+                                    {isThisClipPlaying ? (
+                                      <>
+                                        <Pause className="w-3 h-3 text-rose-500" />
+                                        <span>Dừng</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Play className="w-3 h-3 text-purple-600" />
+                                        <span>▶ Nghe lại giọng bạn</span>
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="text-rose-700 dark:text-rose-400">
+                                ⚠ {item.detectedIssue}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">
+                                💡 {item.recommendation}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                {/* Grammar Corrections with Clips */}
+                {partEval.grammarCorrections &&
+                  partEval.grammarCorrections.length > 0 && (
+                    <div>
+                      <span className="font-semibold text-amber-800 dark:text-amber-300 block mb-1.5">
+                        Sửa lỗi Ngữ pháp (Grammar Fixes):
+                      </span>
+                      <div className="space-y-2">
+                        {partEval.grammarCorrections.map((item, i: number) => {
+                          const hasTimestamp =
+                            item.startMs !== undefined &&
+                            item.endMs !== undefined;
+                          const isThisClipPlaying =
+                            isPlayingClip &&
+                            activeClip?.startMs === item.startMs;
+
+                          return (
+                            <div
+                              key={i}
+                              className="p-2.5 rounded-lg border bg-amber-500/5 space-y-1"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="text-rose-800 dark:text-rose-400 font-medium">
+                                  ❌ {item.originalPhrase}
+                                </div>
+                                {hasTimestamp && recordedAudio && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      if (isThisClipPlaying) {
+                                        handleStopClip();
+                                      } else {
+                                        handlePlayClip(
+                                          item.startMs!,
+                                          item.endMs!
+                                        );
+                                      }
+                                    }}
+                                    className="h-6 px-2 text-[11px] gap-1 cursor-pointer bg-background"
+                                  >
+                                    {isThisClipPlaying ? (
+                                      <Pause className="w-3 h-3 text-rose-500" />
+                                    ) : (
+                                      <Play className="w-3 h-3 text-amber-600" />
+                                    )}
+                                    <span>Nghe</span>
+                                  </Button>
+                                )}
+                              </div>
+                              <div className="text-emerald-800 dark:text-emerald-400 font-medium">
+                                ✓ {item.correctedPhrase}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">
+                                {item.explanation}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                 {/* Lexical Upgrades */}
                 {partEval.lexicalUpgrades &&
@@ -402,70 +707,11 @@ export function LiveSpeakingResultView({
                                 ➔ {item.betterAlternative}
                               </span>
                             </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              {item.contextExample}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                {/* Grammar Corrections */}
-                {partEval.grammarCorrections &&
-                  partEval.grammarCorrections.length > 0 && (
-                    <div>
-                      <span className="font-semibold text-amber-800 dark:text-amber-300 block mb-1.5">
-                        Sửa lỗi Ngữ pháp (Grammar Fixes):
-                      </span>
-                      <div className="space-y-2">
-                        {partEval.grammarCorrections.map((item, i: number) => (
-                          <div
-                            key={i}
-                            className="p-2.5 rounded-lg border bg-amber-500/5 space-y-1"
-                          >
-                            <div className="text-rose-800 dark:text-rose-400">
-                              ❌ {item.originalPhrase}
-                            </div>
-                            <div className="text-emerald-800 dark:text-emerald-400 font-medium">
-                              ✓ {item.correctedPhrase}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              {item.explanation}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                {/* Pronunciation Notes */}
-                {partEval.pronunciationNotes &&
-                  partEval.pronunciationNotes.length > 0 && (
-                    <div>
-                      <span className="font-semibold text-purple-800 dark:text-purple-300 block mb-1.5">
-                        Lưu ý Phát âm (Phonetic & Stress Notes):
-                      </span>
-                      <div className="space-y-2">
-                        {partEval.pronunciationNotes.map((item, i: number) => (
-                          <div
-                            key={i}
-                            className="p-2.5 rounded-lg border bg-purple-500/5 space-y-1"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-purple-700 dark:text-purple-300">
-                                {item.word}
-                              </span>
-                              <span className="font-mono text-xs text-muted-foreground">
-                                {item.expectedIpa}
-                              </span>
-                            </div>
-                            <div className="text-rose-700 dark:text-rose-400">
-                              {item.detectedIssue}
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              {item.recommendation}
-                            </p>
+                            {item.contextExample && (
+                              <p className="text-[11px] text-muted-foreground">
+                                {item.contextExample}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -479,7 +725,7 @@ export function LiveSpeakingResultView({
         {/* Tab 3: Recorded Audio & Full Transcript */}
         <TabsContent value="audio" className="space-y-4 pt-3">
           {recordedAudio && (
-            <Card className="shadow-xs border">
+            <Card className="shadow-xs border py-0 gap-0 overflow-hidden">
               <CardHeader className="p-4 border-b bg-muted/20 pb-3">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
                   <Volume2 className="w-4 h-4 text-primary" />
@@ -488,10 +734,10 @@ export function LiveSpeakingResultView({
                   </span>
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  Nghe lại toàn bộ âm thanh câu trả lời của bạn trong phòng thi
+                  Nghe lại toàn bộ âm thanh giọng nói của bạn (Source of Truth)
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-4">
+              <CardContent className="p-4 space-y-2">
                 <audio
                   controls
                   src={recordedAudio.url}
@@ -502,7 +748,7 @@ export function LiveSpeakingResultView({
           )}
 
           {/* Full Real-time Transcript */}
-          <Card className="shadow-xs border">
+          <Card className="shadow-xs border py-0 gap-0 overflow-hidden">
             <CardHeader className="p-4 border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-bold">
                 Biên bản Hội thoại Trực tiếp (Live Transcripts)

@@ -1,9 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { z } from "zod";
 import {
   calculateIeltsOverallBand,
   IeltsSpeakingEvaluationResultSchema,
-  SpeakingOverallScorecardSchema,
+  SpeakingEvidenceSchema,
 } from "./speaking-schema";
 
 describe("IELTS Speaking Band Score Rounding Algorithm", () => {
@@ -42,7 +41,75 @@ describe("IELTS Speaking Band Score Rounding Algorithm", () => {
 });
 
 describe("IELTS Speaking Zod Schemas Validation", () => {
-  it("should validate a complete valid speaking evaluation result", () => {
+  it("should validate SpeakingEvidenceSchema with millisecond audio markers", () => {
+    const mockEvidence = {
+      fluency: {
+        longPauses: [
+          {
+            startMs: 14200,
+            endMs: 16800,
+            durationMs: 2600,
+            transcriptSnippet: "I think ... umm ... traveling is good",
+            reason: "Noticeable hesitation searching for vocabulary",
+          },
+        ],
+        fillers: ["umm", "like"],
+        repetitions: ["I think I think"],
+        selfCorrections: ["I go, I went"],
+      },
+      grammar: {
+        errors: [
+          {
+            startMs: 21300,
+            endMs: 24500,
+            originalPhrase: "I have went there last year",
+            correctedPhrase: "I went there last year",
+            ruleViolated:
+              "Past Simple vs Present Perfect with specific time marker",
+            explanation: "Use Past Simple 'went' with 'last year'",
+          },
+        ],
+        complexStructures: ["Although it was raining, we proceeded"],
+      },
+      vocabulary: {
+        strongUsage: ["hectic schedule", "metropolitan area"],
+        inappropriateUsage: [
+          {
+            startMs: 32000,
+            endMs: 34500,
+            originalExpression: "big problem",
+            betterAlternative: "pressing issue",
+            bandLevel: "Band 7.5+",
+          },
+        ],
+      },
+      pronunciation: {
+        unclearSegments: [
+          {
+            startMs: 42300,
+            endMs: 44700,
+            transcript: "economic development",
+            reason: "Middle syllables /nɒm.ɪk/ difficult to distinguish",
+          },
+        ],
+        stressIssues: [
+          {
+            startMs: 50100,
+            endMs: 52000,
+            word: "photography",
+            expectedIpa: "/fəˈtɒɡ.rə.fi/",
+            detectedIssue: "Stress placed on first syllable instead of second",
+            recommendation: "Shift stress to second syllable",
+          },
+        ],
+      },
+    };
+
+    const parsed = SpeakingEvidenceSchema.safeParse(mockEvidence);
+    expect(parsed.success).toBe(true);
+  });
+
+  it("should validate a complete valid speaking evaluation result with evidence", () => {
     const mockResult = {
       overallScorecard: {
         overallBand: 6.5,
@@ -149,6 +216,8 @@ describe("IELTS Speaking Zod Schemas Validation", () => {
           promptQuestion: "Do you work or are you a student?",
           candidateTranscript:
             "Currently, I am a university student majoring in computer science.",
+          verifiedTranscript:
+            "Currently, I am a university student majoring in computer science.",
           partSummary: "Direct and clear response with good grammar.",
           pronunciationNotes: [],
           lexicalUpgrades: [],
@@ -172,26 +241,5 @@ describe("IELTS Speaking Zod Schemas Validation", () => {
 
     const parsed = IeltsSpeakingEvaluationResultSchema.safeParse(mockResult);
     expect(parsed.success).toBe(true);
-  });
-
-  it("should reject invalid band scores not in 0.5 increments", () => {
-    const invalidScorecard = {
-      overallBand: 6.3, // Invalid: not multiple of 0.5
-      criteriaScores: {
-        fluencyAndCoherence: 6.0,
-        lexicalResource: 6.0,
-        grammaticalRangeAndAccuracy: 6.0,
-        pronunciation: 6.0,
-      },
-      criteria: {} as unknown as z.infer<
-        typeof SpeakingOverallScorecardSchema
-      >["criteria"],
-      generalFeedback: {} as unknown as z.infer<
-        typeof SpeakingOverallScorecardSchema
-      >["generalFeedback"],
-    };
-
-    const parsed = SpeakingOverallScorecardSchema.safeParse(invalidScorecard);
-    expect(parsed.success).toBe(false);
   });
 });

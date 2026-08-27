@@ -19,7 +19,7 @@ import { LiveSessionControls } from "./live-session-controls";
 import { LiveSpeakingCueCardModal } from "./live-speaking-cue-card-modal";
 import { LiveSpeakingResultView } from "./live-speaking-result-view";
 import { useGeminiLive } from "./use-gemini-live";
-import { LiveSpeakingConfig } from "./types";
+import { LiveSpeakingConfig, CandidateTurnMarker } from "./types";
 import { IeltsSpeakingEvaluationResult } from "@/lib/gemini/speaking-schema";
 
 export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
@@ -51,6 +51,7 @@ export function LiveSpeakingExaminerRoom({
     prepTimeRemaining,
     scratchpadNotes,
     transcripts,
+    turnMarkers,
     isMuted,
     isNoiseSuppressionActive,
     inputVolume,
@@ -79,12 +80,21 @@ export function LiveSpeakingExaminerRoom({
 
   // Dispatch evaluation request to server
   const triggerEvaluation = useCallback(
-    async (audioBase64?: string, audioDuration?: number) => {
+    async (
+      storageKey?: string,
+      audioBase64?: string,
+      audioDuration?: number,
+      markers?: CandidateTurnMarker[]
+    ) => {
       setIsEvaluating(true);
       setEvalError(null);
 
       try {
         const payload = {
+          userId: candidateName
+            ? candidateName.replace(/\s+/g, "_").toLowerCase()
+            : "learner_candidate",
+          sessionId: `ses_live_${Date.now()}`,
           topicTitle: topic?.title || "General IELTS Speaking Mock Test",
           candidateName,
           transcripts: transcripts.map((t) => ({
@@ -92,11 +102,13 @@ export function LiveSpeakingExaminerRoom({
             text: t.text,
             timestamp: t.timestamp,
           })),
+          turnMarkers: markers || turnMarkers,
           part1Question:
             topic?.part1.questions[0] || "Introduction and interview questions",
           part2Topic: topic?.part2.topicTitle || "Individual long turn topic",
           part3Theme: topic?.part3.theme || "Two-way discussion topic",
-          audioBase64: audioBase64 || "",
+          storageKey: storageKey || undefined,
+          audioBase64: !storageKey ? audioBase64 || "" : undefined,
           durationSeconds: audioDuration || 120,
         };
 
@@ -126,7 +138,7 @@ export function LiveSpeakingExaminerRoom({
         setIsEvaluating(false);
       }
     },
-    [candidateName, topic, transcripts]
+    [candidateName, topic, transcripts, turnMarkers]
   );
 
   // Finish exam manually or automatically
@@ -134,29 +146,85 @@ export function LiveSpeakingExaminerRoom({
     disconnect();
     setIsExamFinished(true);
 
-    // Convert recorded audio to Base64 if available
+    let storageKey = "";
     let base64Audio = "";
+
+    // 1. Attempt Presigned S3/Storage Direct Upload
     if (recordedAudio?.blob) {
       try {
-        const reader = new FileReader();
-        base64Audio = await new Promise<string>((resolve) => {
-          reader.onloadend = () => {
-            const res = reader.result as string;
-            const commaIndex = res.indexOf(",");
-            resolve(commaIndex !== -1 ? res.slice(commaIndex + 1) : res);
-          };
-          reader.readAsDataURL(recordedAudio.blob);
+        const uploadUrlRes = await fetch("/api/speaking/upload-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: candidateName
+              ? candidateName.replace(/\s+/g, "_").toLowerCase()
+              : "learner_candidate",
+            sessionId: `ses_${Date.now()}`,
+            filename: "candidate.webm",
+            mimeType: recordedAudio.mimeType || "audio/webm;codecs=opus",
+          }),
         });
-      } catch (readErr) {
+
+        if (uploadUrlRes.ok) {
+          const uploadInfo = (await uploadUrlRes.json()) as {
+            uploadUrl: string;
+            storageKey: string;
+          };
+
+          const putRes = await fetch(uploadInfo.uploadUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Type":
+                recordedAudio.mimeType || "audio/webm;codecs=opus",
+            },
+            body: recordedAudio.blob,
+          });
+
+          if (putRes.ok) {
+            storageKey = uploadInfo.storageKey;
+          }
+        }
+      } catch (uploadErr) {
         console.warn(
-          "[LiveExaminerRoom] Could not read recorded audio blob:",
-          readErr
+          "[LiveExaminerRoom] Direct storage upload failed, falling back to base64:",
+          uploadErr
         );
+      }
+
+      // Fallback to base64 if S3 upload didn't yield a key
+      if (!storageKey) {
+        try {
+          const reader = new FileReader();
+          base64Audio = await new Promise<string>((resolve) => {
+            reader.onloadend = () => {
+              const res = reader.result as string;
+              const commaIndex = res.indexOf(",");
+              resolve(commaIndex !== -1 ? res.slice(commaIndex + 1) : res);
+            };
+            reader.readAsDataURL(recordedAudio.blob);
+          });
+        } catch (readErr) {
+          console.warn(
+            "[LiveExaminerRoom] Could not read audio blob:",
+            readErr
+          );
+        }
       }
     }
 
-    await triggerEvaluation(base64Audio, recordedAudio?.durationSeconds);
-  }, [disconnect, recordedAudio, triggerEvaluation]);
+    await triggerEvaluation(
+      storageKey,
+      base64Audio,
+      recordedAudio?.durationSeconds,
+      turnMarkers
+    );
+  }, [
+    candidateName,
+    disconnect,
+    recordedAudio,
+    triggerEvaluation,
+    turnMarkers,
+  ]);
 
   // If exam has finished, display the comprehensive Result View
   if (isExamFinished || examStage === "completed") {

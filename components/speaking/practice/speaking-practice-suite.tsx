@@ -381,8 +381,8 @@ export function SpeakingPracticeSuite({
               <SpeakingCueCard question={config.part2Question} />
 
               {/* Part 2 Action Control Card */}
-              <Card className="border shadow-sm overflow-hidden p-0 py-0 gap-0">
-                <CardHeader className="px-5 py-3.5 [.border-b]:pb-3.5 bg-muted/20 border-b flex flex-row items-center justify-between gap-3">
+              <Card className="border shadow-sm overflow-hidden py-0 gap-0">
+                <CardHeader className="p-4 sm:p-5 pb-4 sm:pb-5 sm:[.border-b]:pb-5 bg-muted/20 border-b flex flex-row items-center justify-between gap-3">
                   <div className="flex items-center justify-between w-full">
                     <CardTitle className="text-xs font-bold text-foreground">
                       Trạng thái Part 2
@@ -407,7 +407,7 @@ export function SpeakingPracticeSuite({
                   </div>
                 </CardHeader>
 
-                <CardContent className="space-y-4">
+                <CardContent className="p-4 sm:p-5 space-y-4">
                   {/* State 1: Ready to start prep */}
                   {part2State === "ready" && (
                     <div className="text-center space-y-3">
@@ -623,8 +623,8 @@ export function SpeakingPracticeSuite({
       ) : (
         /* PART 1 & PART 3 QUESTION-BY-QUESTION WORKFLOW */
         <div className="space-y-4">
-          <Card className="border shadow-sm overflow-hidden p-0 py-0 gap-0">
-            <CardHeader className="bg-muted/10 border-b px-5 py-3.5 [.border-b]:pb-3.5 flex flex-row items-center justify-between gap-3">
+          <Card className="border shadow-sm overflow-hidden py-0 gap-0">
+            <CardHeader className="bg-muted/10 border-b p-4 sm:p-5 pb-4 sm:pb-5 sm:[.border-b]:pb-5 flex flex-row items-center justify-between gap-3">
               <div className="flex items-center justify-between w-full gap-2">
                 <div className="flex items-center gap-2">
                   <Badge
@@ -649,7 +649,7 @@ export function SpeakingPracticeSuite({
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className="p-4 sm:p-5 space-y-4">
               {/* Question Text & Prompt Player */}
               <div className="p-4 rounded-xl border bg-card space-y-3">
                 <div className="flex items-start justify-between gap-3">
@@ -794,7 +794,7 @@ export function SpeakingPracticeSuite({
               </div>
             </CardContent>
 
-            <CardFooter className="px-5 py-3.5 [.border-t]:pt-3.5 border-t bg-muted/10 flex flex-row items-center justify-between">
+            <CardFooter className="p-4 sm:p-5 pt-3.5 sm:pt-4 sm:[.border-t]:pt-4 border-t bg-muted/10 flex flex-row items-center justify-between">
               <Button
                 type="button"
                 variant="outline"

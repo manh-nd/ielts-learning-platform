@@ -241,12 +241,12 @@ export function SpeakingSummaryView({
     <Card
       data-testid="speaking-summary-view"
       className={cn(
-        "w-full shadow-sm border overflow-hidden p-0 py-0 gap-0",
+        "w-full shadow-sm border overflow-hidden py-0 gap-0",
         className
       )}
     >
-      <CardHeader className="bg-muted/10 border-b px-5 py-3.5 [.border-b]:pb-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <CardHeader className="bg-muted/10 border-b p-4 sm:p-5 pb-4 sm:pb-5 sm:[.border-b]:pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
           <div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
@@ -284,7 +284,7 @@ export function SpeakingSummaryView({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="p-4 sm:p-5 space-y-6">
         {!isAllAnswered && (
           <Alert variant="warning" className="flex items-start gap-3">
             <AlertTriangle className="w-4 h-4 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />
@@ -333,7 +333,7 @@ export function SpeakingSummaryView({
         )}
       </CardContent>
 
-      <CardFooter className="px-5 py-3.5 [.border-t]:pt-3.5 border-t bg-muted/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <CardFooter className="p-4 sm:p-5 pt-3.5 sm:pt-4 sm:[.border-t]:pt-4 border-t bg-muted/10 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="text-xs text-muted-foreground">
           Sẵn sàng nộp bài để nhận band score chi tiết và sửa lỗi phát âm từ AI.
         </div>

@@ -9,9 +9,17 @@ export interface LiveTokenResponse {
   expiresAt: string;
 }
 
+export function buildLiveTokenPayload(expireTime: string, uses = 3) {
+  return {
+    expireTime,
+    uses,
+  };
+}
+
 export async function POST() {
   try {
     const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 mins expiry
+    const payload = buildLiveTokenPayload(expireTime, 3); // Allow session resumption reconnects
 
     const tokenData = await geminiRotator.executeWithRotation(
       async (_client, key) => {
@@ -24,9 +32,7 @@ export async function POST() {
               "x-goog-api-key": key,
               "Content-Type": "application/json",
             },
-            body: JSON.stringify({
-              expireTime,
-            }),
+            body: JSON.stringify(payload),
           }
         );
 

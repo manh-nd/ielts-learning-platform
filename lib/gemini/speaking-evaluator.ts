@@ -5,40 +5,53 @@ import {
   IeltsSpeakingEvaluationResultSchema,
   SpeakingOverallScorecard,
   SpeakingPartEvaluation,
+  SpeakingEvidence,
   speakingEvaluationJsonSchema,
 } from "./speaking-schema";
+
+export const IELTS_VERBATIM_STT_PROMPT = `
+You are an expert IELTS Speech-to-Text Transcriber.
+Transcribe the provided spoken audio response VERBATIM:
+- Keep ALL filler words ('um', 'uh', 'er', 'like', 'you know').
+- Keep ALL repetitions, false starts, and self-corrections (e.g. 'I go... I went').
+- Do NOT clean up, paraphrase, or grammatically correct any mistakes made by the candidate.
+- Output ONLY the verbatim transcript text without preamble.
+`.trim();
 
 export const IELTS_SPEAKING_EVALUATOR_SYSTEM_PROMPT = `
 You are an expert, certified Senior IELTS Speaking Examiner with 15+ years of experience conducting and calibrating official IELTS Speaking tests.
 You evaluate the candidate's spoken audio responses with rigorous adherence to the Official IELTS Speaking Band Descriptors (Public Version).
 
-You MUST strictly analyze the raw audio acoustics alongside the spoken content across the 4 official criteria:
+You MUST strictly analyze the raw audio acoustics alongside the spoken content and verified transcripts across the 4 official criteria:
 
 1. FLUENCY AND COHERENCE (FC):
    - Speech rate, natural flow, length of uninterrupted runs.
    - Distinguish content-searching pauses (natural) from language-searching hesitations (penalized).
+   - Identify long pauses (>1.5s), repetitions, filler frequency, and self-corrections with millisecond markers where audible.
    - Cohesive devices, discourse markers, and topic development.
 
 2. LEXICAL RESOURCE (LR):
    - Range, flexibility, and precision of vocabulary, idiomatic language, and collocations.
    - Paraphrasing ability without noticeable vocabulary voids.
-   - Repetitive words and suggest Band 7.5+ alternatives and collocations.
+   - Flag imprecise expressions and suggest Band 7.5+ alternatives and collocations.
 
 3. GRAMMATICAL RANGE AND ACCURACY (GRA):
    - Mix of complex vs simple structures (subordinate clauses, conditionals, passive voice, inversions).
    - Frequency and severity of errors (subject-verb agreement, tenses, prepositions, articles).
+   - Flag specific grammar errors with millisecond markers if discernible.
 
 4. PRONUNCIATION (PR) [ACOUSTIC WAVEFORM ANALYSIS]:
    - Intelligibility and listener effort.
    - Phoneme accuracy: Specific attention to Vietnamese L1 transfer issues (missing final consonants /s, z, t, d, θ, ð, v, ks/, vowel confusion /i:/ vs /ɪ/, /e/ vs /æ/).
    - Word stress (primary/secondary) and rhythm (connected speech, linking, weak forms).
    - Sentence stress and intonation patterns (avoiding monotone or flat delivery).
+   - Flag mispronounced words and unclear segments with millisecond markers (startMs, endMs).
 
 CALIBRATION & SCORING RULES:
 - Band scores MUST be given in increments of 0.5 (e.g. 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0).
 - Do NOT inflate scores. A Band 7 candidate must demonstrate frequent error-free sentences and flexible vocabulary.
 - Compile a practiceMonologue (Band 8.0+ Model Speech): Synthesize the core ideas and stories that the candidate expressed across the session into a single, cohesive, high-scoring 120-160 word model monologue. Polish their ideas with C1/C2 vocabulary, natural discourse markers, and complex structures for them to practice shadow reading.
-- Output MUST strictly conform to the provided JSON schema.
+- Output MUST strictly conform to the provided JSON schema including the 'evidence' object.
 `;
 
 export interface SpeakingAudioInput {
@@ -49,16 +62,68 @@ export interface SpeakingAudioInput {
   audioBase64?: string;
   mimeType?: string;
   durationSeconds?: number;
+  startMs?: number;
+  endMs?: number;
+  liveTranscript?: string;
+  verifiedTranscript?: string;
 }
 
 export interface EvaluateSpeakingOptions {
   primaryModel?: string;
   fallbackModel?: string;
   forceFallback?: boolean;
+  skipVerbatimPass?: boolean;
 }
 
 /**
- * Format multimodal contents with prompt instructions and inline audio data
+ * Pass 1: Transcribe single audio input verbatim using specialized STT
+ */
+export async function transcribeSpeakingAudioVerbatim(
+  item: SpeakingAudioInput
+): Promise<string> {
+  const mimeType = item.mimeType || "audio/webm";
+  let base64Data = item.audioBase64 || "";
+  if (!base64Data && item.audioBuffer) {
+    base64Data = Buffer.from(item.audioBuffer).toString("base64");
+  }
+
+  if (!base64Data) {
+    return item.liveTranscript || "";
+  }
+
+  const model = process.env.GEMINI_TRANSCRIBE_MODEL || "gemini-3.5-flash-lite";
+
+  try {
+    const result = await geminiRotator.executeWithRotation(async (client) => {
+      const response = await client.models.generateContent({
+        model,
+        contents: [
+          { text: IELTS_VERBATIM_STT_PROMPT },
+          {
+            inlineData: {
+              mimeType,
+              data: base64Data,
+            },
+          },
+        ],
+        config: {
+          temperature: 0.0,
+        },
+      });
+      return response.text?.trim() || "";
+    });
+    return result || item.liveTranscript || "";
+  } catch (err) {
+    console.warn(
+      "[SpeakingEvaluator] Verbatim transcription pass failed, falling back to live transcript:",
+      err
+    );
+    return item.liveTranscript || "";
+  }
+}
+
+/**
+ * Format multimodal contents with prompt instructions, verified transcripts, and inline audio data
  */
 function buildMultimodalContents(items: SpeakingAudioInput[]) {
   const contents: Array<
@@ -66,8 +131,8 @@ function buildMultimodalContents(items: SpeakingAudioInput[]) {
   > = [];
 
   contents.push({
-    text: `Please evaluate this candidate's IELTS Speaking test responses. There are ${items.length} audio response(s) provided below across IELTS Speaking Parts.
-For each response, transcribe the speech verbatim, analyze acoustics and language across the 4 IELTS criteria (FC, LR, GRA, PR), and produce the structured evaluation conforming to the response JSON schema.`,
+    text: `Please evaluate this candidate's IELTS Speaking test responses. There are ${items.length} response item(s) provided below.
+Analyze acoustics alongside verified transcripts across all 4 criteria (FC, LR, GRA, PR), extract evidence with millisecond markers, and produce the structured evaluation conforming to the response JSON schema.`,
   });
 
   for (let i = 0; i < items.length; i++) {
@@ -79,9 +144,17 @@ For each response, transcribe the speech verbatim, analyze acoustics and languag
       base64Data = Buffer.from(item.audioBuffer).toString("base64");
     }
 
-    contents.push({
-      text: `--- PART ${item.partNumber} (Question ${item.itemIndex + 1}): "${item.promptQuestion}" ---`,
-    });
+    let promptHeader = `--- PART ${item.partNumber} (Item ${item.itemIndex + 1}): "${item.promptQuestion}" ---`;
+    if (item.startMs !== undefined && item.endMs !== undefined) {
+      promptHeader += ` [Recording Range: ${item.startMs}ms - ${item.endMs}ms]`;
+    }
+    if (item.verifiedTranscript) {
+      promptHeader += `\n[Verified Verbatim Transcript: "${item.verifiedTranscript}"]`;
+    } else if (item.liveTranscript) {
+      promptHeader += `\n[Candidate Live Transcript: "${item.liveTranscript}"]`;
+    }
+
+    contents.push({ text: promptHeader });
 
     if (base64Data) {
       contents.push({
@@ -97,7 +170,7 @@ For each response, transcribe the speech verbatim, analyze acoustics and languag
 }
 
 /**
- * Core Speaking Audio Evaluator using Gemini Structured Outputs Engine
+ * Core Speaking Audio Evaluator (2-Stage Architecture)
  */
 export async function evaluateSpeakingAudio(
   items: SpeakingAudioInput[],
@@ -107,6 +180,16 @@ export async function evaluateSpeakingAudio(
     throw new Error("No audio responses provided for speaking evaluation.");
   }
 
+  // Pass 1: Verbatim Transcription for items lacking verified transcript
+  if (!options.skipVerbatimPass) {
+    for (const item of items) {
+      if (!item.verifiedTranscript && (item.audioBase64 || item.audioBuffer)) {
+        item.verifiedTranscript = await transcribeSpeakingAudioVerbatim(item);
+      }
+    }
+  }
+
+  // Pass 2: Multimodal Audio + Transcript Evaluation
   const primaryModel =
     options.primaryModel ||
     process.env.GEMINI_SPEAKING_MODEL ||
@@ -159,7 +242,7 @@ export async function evaluateSpeakingAudio(
                   Parameters<typeof client.models.generateContent>[0]["config"]
                 >["responseSchema"]
               >,
-            temperature: 0.2, // Low temperature for high evaluation calibration
+            temperature: 0.2,
           },
         });
 
@@ -229,7 +312,6 @@ export async function evaluateSpeakingAudio(
 
   const durationMs = Date.now() - startTime;
 
-  // Clean JSON markup if needed
   let jsonString = rawResponseText.trim();
   if (jsonString.startsWith("```json")) {
     jsonString = jsonString.slice(7);
@@ -245,6 +327,7 @@ export async function evaluateSpeakingAudio(
   let parsedData: {
     overallScorecard: SpeakingOverallScorecard;
     partEvaluations: SpeakingPartEvaluation[];
+    evidence?: SpeakingEvidence;
   };
 
   try {
@@ -255,7 +338,7 @@ export async function evaluateSpeakingAudio(
     );
   }
 
-  // Enforce official IELTS overall band score calculation
+  // Calculate overall band using official IELTS rounding formula
   const { criteriaScores } = parsedData.overallScorecard;
   const calculatedBand = calculateIeltsOverallBand(
     criteriaScores.fluencyAndCoherence,
@@ -268,6 +351,7 @@ export async function evaluateSpeakingAudio(
   const result: IeltsSpeakingEvaluationResult = {
     overallScorecard: parsedData.overallScorecard,
     partEvaluations: parsedData.partEvaluations || [],
+    evidence: parsedData.evidence,
     trace: {
       modelUsed: modelToUse,
       isFallback,
@@ -283,6 +367,5 @@ export async function evaluateSpeakingAudio(
     },
   };
 
-  // Validate complete result structure against Zod Schema
   return IeltsSpeakingEvaluationResultSchema.parse(result);
 }
