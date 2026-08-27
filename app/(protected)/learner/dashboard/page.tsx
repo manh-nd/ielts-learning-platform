@@ -175,7 +175,7 @@ export default async function LearnerDashboardPage() {
       {/* Progress & Recent Sessions Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Band Overview */}
-        <div className="rounded-xl border border-border/70 bg-card p-5 shadow-xs space-y-4">
+        <div className="rounded-xl border border-border/70 bg-card p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground">
               Tổng quan Kỹ năng
@@ -217,7 +217,7 @@ export default async function LearnerDashboardPage() {
         </div>
 
         {/* Recent Practice List */}
-        <div className="lg:col-span-2 rounded-xl border border-border/70 bg-card p-5 shadow-xs space-y-4">
+        <div className="lg:col-span-2 rounded-xl border border-border/70 bg-card p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-foreground">
               Lịch sử Luyện tập gần đây

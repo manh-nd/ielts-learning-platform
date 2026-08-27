@@ -108,7 +108,7 @@ export function LoginForm({
       )}
 
       {/* Credentials Form */}
-      <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {/* Email Field */}
         <div className="space-y-1">
           <Label htmlFor="login-email">Địa chỉ Email</Label>

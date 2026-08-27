@@ -239,14 +239,14 @@ export function LiveSpeakingExaminerRoom({
       </CardHeader>
 
       {/* Main Content Studio with optimized padding */}
-      <CardContent className="p-4 sm:p-5 space-y-4">
+      <CardContent className="p-4 sm:p-6 space-y-4">
         {/* Stage Visualization Area */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* AI Examiner Card */}
           <div
             data-testid="examiner-stage-card"
             className={cn(
-              "flex flex-col items-center justify-center p-4 sm:p-5 rounded-xl border text-center transition-all bg-gradient-to-b from-indigo-500/5 to-transparent",
+              "flex flex-col items-center justify-center p-4 sm:p-6 rounded-xl border text-center transition-all bg-gradient-to-b from-indigo-500/5 to-transparent",
               voiceActivity === "ai_speaking" &&
                 "ring-2 ring-indigo-500 bg-indigo-500/10 shadow-xs"
             )}
@@ -281,7 +281,7 @@ export function LiveSpeakingExaminerRoom({
           <div
             data-testid="candidate-stage-card"
             className={cn(
-              "flex flex-col items-center justify-center p-4 sm:p-5 rounded-xl border text-center transition-all bg-gradient-to-b from-emerald-500/5 to-transparent",
+              "flex flex-col items-center justify-center p-4 sm:p-6 rounded-xl border text-center transition-all bg-gradient-to-b from-emerald-500/5 to-transparent",
               voiceActivity === "user_speaking" &&
                 "ring-2 ring-emerald-500 bg-emerald-500/10 shadow-xs"
             )}

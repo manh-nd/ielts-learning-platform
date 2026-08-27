@@ -340,7 +340,7 @@ export function TeacherSpeakingReviewWorkspace({
         <div className="lg:col-span-7 space-y-5">
           {/* Speaking Part Switcher */}
           <Card className="border shadow-xs py-0 gap-0 overflow-hidden">
-            <CardHeader className="p-3.5 pb-3 border-b bg-muted/10">
+            <CardHeader className="p-3 sm:p-4 pb-3 border-b bg-muted/10">
               <Tabs
                 value={activePartNumber.toString()}
                 onValueChange={handlePartChange}
@@ -374,7 +374,7 @@ export function TeacherSpeakingReviewWorkspace({
 
             <CardContent className="p-4 space-y-4">
               {/* Question / Prompt Info */}
-              <div className="p-3.5 rounded-lg bg-muted/40 border text-sm space-y-1.5">
+              <div className="p-4 rounded-xl bg-muted/40 border text-sm space-y-1.5">
                 <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
                   <span className="flex items-center gap-1.5 text-primary font-semibold">
                     <Mic className="h-3.5 w-3.5" />
@@ -527,7 +527,7 @@ export function TeacherSpeakingReviewWorkspace({
 
               {/* Specific AI Pronunciation & Grammar Highlights */}
               {activePart.pronunciationNotes.length > 0 && (
-                <div className="p-3.5 rounded-lg border border-purple-200 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 space-y-2">
+                <div className="p-4 rounded-xl border border-purple-200 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/20 space-y-2">
                   <span className="text-xs font-bold text-purple-700 dark:text-purple-300 flex items-center gap-1.5">
                     <AlertCircle className="h-3.5 w-3.5" />
                     Lưu Ý Phát Âm Từ AI (Pronunciation Notes):
@@ -569,7 +569,7 @@ export function TeacherSpeakingReviewWorkspace({
               )}
 
               {/* Form: Add Teacher Annotation */}
-              <div className="p-3.5 rounded-lg border bg-card space-y-3">
+              <div className="p-4 rounded-xl border bg-card space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
                     <BookmarkPlus className="h-3.5 w-3.5 text-primary" />
@@ -676,13 +676,13 @@ export function TeacherSpeakingReviewWorkspace({
 
           {/* Examiner General Feedback & Action Plan */}
           <Card className="border shadow-xs py-0 gap-0 overflow-hidden">
-            <CardHeader className="p-4 sm:p-5 border-b bg-muted/20">
+            <CardHeader className="p-4 sm:p-6 border-b bg-muted/20">
               <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2 text-foreground">
                 <TrendingUp className="h-4 w-4 text-primary" />
                 Nhận Xét Tổng Quan & Lộ Trình Luyện Tập
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-4 sm:p-5 space-y-4">
+            <CardContent className="p-4 sm:p-6 space-y-4">
               {/* Executive Summary */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground block">

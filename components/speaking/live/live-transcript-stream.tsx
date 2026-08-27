@@ -48,7 +48,7 @@ export function LiveTranscriptStream({
               {emptyPlaceholder}
             </div>
           ) : (
-            <MessageScrollerContent className="gap-3.5">
+            <MessageScrollerContent className="gap-4">
               {transcripts.map((item) => {
                 const isExaminer = item.sender === "examiner";
                 const timeString = new Date(item.timestamp).toLocaleTimeString(

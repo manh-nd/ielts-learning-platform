@@ -104,7 +104,7 @@ export function SpeakingScratchpad({
         </div>
       </CardHeader>
 
-      <CardContent className="p-5 flex-1 flex flex-col min-h-[160px]">
+      <CardContent className="flex-1 flex flex-col min-h-[160px]">
         <Textarea
           ref={textareaRef}
           value={value}

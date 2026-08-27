@@ -407,7 +407,7 @@ export function SpeakingPracticeSuite({
                   </div>
                 </CardHeader>
 
-                <CardContent className="p-5 space-y-4">
+                <CardContent className="space-y-4">
                   {/* State 1: Ready to start prep */}
                   {part2State === "ready" && (
                     <div className="text-center space-y-3">
@@ -542,7 +542,7 @@ export function SpeakingPracticeSuite({
                   {/* State 4: Reviewing recording */}
                   {part2State === "reviewing" && currentAnswer && (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                         <div className="flex items-center gap-2.5">
                           <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                           <div>
@@ -649,7 +649,7 @@ export function SpeakingPracticeSuite({
               </div>
             </CardHeader>
 
-            <CardContent className="p-5 space-y-5">
+            <CardContent className="space-y-4">
               {/* Question Text & Prompt Player */}
               <div className="p-4 rounded-xl border bg-card space-y-3">
                 <div className="flex items-start justify-between gap-3">

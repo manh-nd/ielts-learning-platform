@@ -65,7 +65,7 @@ export default defineConfig({
   webServer: {
     command: `python3 -m http.server ${STORYBOOK_PORT} --directory storybook-static --bind 127.0.0.1`,
     url: `${BASE_URL}/iframe.html`,
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     stdout: "ignore",
     stderr: "pipe",
     timeout: 15 * 1000,

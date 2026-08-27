@@ -131,4 +131,41 @@ test.describe("Storybook Visual Regression Suite", () => {
       );
     });
   });
+
+  test.describe("6. Chat Primitives & Alert", () => {
+    test("Message Inbound Assistant", async ({ page }) => {
+      await loadStory(page, "ui-chat-message--inbound-assistant");
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "chat-message-inbound.png"
+      );
+    });
+
+    test("Bubble Variants", async ({ page }) => {
+      await loadStory(page, "ui-chat-bubble--variants");
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "chat-bubble-variants.png"
+      );
+    });
+
+    test("Marker Default", async ({ page }) => {
+      await loadStory(page, "ui-chat-marker--default");
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "chat-marker-default.png"
+      );
+    });
+
+    test("Message Scroller Default", async ({ page }) => {
+      await loadStory(page, "ui-chat-messagescroller--default");
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "chat-messagescroller-default.png"
+      );
+    });
+
+    test("Alert Semantic Variants", async ({ page }) => {
+      await loadStory(page, "ui-alert--default");
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "alert-default.png"
+      );
+    });
+  });
 });

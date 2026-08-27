@@ -35,7 +35,7 @@ export function AuthCard({
       )}
       {...props}
     >
-      <Card className="w-full shadow-lg border-border/70 bg-card/98 backdrop-blur-sm rounded-xl p-5 space-y-4">
+      <Card className="w-full shadow-lg border-border/70 bg-card/98 backdrop-blur-sm rounded-xl p-6 space-y-4">
         <CardHeader className="text-center space-y-1 p-0 pb-1">
           <div className="flex justify-center mb-1">
             <div className="inline-flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/20">

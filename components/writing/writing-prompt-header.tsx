@@ -174,7 +174,7 @@ export function WritingPromptHeader({
       {/* Prompt Body Section */}
       {isExpanded ? (
         <div
-          className="p-5 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150"
+          className="p-4 sm:p-6 space-y-4 animate-in fade-in slide-in-from-top-1 duration-150"
           data-testid="prompt-body-expanded"
         >
           <div>

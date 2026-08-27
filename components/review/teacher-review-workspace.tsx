@@ -316,11 +316,11 @@ export function TeacherReviewWorkspace({
       </div>
 
       {/* ── Main Workspace Body ───────────────────────────────── */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto p-3.5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
         {/* ── ESSAY & ANNOTATOR COLUMN (Visible on desktop or when mobileViewMode === 'essay') ── */}
         <section
           className={cn(
-            "lg:col-span-7 flex flex-col gap-3.5 sm:gap-4",
+            "lg:col-span-7 flex flex-col gap-4",
             mobileViewMode !== "essay" && "hidden lg:flex"
           )}
         >
@@ -336,7 +336,7 @@ export function TeacherReviewWorkspace({
 
           {/* Annotator Card */}
           <div className="flex-1 rounded-xl border bg-card shadow-xs overflow-hidden flex flex-col">
-            <div className="border-b px-3.5 py-2 sm:px-4 sm:py-2.5 bg-muted/20 flex items-center justify-between">
+            <div className="border-b px-4 py-2 sm:px-4 sm:py-2.5 bg-muted/20 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-xs text-foreground flex items-center gap-1.5">
                   <FileText className="h-3.5 w-3.5 text-primary" />

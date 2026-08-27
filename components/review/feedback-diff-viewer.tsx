@@ -294,7 +294,7 @@ export function FeedbackDiffViewer({
       </div>
 
       {/* Summary Statistics Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-lg bg-muted/40 text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-muted/40 text-xs">
         <div className="flex flex-col gap-0.5">
           <span className="text-muted-foreground">Tổng lỗi AI phát hiện</span>
           <span className="text-sm font-semibold text-foreground">
@@ -385,7 +385,7 @@ export function FeedbackDiffViewer({
                 <div
                   key={`${item.errorId}-${item.resolution}-${index}`}
                   className={cn(
-                    "rounded-lg border bg-background p-3.5 text-xs transition-all space-y-2",
+                    "rounded-lg border bg-background p-3 text-xs transition-all space-y-2",
                     resMeta.borderClass
                   )}
                   data-testid={`diff-item-${item.errorId}`}

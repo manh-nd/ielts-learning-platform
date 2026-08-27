@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShieldAlert, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -234,30 +235,32 @@ export function IeltsWritingSuite({
 
       {/* Paste Blocked Warning Banner */}
       {pasteAttemptBlocked && (
-        <div
-          className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-sm text-rose-900 font-medium shadow-sm animate-in fade-in slide-in-from-top-2 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200"
+        <Alert
+          variant="destructive"
+          className="animate-in fade-in slide-in-from-top-2"
           data-testid="paste-blocked-banner"
         >
-          <ShieldAlert className="h-5 w-5 text-rose-700 dark:text-rose-400 shrink-0" />
-          <span>
+          <ShieldAlert className="h-4 w-4 shrink-0" />
+          <AlertDescription>
             Tính năng Copy-Paste bị vô hiệu hóa trong chế độ Thi thử (Strict
             Exam Mode) để đảm bảo tính trung thực.
-          </span>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Time Expired Alert Banner */}
       {isTimeUp && (
-        <div
-          className="flex items-center gap-2 rounded-xl bg-rose-50 border border-rose-200 p-3.5 text-sm text-rose-900 font-medium shadow-sm animate-in fade-in dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200"
+        <Alert
+          variant="destructive"
+          className="animate-in fade-in"
           data-testid="time-up-banner"
         >
-          <AlertCircle className="h-5 w-5 text-rose-700 dark:text-rose-400 shrink-0" />
-          <span>
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <AlertDescription>
             Thời gian làm bài đã kết thúc! Hệ thống đã khóa bài viết và tiến
             hành nộp bài tự động.
-          </span>
-        </div>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Main Tiptap Writing Editor */}

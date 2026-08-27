@@ -33,7 +33,7 @@ const bubbleVariants = cva(
         ghost:
           "border-none *:data-[slot=bubble-content]:rounded-none *:data-[slot=bubble-content]:bg-transparent *:data-[slot=bubble-content]:p-0 [&>[data-slot=bubble-content]:is(button,a):hover]:bg-muted [&>[data-slot=bubble-content]:is(button,a):hover]:text-foreground dark:[&>[data-slot=bubble-content]:is(button,a):hover]:bg-muted/50",
         destructive:
-          "*:data-[slot=bubble-content]:bg-destructive/10 *:data-[slot=bubble-content]:text-destructive dark:*:data-[slot=bubble-content]:bg-destructive/20 [&>[data-slot=bubble-content]:is(button,a):hover]:bg-destructive/20 dark:[&>[data-slot=bubble-content]:is(button,a):hover]:bg-destructive/30",
+          "*:data-[slot=bubble-content]:bg-rose-50 *:data-[slot=bubble-content]:text-rose-950 *:data-[slot=bubble-content]:border-rose-200 dark:*:data-[slot=bubble-content]:bg-rose-950/40 dark:*:data-[slot=bubble-content]:text-rose-200 dark:*:data-[slot=bubble-content]:border-rose-800 [&>[data-slot=bubble-content]:is(button,a):hover]:bg-rose-100 dark:[&>[data-slot=bubble-content]:is(button,a):hover]:bg-rose-900/40",
       },
     },
     defaultVariants: {

@@ -153,7 +153,7 @@ function CriteriaScoreSliderBase({
                     <PopoverContent
                       side="top"
                       align="start"
-                      className="w-80 p-3.5 shadow-lg border bg-popover text-popover-foreground z-50 font-sans"
+                      className="w-80 p-4 shadow-lg border bg-popover text-popover-foreground z-50 font-sans"
                       data-testid={`rubric-popover-content-${meta.short.toLowerCase()}`}
                     >
                       <PopoverHeader className="pb-1.5 border-b mb-2">

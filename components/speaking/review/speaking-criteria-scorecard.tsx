@@ -205,7 +205,7 @@ export function SpeakingCriteriaScorecard({
       )}
       data-testid={testId}
     >
-      <CardHeader className="p-4 sm:p-5 border-b bg-muted/20 space-y-3">
+      <CardHeader className="p-4 sm:p-6 border-b bg-muted/20 space-y-3">
         {/* Top: Title & Icon */}
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
@@ -257,7 +257,7 @@ export function SpeakingCriteriaScorecard({
         )}
 
         {/* Overall Band Hero Highlight */}
-        <div className="p-3.5 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 flex items-center justify-between">
           <div className="flex flex-col">
             <span className="text-xs font-semibold text-muted-foreground">
               Overall Band Score (IELTS)
@@ -302,7 +302,7 @@ export function SpeakingCriteriaScorecard({
         </div>
       </CardHeader>
 
-      <CardContent className="p-4 sm:p-5 space-y-4">
+      <CardContent className="p-4 sm:p-6 space-y-4">
         {SPEAKING_CRITERIA_ORDER.map((criterionKey) => {
           const meta = SPEAKING_CRITERIA_META[criterionKey];
           const currentScore = scores[criterionKey] ?? 0;
@@ -314,7 +314,7 @@ export function SpeakingCriteriaScorecard({
             <div
               key={criterionKey}
               className={cn(
-                "p-3.5 rounded-lg border transition-all duration-150",
+                "p-4 rounded-xl border transition-all duration-150",
                 meta.bgLight,
                 hasDiff ? "border-primary/40 shadow-xs" : "border-border/60"
               )}

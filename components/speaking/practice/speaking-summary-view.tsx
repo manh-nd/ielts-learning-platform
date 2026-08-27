@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -283,20 +284,20 @@ export function SpeakingSummaryView({
         </div>
       </CardHeader>
 
-      <CardContent className="p-5 space-y-6">
+      <CardContent className="space-y-6">
         {!isAllAnswered && (
-          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-3 text-amber-900 dark:bg-amber-950/40 dark:border-amber-800 dark:text-amber-200">
-            <AlertTriangle className="w-5 h-5 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />
-            <div className="text-xs space-y-0.5">
-              <p className="font-semibold">
+          <Alert variant="warning" className="flex items-start gap-3">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-700 dark:text-amber-400 mt-0.5" />
+            <div className="space-y-0.5">
+              <AlertTitle className="font-semibold text-xs text-amber-900 dark:text-amber-200">
                 Bạn còn câu hỏi chưa hoàn thành ghi âm!
-              </p>
-              <p className="text-amber-900 dark:text-amber-200 font-medium">
+              </AlertTitle>
+              <AlertDescription className="text-amber-900/90 dark:text-amber-200/90 font-medium">
                 Hãy thu âm đầy đủ các câu hỏi để bài thi được đánh giá trọn vẹn
                 4 tiêu chí IELTS Speaking.
-              </p>
+              </AlertDescription>
             </div>
-          </div>
+          </Alert>
         )}
 
         {/* Part 1 Group */}

@@ -67,7 +67,7 @@ export function AuthRedirectView({
         className
       )}
     >
-      <Card className="w-full max-w-[420px] sm:w-[420px] shadow-lg border-border/70 bg-card/98 backdrop-blur-sm rounded-xl p-5 space-y-4 text-center">
+      <Card className="w-full max-w-[420px] sm:w-[420px] shadow-lg border-border/70 bg-card/98 backdrop-blur-sm rounded-xl p-6 space-y-4 text-center">
         <CardHeader className="space-y-1.5 p-0 pb-1">
           <div className="flex justify-center mb-1">
             <div

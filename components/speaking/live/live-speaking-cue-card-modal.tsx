@@ -128,11 +128,11 @@ export function LiveSpeakingCueCardModal({
       </CardHeader>
 
       {/* Content Body: Symmetrical 16px (p-4) matching Header exactly */}
-      <CardContent className="p-4 space-y-3.5">
+      <CardContent className="p-4 space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           {/* Cue Card Prompt & Bullets */}
           <div className="md:col-span-7 space-y-3">
-            <div className="p-3.5 rounded-lg bg-card border shadow-xs space-y-2">
+            <div className="p-4 rounded-xl bg-card border shadow-xs space-y-2">
               <p className="text-xs font-semibold text-foreground leading-snug">
                 {cueCard.cueCardPrompt}
               </p>
@@ -183,7 +183,7 @@ export function LiveSpeakingCueCardModal({
               content={formattedInitialContent}
               placeholder="Ghi chú nhanh dàn ý (gõ '-' để tạo bullet list, Ctrl+B in đậm)..."
               minHeight="min-h-[135px]"
-              editorClassName="p-3.5 text-xs text-foreground/90 leading-relaxed font-sans [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-1 [&_ul]:my-1 [&_li]:pl-0.5 [&_li]:text-foreground/90 [&_li::marker]:text-foreground/90 [&_p]:my-1 [&_p]:text-foreground/90"
+              editorClassName="p-4 text-xs text-foreground/90 leading-relaxed font-sans [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:space-y-1 [&_ul]:my-1 [&_li]:pl-0.5 [&_li]:text-foreground/90 [&_li::marker]:text-foreground/90 [&_p]:my-1 [&_p]:text-foreground/90"
               enableBubbleMenu={false}
               editable={isPrep || phase === "speaking"}
               onChange={({ text }) => onNotesChange(text)}

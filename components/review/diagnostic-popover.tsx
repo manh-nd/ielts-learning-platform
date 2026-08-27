@@ -450,7 +450,7 @@ export function DiagnosticPopover({
 
           {/* Action Toolbar */}
           {editable && (
-            <div className="mt-3.5 flex items-center justify-between border-t pt-2.5 text-xs">
+            <div className="mt-4 flex items-center justify-between border-t pt-2.5 text-xs">
               <div className="flex items-center gap-1.5">
                 {/* Edit Button */}
                 <Button

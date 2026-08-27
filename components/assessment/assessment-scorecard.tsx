@@ -135,7 +135,7 @@ export function AssessmentScorecard({
       data-testid={testId}
     >
       {/* Top Banner: Header, Overall Band Badge, and Quick AI Actions */}
-      <CardHeader className="p-5 sm:p-6 bg-gradient-to-r from-muted/40 via-muted/20 to-background border-b">
+      <CardHeader className="p-4 sm:p-6 bg-gradient-to-r from-muted/40 via-muted/20 to-background border-b">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -173,7 +173,7 @@ export function AssessmentScorecard({
 
           {/* Big Overall Band Score Display Card */}
           <div
-            className="flex items-center gap-3.5 bg-background/80 backdrop-blur-sm border rounded-xl p-3 shadow-2xs shrink-0"
+            className="flex items-center gap-3 bg-background/80 backdrop-blur-sm border rounded-xl p-3 shadow-2xs shrink-0"
             data-testid="overall-score-container"
           >
             <div className="text-right">
@@ -258,7 +258,7 @@ export function AssessmentScorecard({
       </CardHeader>
 
       {/* 4 Criteria Scoring Sliders */}
-      <CardContent className="p-5 sm:p-6 space-y-4">
+      <CardContent className="p-4 sm:p-6 space-y-4">
         {WRITING_CRITERIA_ORDER.map((criterion) => {
           const score = scores[criterion] ?? 0;
           const aiScore = aiProposalScores

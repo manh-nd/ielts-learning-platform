@@ -42,7 +42,7 @@ export function ReviewPromptBanner({
     <div
       data-testid={testId}
       className={cn(
-        "rounded-xl border bg-card/80 backdrop-blur-xs p-3 sm:p-3.5 shadow-2xs space-y-2 transition-all",
+        "rounded-xl border bg-card/80 backdrop-blur-xs p-3 sm:p-4 shadow-2xs space-y-2 transition-all",
         className
       )}
     >

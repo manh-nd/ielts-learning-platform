@@ -344,7 +344,7 @@ export function SpeakingAudioRecorder({
         )}
       </CardHeader>
 
-      <CardContent className="p-6">
+      <CardContent className="p-4 sm:p-6">
         {/* ================= 1. IDLE STATE ================= */}
         {recorderStatus === "idle" && !initialAudioUrl && (
           <div
@@ -564,12 +564,12 @@ export function SpeakingAudioRecorder({
         {recorderStatus === "error" && recorderError && (
           <div
             data-testid="error-panel"
-            className="p-5 rounded-xl border border-rose-200 bg-rose-50 text-card-foreground space-y-4 dark:border-rose-800 dark:bg-rose-950/40"
+            className="p-4 sm:p-6 rounded-xl border border-rose-300 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/40 text-card-foreground space-y-4"
           >
             <div className="flex items-start gap-3">
               <ShieldAlert className="w-5 h-5 text-rose-700 dark:text-rose-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <h4 className="text-sm font-semibold text-rose-900 dark:text-rose-200">
+                <h4 className="text-sm font-semibold text-rose-950 dark:text-rose-200">
                   {recorderError.type === "permission_denied" &&
                     "Quyền truy cập Microphone bị từ chối"}
                   {recorderError.type === "device_not_found" &&
@@ -578,7 +578,7 @@ export function SpeakingAudioRecorder({
                     "Trình duyệt không hỗ trợ"}
                   {recorderError.type === "unknown" && "Lỗi kết nối Microphone"}
                 </h4>
-                <p className="text-xs text-foreground/80 leading-relaxed">
+                <p className="text-xs text-rose-900 dark:text-rose-300 leading-relaxed">
                   {recorderError.message}
                 </p>
               </div>

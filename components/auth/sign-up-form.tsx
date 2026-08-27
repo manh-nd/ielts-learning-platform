@@ -142,7 +142,7 @@ export function SignUpForm({
       )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {/* Full Name */}
         <div className="space-y-1">
           <Label htmlFor="signup-name">Họ và tên</Label>

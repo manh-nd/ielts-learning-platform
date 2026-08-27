@@ -73,7 +73,7 @@ export function ReviewHeader({
     <header
       data-testid={testId}
       className={cn(
-        "sticky top-0 z-30 border-b bg-card/95 backdrop-blur-md px-3.5 py-2.5 sm:px-6 sm:py-3",
+        "sticky top-0 z-30 border-b bg-card/95 backdrop-blur-md px-4 py-2.5 sm:px-6 sm:py-3",
         className
       )}
     >
