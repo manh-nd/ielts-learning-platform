@@ -42,7 +42,7 @@ Hệ thống chấm IELTS Writing tự động sử dụng tính năng **Structu
                                              ▼
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │                         PERSISTENCE & USER INTERFACE                                     │
-│  • Lưu vào Aggregate AIAssessmentProposal                                                │
+│  • Lưu vào Aggregate AiAssessmentProposal                                                │
 │  • Render lên Teacher Review Workspace (shadcn/ui + TipTap Error Highlights)             │
 │  • Học viên xem báo cáo chi tiết kèm lộ trình nâng band                                  │
 └──────────────────────────────────────────────────────────────────────────────────────────┘

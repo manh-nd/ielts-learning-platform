@@ -170,7 +170,7 @@ export function SpeakingSubmissionConfirmedView({
             <span>Quy trình Chấm điểm & Trả bài (Teacher-in-the-loop)</span>
           </div>
           <p className="text-foreground/90 leading-relaxed">
-            Hệ thống AI đang tạo đề xuất chấm điểm sơ bộ (AIAssessmentProposal)
+            Hệ thống AI đang tạo đề xuất chấm điểm sơ bộ (AiAssessmentProposal)
             bao gồm bảng điểm 4 tiêu chí (FC, LR, GRA, PR) và ghim các mốc thời
             gian lỗi phát âm. Giáo viên phụ trách ({teacherName}) sẽ trực tiếp
             nghe lại bài nói, điều chỉnh điểm số và phê duyệt bản nhận xét cuối

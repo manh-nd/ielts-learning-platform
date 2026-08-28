@@ -52,3 +52,12 @@ We use **Storybook 10** (`@storybook/nextjs-vite` + `@storybook/addon-vitest`):
 - Run visual tests locally: `bun run test:visual:local`.
 - Update snapshots locally: `bunx playwright test -c playwright.visual.config.ts --update-snapshots`.
 - Run / update snapshots with Linux Docker container: `bun run test:visual` / `bun run test:visual:update`.
+
+### Code Naming Conventions (Google Style for Acronyms)
+
+We follow the Google TypeScript/Java Style Guide rule: **"Treat abbreviations as words"** in code identifiers:
+
+- **PascalCase**: `AiAssessmentProposal` (avoid `AIAssessmentProposal`), `IeltsWritingAssessment`, `SttEngine`, `XmlHttpRequest`.
+- **camelCase**: `aiProposalScores`, `aiScore`, `audioUrl`, `userId`, `scorecardJson`.
+- **SCREAMING_SNAKE_CASE**: Retain full uppercase with underscores for constants (`IELTS_BAND_DESCRIPTORS`, `IELTS_VERBATIM_STT_PROMPT`).
+- **Prose & UI Text**: Standard uppercase (e.g. "AI", "IELTS", "STT", "CEFR") is allowed in Vietnamese/English natural language prose and UI labels.

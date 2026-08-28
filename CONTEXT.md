@@ -32,9 +32,9 @@ _Avoid_: AssessmentRecord, GradingSession, ReviewResult
 
 ### Assessment Lifecycle & Proposals
 
-**AIAssessmentProposal**:
+**AiAssessmentProposal**:
 An AI-generated draft containing criterion scores, overall band, and feedback. Non-authoritative suggestion.
-_Avoid_: AssessmentResult, AIScore, SystemGrade
+_Avoid_: AssessmentResult, AiScore, SystemGrade
 
 **TeacherAssessment**:
 The professional evaluation created, verified, or corrected by a Teacher.
@@ -44,7 +44,7 @@ _Avoid_: ManualGrade, FinalScore
 The official assessment visible to the Learner immediately after the Teacher completes review by choosing “Duyệt”.
 _Avoid_: PublicGrade, FinalResult
 
-**EvaluationFeedback (AI Feedback Dataset)**:
+**EvaluationFeedback (AiFeedbackDataset)**:
 Structured comparison data capturing original AI proposal vs Teacher final assessment and score deltas for AI calibration.
 _Avoid_: TrainingData, DiffLog
 
@@ -91,3 +91,31 @@ _Avoid_: Enrollment, UserClass
 **HomeworkAssignment**:
 The binding of a Homework to a Classroom.
 _Avoid_: ClassHomework, TaskAssignment
+
+### Speaking Modality & Workflows
+
+**SpeakingDiscreteHomework**:
+A homework assignment consisting of discrete speaking tasks or prompt items (e.g. specific Part 2 cue card or Part 1 questions) recorded individually and submitted for teacher review and approval.
+_Avoid_: SpeakingTaskAssignment, HomeworkRecording
+
+**SpeakingContinuousMockTest**:
+A full 3-part continuous exam simulation randomly drawn from the active prompt bank that AI evaluates and publishes immediately without teacher review.
+_Avoid_: FullSpeakingExam, InstantSpeakingTest
+
+### Design System & Visual Tokens
+
+**CriterionToken**:
+A semantic color token dedicated to an IELTS assessment criterion (Task Achievement: Emerald, Coherence & Cohesion: Amber, Lexical Resource: Blue, Grammatical Range & Accuracy: Rose, Pronunciation: Violet) with high contrast for both light and dark themes.
+_Avoid_: CustomColorClass, RawHexCode
+
+**BandScoreBadge**:
+A standardized visual badge component encoding candidate proficiency across 4 band tiers (8.0-9.0: Expert/Emerald, 6.5-7.5: Competent/Blue, 5.0-6.0: Modest/Amber, <5.0: Limited/Rose) across 3 scale sizes.
+_Avoid_: ScoreTag, GradePill
+
+**ErrorSeverityEncoding**:
+A 3-tier visual underline and callout standard for diagnostic errors (minor_slip: dotted underline, systematic_error: solid underline with tint, impedes_communication: wavy destructive underline).
+_Avoid_: CustomUnderline, TextErrorMarker
+
+**DensityTier**:
+Layout density classification governing UI padding and information compactness (Compact: 12px for Teacher Review multi-pane cockpit; Standard: 16px; Spacious: 24px for Learner Dashboard).
+_Avoid_: LayoutSpacingMode, CustomPaddingPreset

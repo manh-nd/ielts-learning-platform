@@ -67,6 +67,24 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+
+  /* IELTS 5 Criteria Semantic Tokens */
+  --color-criterion-ta: var(--criterion-ta);
+  --color-criterion-ta-bg: var(--criterion-ta-bg);
+  --color-criterion-ta-subtle: var(--criterion-ta-subtle);
+  --color-criterion-cc: var(--criterion-cc);
+  --color-criterion-cc-bg: var(--criterion-cc-bg);
+  --color-criterion-cc-subtle: var(--criterion-cc-subtle);
+  --color-criterion-lr: var(--criterion-lr);
+  --color-criterion-lr-bg: var(--criterion-lr-bg);
+  --color-criterion-lr-subtle: var(--criterion-lr-subtle);
+  --color-criterion-gra: var(--criterion-gra);
+  --color-criterion-gra-bg: var(--criterion-gra-bg);
+  --color-criterion-gra-subtle: var(--criterion-gra-subtle);
+  --color-criterion-pr: var(--criterion-pr);
+  --color-criterion-pr-bg: var(--criterion-pr-bg);
+  --color-criterion-pr-subtle: var(--criterion-pr-subtle);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -110,6 +128,23 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* IELTS 5 Criteria Light Theme (Emerald, Amber, Blue, Rose, Violet) */
+  --criterion-ta: oklch(0.58 0.17 160);
+  --criterion-ta-bg: oklch(0.58 0.17 160 / 16%);
+  --criterion-ta-subtle: oklch(0.58 0.17 160 / 30%);
+  --criterion-cc: oklch(0.68 0.17 65);
+  --criterion-cc-bg: oklch(0.68 0.17 65 / 16%);
+  --criterion-cc-subtle: oklch(0.68 0.17 65 / 30%);
+  --criterion-lr: oklch(0.56 0.18 245);
+  --criterion-lr-bg: oklch(0.56 0.18 245 / 16%);
+  --criterion-lr-subtle: oklch(0.56 0.18 245 / 30%);
+  --criterion-gra: oklch(0.6 0.22 25);
+  --criterion-gra-bg: oklch(0.6 0.22 25 / 16%);
+  --criterion-gra-subtle: oklch(0.6 0.22 25 / 30%);
+  --criterion-pr: oklch(0.6 0.22 300);
+  --criterion-pr-bg: oklch(0.6 0.22 300 / 16%);
+  --criterion-pr-subtle: oklch(0.6 0.22 300 / 30%);
 }
 
 .dark {
@@ -145,6 +180,23 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* IELTS 5 Criteria Dark Theme (Higher Luminance for Dark Background) */
+  --criterion-ta: oklch(0.72 0.17 160);
+  --criterion-ta-bg: oklch(0.72 0.17 160 / 28%);
+  --criterion-ta-subtle: oklch(0.72 0.17 160 / 40%);
+  --criterion-cc: oklch(0.8 0.16 65);
+  --criterion-cc-bg: oklch(0.8 0.16 65 / 28%);
+  --criterion-cc-subtle: oklch(0.8 0.16 65 / 40%);
+  --criterion-lr: oklch(0.72 0.17 245);
+  --criterion-lr-bg: oklch(0.72 0.17 245 / 28%);
+  --criterion-lr-subtle: oklch(0.72 0.17 245 / 40%);
+  --criterion-gra: oklch(0.72 0.2 25);
+  --criterion-gra-bg: oklch(0.72 0.2 25 / 28%);
+  --criterion-gra-subtle: oklch(0.72 0.2 25 / 40%);
+  --criterion-pr: oklch(0.74 0.2 300);
+  --criterion-pr-bg: oklch(0.74 0.2 300 / 28%);
+  --criterion-pr-subtle: oklch(0.74 0.2 300 / 40%);
 }
 
 @layer base {
@@ -236,6 +288,18 @@
   pointer-events: none;
 }
 
+/* IELTS Essay Editorial Reading Typography */
+.prose-essay {
+  max-width: 68ch;
+  line-height: 1.8;
+  font-size: 1.0625rem;
+}
+
+.prose-essay p {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
 /* IELTS Criterion Annotation Highlights */
 mark.criterion-mark {
   cursor: pointer;
@@ -259,53 +323,60 @@ mark.criterion-mark:hover {
   filter: brightness(1.15);
 }
 
-/* 4 IELTS Criteria Colors */
-mark.criterion-task_achievement {
-  border-bottom-color: #10b981;
-  background-color: rgba(16, 185, 129, 0.16);
-}
-
-.dark mark.criterion-task_achievement {
-  border-bottom-color: #34d399;
-  background-color: rgba(16, 185, 129, 0.28);
+/* 5 IELTS Criteria Colors Using Semantic Tokens */
+mark.criterion-task_achievement,
+mark.criterion-task_response {
+  border-bottom-color: var(--color-criterion-ta);
+  background-color: var(--color-criterion-ta-bg);
 }
 
 mark.criterion-coherence_cohesion {
-  border-bottom-color: #f59e0b;
-  background-color: rgba(245, 158, 11, 0.16);
-}
-
-.dark mark.criterion-coherence_cohesion {
-  border-bottom-color: #fbbf24;
-  background-color: rgba(245, 158, 11, 0.28);
+  border-bottom-color: var(--color-criterion-cc);
+  background-color: var(--color-criterion-cc-bg);
 }
 
 mark.criterion-lexical_resource {
-  border-bottom-color: #3b82f6;
-  background-color: rgba(59, 130, 246, 0.16);
-}
-
-.dark mark.criterion-lexical_resource {
-  border-bottom-color: #60a5fa;
-  background-color: rgba(59, 130, 246, 0.28);
+  border-bottom-color: var(--color-criterion-lr);
+  background-color: var(--color-criterion-lr-bg);
 }
 
 mark.criterion-grammatical_range_accuracy {
-  border-bottom-color: #f43f5e;
-  background-color: rgba(244, 63, 94, 0.16);
+  border-bottom-color: var(--color-criterion-gra);
+  background-color: var(--color-criterion-gra-bg);
 }
 
-.dark mark.criterion-grammatical_range_accuracy {
-  border-bottom-color: #fb7185;
-  background-color: rgba(244, 63, 94, 0.28);
+mark.criterion-pronunciation {
+  border-bottom-color: var(--color-criterion-pr);
+  background-color: var(--color-criterion-pr-bg);
+}
+
+/* 3-Tier Error Severity Underlines (ADR-0007) */
+mark.criterion-mark[data-severity="minor_slip"],
+mark.criterion-mark.severity-minor_slip {
+  border-bottom-style: dotted;
+  border-bottom-width: 2px;
+}
+
+mark.criterion-mark[data-severity="systematic_error"],
+mark.criterion-mark.severity-systematic_error {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+}
+
+mark.criterion-mark[data-severity="impedes_communication"],
+mark.criterion-mark.severity-impedes_communication {
+  border-bottom-style: solid;
+  border-bottom-width: 3px;
+  text-decoration: underline wavy var(--color-destructive);
+  text-underline-offset: 3px;
 }
 
 /* Resolved state */
 mark.criterion-mark.is-resolved {
   opacity: 0.65;
   border-bottom-style: dashed;
-  border-bottom-color: #059669;
-  background-color: rgba(16, 185, 129, 0.08);
+  border-bottom-color: var(--color-criterion-ta);
+  background-color: var(--color-criterion-ta-bg);
 }
 
 /* Filter muted state */

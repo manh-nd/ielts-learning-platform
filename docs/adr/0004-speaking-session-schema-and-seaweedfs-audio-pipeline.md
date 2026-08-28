@@ -57,7 +57,7 @@ Rather than storing unstructured JSON arrays inside `submission_attempts`, we de
 
 ### 3. 2-Tier Hierarchical Assessment Rubric
 
-`AIAssessmentProposal` and `TeacherAssessment` schemas structure speaking evaluation in two layers:
+`AiAssessmentProposal` and `TeacherAssessment` schemas structure speaking evaluation in two layers:
 
 1. **Overall Session Scorecard**: 4 criteria scores (`fluency_and_coherence`, `lexical_resource`, `grammatical_range_and_accuracy`, `pronunciation`) scored from 0.0 to 9.0 (step 0.5), plus the computed `overall_band`, executive summary, key strengths, weaknesses, and an actionable practice plan.
 2. **Per-Part Breakdown**: Part-specific transcript, vocabulary upgrades (idiomatic expressions/collocations), grammatical corrections, and phoneme/timestamped pronunciation notes.
