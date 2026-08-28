@@ -19,9 +19,8 @@ export type SpeakingAnnotationCategory =
  */
 export const speakingSessions = pgTable("speaking_sessions", {
   id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "cascade" }),
+  candidateName: text("candidate_name"),
   topicTitle: text("topic_title").notNull(),
   status: text("status")
     .$type<SpeakingSessionStatus>()

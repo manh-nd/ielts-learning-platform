@@ -1,6 +1,6 @@
 "use client";
 
-import { Mic, MicOff, PhoneOff, Play, Loader2, Sparkles } from "lucide-react";
+import { Mic, MicOff, PhoneOff, Play, Loader2, AudioLines } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LiveSessionStatus } from "./types";
@@ -94,7 +94,7 @@ export function LiveSessionControls({
         )}
       </div>
 
-      {/* Noise Suppression Toggle */}
+      {/* DSP/WASM Noise Suppression Toggle */}
       {onToggleNoiseSuppression && (
         <Button
           type="button"
@@ -105,8 +105,8 @@ export function LiveSessionControls({
           onClick={onToggleNoiseSuppression}
           title={
             isNoiseSuppressionActive
-              ? "Bộ lọc khử ồn AI (WASM) đang BẬT"
-              : "Bộ lọc khử ồn AI (WASM) đang TẮT"
+              ? "Bộ lọc khử ồn WASM (DSP) đang BẬT"
+              : "Bộ lọc khử ồn WASM (DSP) đang TẮT"
           }
           className={cn(
             "w-11 h-11 rounded-full shadow-xs transition-colors",
@@ -115,7 +115,7 @@ export function LiveSessionControls({
               : "text-muted-foreground"
           )}
         >
-          <Sparkles className="w-4 h-4" />
+          <AudioLines className="w-4 h-4" />
           <span className="sr-only">Bật/tắt khử ồn WASM</span>
         </Button>
       )}

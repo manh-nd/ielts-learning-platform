@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { LiveSpeakingResultView } from "./live-speaking-result-view";
-import { fn } from "storybook/test";
+import { fn, expect, userEvent, within } from "storybook/test";
 import { IeltsSpeakingEvaluationResult } from "@/lib/gemini/speaking-schema";
 
 const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
@@ -232,5 +232,29 @@ export const EvaluationError: Story = {
     evaluationResult: null,
     error:
       "Không thể kết nối đến máy chủ chấm điểm Gemini. Vui lòng kiểm tra API Key hoặc kết nối mạng.",
+  },
+};
+
+export const InteractiveAudioWaveformTab: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // 1. Click Audio tab
+    const audioTabBtn = canvas.getByRole("tab", {
+      name: /Ghi âm & Gỡ băng/i,
+    });
+    await userEvent.click(audioTabBtn);
+
+    // 2. Check recorded audio card & waveform player are present
+    const audioCard = await canvas.findByTestId("recorded-audio-card");
+    await expect(audioCard).toBeInTheDocument();
+    await expect(
+      canvas.getByText(/File Ghi âm Toàn Bộ Buổi Thi/i)
+    ).toBeInTheDocument();
+
+    // 3. Check play button exists
+    const playBtn = canvas.getByTestId("play-full-audio-btn");
+    await expect(playBtn).toBeInTheDocument();
+    await userEvent.click(playBtn);
   },
 };

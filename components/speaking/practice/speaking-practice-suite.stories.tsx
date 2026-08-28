@@ -1,7 +1,34 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, within, userEvent, fn } from "storybook/test";
 import { SpeakingPracticeSuite } from "./speaking-practice-suite";
-import { SpeakingTestConfig } from "./types";
+import { SpeakingTestConfig, RecordedAnswerItem } from "./types";
+
+const mockSampleAnswers: Record<string, RecordedAnswerItem> = {
+  "part1-q1": {
+    questionId: "part1-q1",
+    part: "part1",
+    blob: new Blob([], { type: "audio/webm" }),
+    audioUrl: "https://actions.google.com/sounds/v1/speech/greeting_male.ogg",
+    durationSeconds: 25,
+    recordedAt: new Date(),
+  },
+  "part1-q2": {
+    questionId: "part1-q2",
+    part: "part1",
+    blob: new Blob([], { type: "audio/webm" }),
+    audioUrl: "https://actions.google.com/sounds/v1/speech/greeting_male.ogg",
+    durationSeconds: 30,
+    recordedAt: new Date(),
+  },
+  "part2-cue-card": {
+    questionId: "part2-cue-card",
+    part: "part2",
+    blob: new Blob([], { type: "audio/webm" }),
+    audioUrl: "https://actions.google.com/sounds/v1/speech/greeting_male.ogg",
+    durationSeconds: 95,
+    recordedAt: new Date(),
+  },
+};
 
 const mockTestConfig: SpeakingTestConfig = {
   id: "ielts-speaking-mock-cambridge-19",
@@ -111,6 +138,7 @@ export const Part2CueCardDirect: Story = {
 export const SummaryReviewDirect: Story = {
   args: {
     initialStep: "summary",
+    initialAnswers: mockSampleAnswers,
     mockMode: true,
   },
 };
@@ -210,5 +238,52 @@ export const InteractiveFullTestPlay: Story = {
       "confirm-final-submit-btn"
     );
     await userEvent.click(confirmFinalSubmitBtn);
+
+    // 16. Verify transition to LiveSpeakingResultView
+    const resultScorecard = await canvas.findByTestId(
+      "speaking-criteria-scorecard"
+    );
+    await expect(resultScorecard).toBeInTheDocument();
+  },
+};
+
+export const HomeworkSubmissionFlow: Story = {
+  args: {
+    mode: "homework",
+    mockMode: true,
+    initialStep: "summary",
+    initialAnswers: mockSampleAnswers,
+    config: {
+      ...mockTestConfig,
+      mode: "homework",
+      classroomName: "IELTS Master Class - Group B",
+      teacherName: "Thầy Đặng Hoàng Nam",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // 1. In Summary View, submit homework
+    const submitBtn = canvas.getByTestId("submit-speaking-test-btn");
+    await userEvent.click(submitBtn);
+
+    // 2. Confirm submit in dialog
+    const bodyCanvas = within(canvasElement.ownerDocument.body);
+    const confirmFinalSubmitBtn = await bodyCanvas.findByTestId(
+      "confirm-final-submit-btn"
+    );
+    await userEvent.click(confirmFinalSubmitBtn);
+
+    // 3. Verify Homework Confirmed View is rendered
+    const confirmedView = await canvas.findByTestId(
+      "speaking-submission-confirmed-view"
+    );
+    await expect(confirmedView).toBeInTheDocument();
+    await expect(
+      canvas.getByText(/Nộp Bài Tập Speaking Thành Công!/i)
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByText(/IELTS Master Class - Group B/i)
+    ).toBeInTheDocument();
   },
 };

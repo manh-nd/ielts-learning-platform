@@ -1,6 +1,9 @@
 export type SpeakingPart = "part1" | "part2" | "part3";
 
-export type SpeakingSuiteStep = "part1" | "part2" | "part3" | "summary";
+export type SpeakingPracticeMode = "mock_test" | "homework";
+
+export type SpeakingSuiteStep =
+  "part1" | "part2" | "part3" | "summary" | "submitted" | "result";
 
 export type Part2State =
   | "ready" // Ready to start 1-min preparation
@@ -25,6 +28,9 @@ export interface SpeakingTestConfig {
   id: string;
   title: string;
   subtitle?: string;
+  mode?: SpeakingPracticeMode;
+  classroomName?: string;
+  teacherName?: string;
   targetMode?: "full" | "part1" | "part2" | "part3";
   part1Questions: SpeakingQuestionItem[];
   part2Question: SpeakingQuestionItem;

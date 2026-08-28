@@ -12,6 +12,7 @@ describe("Speaking Database Schema (ADR-0004)", () => {
 
     expect(columns.id).toBeDefined();
     expect(columns.userId).toBeDefined();
+    expect(columns.candidateName).toBeDefined();
     expect(columns.topicTitle).toBeDefined();
     expect(columns.status).toBeDefined();
     expect(columns.durationSeconds).toBeDefined();
@@ -54,5 +55,13 @@ describe("Speaking Database Schema (ADR-0004)", () => {
     expect(columns.originalQuote).toBeDefined();
     expect(columns.comment).toBeDefined();
     expect(columns.createdAt).toBeDefined();
+  });
+
+  it("should support nullable userId for guest/mock test candidate sessions", () => {
+    const columns = getTableColumns(speakingSessions);
+    // userId is nullable for guest/anonymous mock tests
+    expect(columns.userId.notNull).toBe(false);
+    expect(columns.candidateName.notNull).toBe(false);
+    expect(columns.topicTitle.notNull).toBe(true);
   });
 });

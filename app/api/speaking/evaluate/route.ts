@@ -9,7 +9,9 @@ import {
   speakingSessions,
   speakingResponses,
   speakingReviewAnnotations,
+  user,
 } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -27,6 +29,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       userId = "anonymous",
+      candidateName,
       sessionId = `ses_${Date.now()}`,
       topicTitle = "IELTS Speaking Examination",
       part1Question = "Part 1 Introduction and Interview",
@@ -124,11 +127,30 @@ export async function POST(req: NextRequest) {
     // 4. Persist to Database via Drizzle ORM (fail-safe for dev/test)
     try {
       if (process.env.DATABASE_URL) {
+        // Resolve registered user ID if user exists in database
+        let registeredUserId: string | null = null;
+        if (userId && userId !== "anonymous") {
+          try {
+            const userRecord = await db
+              .select({ id: user.id })
+              .from(user)
+              .where(eq(user.id, userId));
+            if (userRecord.length > 0) {
+              registeredUserId = userRecord[0].id;
+            }
+          } catch {
+            // Ignore lookup failure
+          }
+        }
+
         await db
           .insert(speakingSessions)
           .values({
             id: sessionId,
-            userId,
+            userId: registeredUserId,
+            candidateName:
+              candidateName ||
+              (userId !== "anonymous" ? userId : "Anonymous Candidate"),
             topicTitle,
             status: "evaluated",
             targetPart: "full",

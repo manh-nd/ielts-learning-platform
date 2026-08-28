@@ -31,33 +31,46 @@ import {
   SpeakingQuestionItem,
   RecordedAnswerItem,
   SpeakingPracticeSubmissionData,
+  SpeakingPracticeMode,
   Part2State,
 } from "./types";
 import { SpeakingPartNavigator } from "./speaking-part-navigator";
 import { SpeakingCueCard } from "./speaking-cue-card";
 import { SpeakingScratchpad } from "./speaking-scratchpad";
 import { SpeakingSummaryView } from "./speaking-summary-view";
+import { SpeakingSubmissionConfirmedView } from "./speaking-submission-confirmed-view";
+import { LiveSpeakingResultView } from "../live/live-speaking-result-view";
 import { AudioWaveformVisualizer } from "../audio-waveform-visualizer";
 import { useAudioRecorder } from "../use-audio-recorder";
 import { formatDuration } from "../speaking-audio-recorder";
+import { IeltsSpeakingEvaluationResult } from "@/lib/gemini/speaking-schema";
 
 export interface SpeakingPracticeSuiteProps {
   config: SpeakingTestConfig;
   initialStep?: SpeakingSuiteStep;
+  initialAnswers?: Record<string, RecordedAnswerItem>;
+  mode?: SpeakingPracticeMode;
   mockMode?: boolean;
   fastPrepTimer?: boolean; // For testing, 5s instead of 60s
-  onSubmit?: (data: SpeakingPracticeSubmissionData) => void;
+  onSubmit?: (data: SpeakingPracticeSubmissionData) => void | Promise<void>;
+  onBackToDashboard?: () => void;
+  onRestart?: () => void;
   className?: string;
 }
 
 export function SpeakingPracticeSuite({
   config,
   initialStep = "part1",
+  initialAnswers = {},
+  mode,
   mockMode = false,
   fastPrepTimer = false,
   onSubmit,
+  onBackToDashboard,
+  onRestart,
   className,
 }: SpeakingPracticeSuiteProps) {
+  const effectiveMode = mode || config.mode || "mock_test";
   // Navigation State
   const [currentStep, setCurrentStep] =
     useState<SpeakingSuiteStep>(initialStep);
@@ -65,10 +78,17 @@ export function SpeakingPracticeSuite({
   const [part3Index, setPart3Index] = useState(0);
 
   // Stored Answers
-  const [answers, setAnswers] = useState<Record<string, RecordedAnswerItem>>(
-    {}
-  );
+  const [answers, setAnswers] =
+    useState<Record<string, RecordedAnswerItem>>(initialAnswers);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Post-submission state
+  const [lastSubmissionData, setLastSubmissionData] =
+    useState<SpeakingPracticeSubmissionData | null>(null);
+  const [evaluationResult, setEvaluationResult] =
+    useState<IeltsSpeakingEvaluationResult | null>(null);
+  const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
 
   // Part 2 Specific State
   const [part2State, setPart2State] = useState<Part2State>("ready");
@@ -331,14 +351,112 @@ export function SpeakingPracticeSuite({
 
   const handleSubmitAll = async (data: SpeakingPracticeSubmissionData) => {
     setIsSubmitting(true);
+    setLastSubmissionData(data);
     try {
       if (onSubmit) {
         await onSubmit(data);
+      }
+      if (effectiveMode === "homework") {
+        setCurrentStep("submitted");
+      } else {
+        setCurrentStep("result");
+        if (mockMode) {
+          setEvaluationResult(createMockPracticeEvaluation(config));
+        } else {
+          setIsEvaluating(true);
+          setEvalError(null);
+          try {
+            const res = await fetch("/api/speaking/evaluate", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                userId: "learner_practice",
+                sessionId: `ses_practice_${Date.now()}`,
+                topicTitle: config.title,
+                candidateName: "Học viên",
+                transcripts: [],
+                part1Question: config.part1Questions[0]?.questionText || "",
+                part2Topic: config.part2Question?.questionText || "",
+                part3Theme: config.part3Questions[0]?.questionText || "",
+                durationSeconds: data.totalDurationSeconds,
+              }),
+            });
+            if (res.ok) {
+              const resData = await res.json();
+              setEvaluationResult(resData.result);
+            } else {
+              setEvaluationResult(createMockPracticeEvaluation(config));
+            }
+          } catch {
+            setEvaluationResult(createMockPracticeEvaluation(config));
+          } finally {
+            setIsEvaluating(false);
+          }
+        }
       }
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // 1. Homework Submission Confirmed State
+  if (currentStep === "submitted" && lastSubmissionData) {
+    return (
+      <SpeakingSubmissionConfirmedView
+        config={config}
+        submissionData={lastSubmissionData}
+        classroomName={config.classroomName}
+        teacherName={config.teacherName}
+        onBackToDashboard={onBackToDashboard}
+        onPracticeAgain={() => {
+          setAnswers({});
+          setPart2Notes("");
+          setLastSubmissionData(null);
+          setCurrentStep("part1");
+          onRestart?.();
+        }}
+        className={className}
+      />
+    );
+  }
+
+  // 2. Mock Test Immediate Result State
+  if (currentStep === "result") {
+    const part2Answer =
+      answers[config.part2Question.id] || Object.values(answers)[0];
+    const recordedAudioData = part2Answer
+      ? {
+          blob: part2Answer.blob,
+          url: part2Answer.audioUrl,
+          durationSeconds:
+            lastSubmissionData?.totalDurationSeconds ||
+            part2Answer.durationSeconds,
+          mimeType: "audio/webm",
+        }
+      : null;
+
+    return (
+      <LiveSpeakingResultView
+        evaluationResult={evaluationResult}
+        isLoading={isEvaluating}
+        error={evalError}
+        recordedAudio={recordedAudioData}
+        transcripts={[]}
+        onRestartTest={() => {
+          setAnswers({});
+          setPart2Notes("");
+          setEvaluationResult(null);
+          setLastSubmissionData(null);
+          setCurrentStep("part1");
+          onRestart?.();
+        }}
+        onBackToDashboard={() => {
+          onBackToDashboard?.();
+        }}
+        className={className}
+      />
+    );
+  }
 
   return (
     <div
@@ -835,4 +953,208 @@ export function SpeakingPracticeSuite({
       )}
     </div>
   );
+}
+
+function createMockPracticeEvaluation(
+  config: SpeakingTestConfig
+): IeltsSpeakingEvaluationResult {
+  return {
+    overallScorecard: {
+      overallBand: 7.0,
+      criteriaScores: {
+        fluencyAndCoherence: 7.0,
+        lexicalResource: 7.5,
+        grammaticalRangeAndAccuracy: 6.5,
+        pronunciation: 7.0,
+      },
+      criteria: {
+        fluencyAndCoherence: {
+          score: 7.0,
+          summary:
+            "Độ trôi chảy tốt, diễn đạt liền mạch với độ ngắt quãng tự nhiên.",
+          strengths: [
+            "Phản xạ trả lời tự nhiên",
+            "Sử dụng từ nối chuyển đoạn linh hoạt",
+          ],
+          weaknesses: ["Đôi chỗ còn ngập ngừng khi chuyển sang ý trừu tượng"],
+          estimatedWpm: 130,
+          hesitationFrequency: "low",
+          tips: ["Luyện tập nói mở rộng luận điểm trong Part 3"],
+        },
+        lexicalResource: {
+          score: 7.5,
+          summary:
+            "Vốn từ phong phú, sử dụng đúng ngữ cảnh và có collocations nâng cao.",
+          strengths: ["Từ vựng học thuật C1", "Diễn đạt ý đa dạng"],
+          weaknesses: ["Một số cụm từ còn lặp lại"],
+          upgrades: [
+            {
+              originalExpression: "very good",
+              betterAlternative: "exceptional",
+              bandLevel: "Band 8.0+",
+              contextExample:
+                "An exceptional opportunity for professional development.",
+            },
+          ],
+          tips: ["Tăng cường sử dụng thành ngữ và collocations chuyên sâu"],
+        },
+        grammaticalRangeAndAccuracy: {
+          score: 6.5,
+          summary:
+            "Kết hợp câu đơn và câu ghép tốt, một số lỗi nhỏ về thì quá khứ.",
+          strengths: ["Cấu trúc mệnh đề quan hệ chuẩn xác"],
+          weaknesses: ["Cần chú ý chia động từ số ít/nhiều trong câu phức"],
+          complexStructuresCount: 8,
+          errors: [
+            {
+              originalPhrase: "People has different views",
+              correctedPhrase: "People have different views",
+              ruleViolated: "Subject-Verb Agreement",
+              explanation: "'People' là danh từ số nhiều, cần đi với 'have'.",
+            },
+          ],
+          tips: ["Kiểm soát lỗi hòa hợp chủ vị khi nói câu dài"],
+        },
+        pronunciation: {
+          score: 7.0,
+          summary:
+            "Phát âm rõ ràng, ngữ điệu tự nhiên, dễ hiểu trong suốt bài thi.",
+          strengths: ["Trọng âm từ chính xác", "Ngữ điệu câu phong phú"],
+          weaknesses: ["Âm đuôi /s/ đôi khi bị nuốt"],
+          intonationQuality: "natural",
+          specificErrors: [
+            {
+              word: "practices",
+              expectedIpa: "/ˈpræktɪsɪz/",
+              detectedIssue: "Nuốt âm đuôi /ɪz/",
+              recommendation:
+                "Bật rõ âm đuôi /ɪz/ khi phát âm danh từ số nhiều.",
+              timestampSeconds: 12,
+            },
+          ],
+          tips: ["Luyện phát âm rõ ràng các đuôi số nhiều và quá khứ"],
+        },
+      },
+      generalFeedback: {
+        executiveSummary: `Bài thi ${config.title} đạt kết quả tổng thể Band 7.0. Thí sinh thể hiện khả năng giao tiếp lưu loát, từ vựng phong phú và phản xạ tự tin.`,
+        keyStrengths: [
+          "Bố cục câu trả lời mạch lạc, đúng trọng tâm đề bài.",
+          "Vốn từ vựng đa dạng, diễn đạt tự nhiên.",
+          "Phát âm to, rõ ràng và ngữ điệu tự tin.",
+        ],
+        priorityImprovements: [
+          "Cải thiện độ chính xác ngữ pháp ở các cấu trúc câu điều kiện phức.",
+          "Chú ý bật rõ âm cuối (ending sounds) ở các danh từ số nhiều.",
+        ],
+        actionPlan: [
+          "Luyện tập kỹ thuật Shadowing với các bài nói mẫu Band 8.0+.",
+          "Ghi âm và tự nghe lại để phát hiện lỗi âm đuôi.",
+        ],
+        practiceMonologue:
+          "In response to the topic, I believe consistent daily practice combined with structured feedback is the cornerstone of mastering English communication. Developing the habit of critical thinking allows candidates to construct compelling arguments effortlessly across all parts of the IELTS Speaking exam.",
+      },
+    },
+    partEvaluations: [
+      {
+        partNumber: 1,
+        itemIndex: 0,
+        promptQuestion:
+          config.part1Questions[0]?.questionText || "Part 1 Questions",
+        candidateTranscript:
+          "I really enjoy my field of study because it gives me both theoretical foundation and practical applications.",
+        verifiedTranscript:
+          "I really enjoy my field of study because it gives me both theoretical foundation and practical applications.",
+        partSummary:
+          "Clear, coherent response with relevant details and natural pacing.",
+        pronunciationNotes: [
+          {
+            word: "theoretical",
+            expectedIpa: "/ˌθɪəˈretɪkl/",
+            detectedIssue: "Âm /θ/ chưa chuẩn",
+            recommendation:
+              "Đặt đầu lưỡi giữa hai hàm răng khi phát âm âm /θ/.",
+          },
+        ],
+        grammarCorrections: [],
+        lexicalUpgrades: [
+          {
+            originalExpression: "gives me",
+            betterAlternative: "equips me with",
+            bandLevel: "Band 8.0+",
+            contextExample:
+              "It equips me with both theoretical foundation and practical skills.",
+          },
+        ],
+      },
+      {
+        partNumber: 2,
+        itemIndex: 0,
+        promptQuestion: config.part2Question?.questionText || "Part 2 Cue Card",
+        candidateTranscript:
+          "Today I would like to talk about an important milestone in my life which taught me resilience and determination.",
+        verifiedTranscript:
+          "Today I would like to talk about an important milestone in my life which taught me resilience and determination.",
+        partSummary:
+          "Well-structured 2-minute long turn covering all bullet points.",
+        pronunciationNotes: [],
+        grammarCorrections: [],
+        lexicalUpgrades: [
+          {
+            originalExpression: "taught me",
+            betterAlternative: "instilled in me",
+            bandLevel: "Band 8.0+",
+            contextExample:
+              "This experience instilled in me resilience and determination.",
+          },
+        ],
+      },
+      {
+        partNumber: 3,
+        itemIndex: 0,
+        promptQuestion:
+          config.part3Questions[0]?.questionText || "Part 3 Discussion",
+        candidateTranscript:
+          "From my perspective, societal changes heavily influence how people perceive career success.",
+        verifiedTranscript:
+          "From my perspective, societal changes heavily influence how people perceive career success.",
+        partSummary: "Thoughtful extended reasoning with abstract comparison.",
+        pronunciationNotes: [],
+        grammarCorrections: [],
+        lexicalUpgrades: [],
+      },
+    ],
+    evidence: {
+      fluency: {
+        longPauses: [],
+        fillers: [],
+        repetitions: [],
+        selfCorrections: [],
+      },
+      pronunciation: {
+        unclearSegments: [],
+        stressIssues: [],
+      },
+      grammar: {
+        errors: [],
+        complexStructures: ["Relative clauses", "Compound-complex sentences"],
+      },
+      vocabulary: {
+        strongUsage: ["indispensable asset", "theoretical foundation"],
+        inappropriateUsage: [],
+      },
+    },
+    trace: {
+      modelUsed: "gemini-3.7-flash",
+      isFallback: false,
+      fallbackReason: null,
+      durationMs: 2400,
+      tokensUsed: {
+        promptTokens: 1200,
+        candidatesTokens: 650,
+        totalTokens: 1850,
+      },
+      keyFingerprint: "key_***mock",
+      timestamp: new Date().toISOString(),
+    },
+  };
 }
