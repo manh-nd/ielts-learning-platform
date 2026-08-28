@@ -23,7 +23,7 @@ export function AuthCard({
   description,
   children,
   footer,
-  brandName = "IELTS PREP STUDIO",
+  brandName = "CHILLY IELTS",
   className,
   ...props
 }: AuthCardProps) {

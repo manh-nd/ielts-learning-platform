@@ -27,8 +27,8 @@ export default async function ProtectedLayout({
       <footer className="border-t border-border/30 py-4 text-center text-xs text-muted-foreground">
         <div className="mx-auto max-w-7xl px-4">
           <p>
-            © {new Date().getFullYear()} IELTS Master Platform • Môi trường Học
-            tập & Chấm thi bảo mật.
+            © {new Date().getFullYear()} Chilly IELTS • Nền tảng Luyện thi IELTS
+            Thông minh kết hợp AI & Giảng viên.
           </p>
         </div>
       </footer>

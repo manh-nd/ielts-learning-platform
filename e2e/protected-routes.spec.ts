@@ -38,7 +38,7 @@ test.describe("Protected Routes & Role Authorization", () => {
       await page.goto("/teacher/review");
 
       // Verify header & brand
-      await expect(page.getByText("IELTS Master").first()).toBeVisible();
+      await expect(page.getByText("Chilly IELTS").first()).toBeVisible();
 
       // Verify review workspace elements
       await expect(

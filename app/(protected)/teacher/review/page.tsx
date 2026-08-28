@@ -4,7 +4,7 @@ import type { ReviewStudentInfo } from "@/components/review/review-header";
 import type { Criterion } from "@/components/review/types";
 
 export const metadata = {
-  title: "Không gian Chấm bài Giáo viên | IELTS Master",
+  title: "Không gian Chấm bài Giáo viên | Chilly IELTS",
   description: "Không gian chấm bài Writing chuyên sâu cho Giảng viên IELTS.",
 };
 

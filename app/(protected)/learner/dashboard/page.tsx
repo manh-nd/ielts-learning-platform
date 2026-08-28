@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export const metadata = {
-  title: "Bảng điều khiển Học viên | IELTS Master",
+  title: "Bảng điều khiển Học viên | Chilly IELTS",
   description: "Trung tâm luyện thi IELTS AI và theo dõi tiến độ học tập.",
 };
 

@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "IELTS Learning Platform",
+  title: "Chilly IELTS - Luyện thi IELTS Thông minh cùng AI & Giảng viên",
   description:
-    "Nền tảng luyện thi IELTS toàn diện với AI hỗ trợ Speaking, Writing và hệ thống Chấm chữa từ Giáo viên.",
+    "Nền tảng luyện thi IELTS thông minh kết hợp đàm thoại AI thời gian thực (Speaking), chẩn đoán lỗi đa tiêu chí (Writing) và không gian chấm chữa chuyên sâu từ Giảng viên.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -88,7 +88,7 @@ export function ProtectedHeader({ user }: ProtectedHeaderProps) {
               <GraduationCapIcon className="size-5" />
             </div>
             <span className="font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
-              IELTS Master
+              Chilly IELTS
             </span>
           </Link>
 

@@ -20,7 +20,7 @@ export default function PublicLayout({
               <GraduationCapIcon className="size-5" />
             </div>
             <span className="font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
-              IELTS Master
+              Chilly IELTS
             </span>
             <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[0.68rem] font-medium text-primary">
               <SparklesIcon className="size-3" />
@@ -61,8 +61,8 @@ export default function PublicLayout({
       <footer className="border-t border-border/30 py-4 text-center text-xs text-muted-foreground">
         <div className="mx-auto max-w-7xl px-4">
           <p>
-            © {new Date().getFullYear()} IELTS Master Platform. Nền tảng luyện
-            thi IELTS thông minh.
+            © {new Date().getFullYear()} Chilly IELTS • Nền tảng Luyện thi IELTS
+            Thông minh kết hợp AI & Giảng viên.
           </p>
         </div>
       </footer>
