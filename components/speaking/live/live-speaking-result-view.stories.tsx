@@ -231,7 +231,7 @@ export const EvaluationError: Story = {
     isLoading: false,
     evaluationResult: null,
     error:
-      "Không thể kết nối đến máy chủ chấm điểm Gemini. Vui lòng kiểm tra API Key hoặc kết nối mạng.",
+      "Không thể kết nối đến máy chủ chấm điểm tự động. Vui lòng thử lại sau.",
   },
 };
 

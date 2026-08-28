@@ -105,8 +105,8 @@ export function LiveSessionControls({
           onClick={onToggleNoiseSuppression}
           title={
             isNoiseSuppressionActive
-              ? "Bộ lọc khử ồn WASM (DSP) đang BẬT"
-              : "Bộ lọc khử ồn WASM (DSP) đang TẮT"
+              ? "Bộ lọc khử tiếng ồn đang BẬT"
+              : "Bộ lọc khử tiếng ồn đang TẮT"
           }
           className={cn(
             "w-11 h-11 rounded-full shadow-xs transition-colors",
@@ -116,7 +116,7 @@ export function LiveSessionControls({
           )}
         >
           <AudioLines className="w-4 h-4" />
-          <span className="sr-only">Bật/tắt khử ồn WASM</span>
+          <span className="sr-only">Bật/tắt lọc tiếng ồn</span>
         </Button>
       )}
 

@@ -202,17 +202,16 @@ export function LiveSpeakingResultView({
           </div>
           <div className="space-y-1.5">
             <h2 className="text-xl font-bold text-foreground">
-              Đang phân tích & Chấm điểm 2-Stage...
+              Đang phân tích & Chấm điểm...
             </h2>
             <p className="text-xs text-muted-foreground max-w-md mx-auto">
-              Pass 1: Gỡ băng nguyên bản Verbatim $\rightarrow$ Pass 2: Phân
-              tích sóng âm đa phương thức & trích xuất mốc thời gian lỗi (FC,
-              LR, GRA, PR).
+              Hệ thống đang chuyển giọng nói thành văn bản và phân tích chi tiết
+              4 tiêu chí chấm điểm IELTS (FC, LR, GRA, PR).
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono bg-muted/30 px-3 py-1.5 rounded-md border">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>Mô hình: Gemini 3.7 Flash Multimodal + Verbatim STT</span>
+            <span>Mô hình: Gemini 3.7 Flash</span>
           </div>
         </div>
       </Card>
@@ -237,7 +236,7 @@ export function LiveSpeakingResultView({
             </h3>
             <p className="text-xs text-rose-600 dark:text-rose-400 max-w-md">
               {error ||
-                "Đã xảy ra sự cố khi gọi API chấm điểm tự động. Vui lòng thử lại."}
+                "Đã xảy ra sự cố khi xử lý chấm điểm tự động. Vui lòng thử lại."}
             </p>
           </div>
           <div className="flex items-center gap-3 pt-2">
@@ -591,14 +590,14 @@ export function LiveSpeakingResultView({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-semibold text-muted-foreground block">
-                      Nội dung câu trả lời (Verbatim Transcript):
+                      Nội dung câu trả lời (Transcript):
                     </span>
                     {partEval.verifiedTranscript && (
                       <Badge
                         variant="secondary"
                         className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                       >
-                        ✓ Đã xác thực nguyên bản (Audio Verified)
+                        ✓ Audio Verified
                       </Badge>
                     )}
                   </div>
@@ -901,7 +900,7 @@ export function LiveSpeakingResultView({
           <Card className="shadow-xs border py-0 gap-0 overflow-hidden">
             <CardHeader className="p-4 border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-bold">
-                Biên bản Hội thoại Trực tiếp (Live Transcripts)
+                Biên bản Hội thoại (Live Transcript)
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-2.5 max-h-96 overflow-y-auto">

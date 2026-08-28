@@ -46,7 +46,7 @@ export const Default: Story = {
           </p>
         </div>
         <Button size="sm" className="w-full gap-1">
-          <Check className="size-3" /> Apply 1-Click Correction
+          <Check className="size-3" /> Apply gợi ý
         </Button>
       </PopoverContent>
     </Popover>

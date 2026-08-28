@@ -48,7 +48,7 @@ const getServerSnapshot = () => false;
 
 export function TiptapEditor({
   content = "",
-  placeholder = "Write your content here...",
+  placeholder = "Nhập nội dung bài viết...",
   editable = true,
   enableBubbleMenu = true,
   isMockTest = false,
@@ -200,7 +200,7 @@ export function TiptapEditor({
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            title="In đậm (Bold - Ctrl+B)"
+            title="In đậm (Ctrl+B)"
           >
             <Bold className="h-3.5 w-3.5" />
           </button>
@@ -215,7 +215,7 @@ export function TiptapEditor({
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            title="In nghiêng (Italic - Ctrl+I)"
+            title="In nghiêng (Ctrl+I)"
           >
             <Italic className="h-3.5 w-3.5" />
           </button>
@@ -230,7 +230,7 @@ export function TiptapEditor({
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            title="Gạch chân (Underline - Ctrl+U)"
+            title="Gạch chân (Ctrl+U)"
           >
             <UnderlineIcon className="h-3.5 w-3.5" />
           </button>
@@ -245,7 +245,7 @@ export function TiptapEditor({
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            title="Gạch ngang (Strikethrough)"
+            title="Gạch ngang"
           >
             <Strikethrough className="h-3.5 w-3.5" />
           </button>
@@ -292,7 +292,7 @@ export function TiptapEditor({
                 ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "text-muted-foreground hover:text-foreground"
             )}
-            title="Trích dẫn (Blockquote)"
+            title="Trích dẫn"
           >
             <Quote className="h-3.5 w-3.5" />
           </button>
@@ -317,7 +317,7 @@ export function TiptapEditor({
             onClick={() => editor?.chain().focus().undo().run()}
             disabled={!editor?.can().undo()}
             className="p-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-            title="Hoàn tác (Undo - Ctrl+Z)"
+            title="Hoàn tác (Ctrl+Z)"
           >
             <Undo2 className="h-3.5 w-3.5" />
           </button>
@@ -328,7 +328,7 @@ export function TiptapEditor({
             onClick={() => editor?.chain().focus().redo().run()}
             disabled={!editor?.can().redo()}
             className="p-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-            title="Làm lại (Redo - Ctrl+Y)"
+            title="Làm lại (Ctrl+Y)"
           >
             <Redo2 className="h-3.5 w-3.5" />
           </button>

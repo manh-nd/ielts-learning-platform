@@ -81,9 +81,9 @@ export function LiveSpeakingClientView({
             <div className="flex items-center gap-2">
               <Badge
                 variant="outline"
-                className="border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-xs font-mono"
+                className="border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-xs font-semibold"
               >
-                Gemini 3.1 Flash Live
+                Giám khảo AI Trực tiếp
               </Badge>
               <Badge
                 variant="secondary"
@@ -124,7 +124,7 @@ export function LiveSpeakingClientView({
           </div>
           <div className="flex items-center gap-2">
             <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
-            <span>Hỗ trợ ngắt lời tự nhiên (Barge-in / VAD).</span>
+            <span>Hỗ trợ ngắt lời tự nhiên khi đang nói.</span>
           </div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-4 text-blue-500 shrink-0" />
@@ -139,7 +139,7 @@ export function LiveSpeakingClientView({
           <div>
             <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
               <Layers className="size-4 text-primary" />
-              <span>Chọn Bộ Đề Thi Mẫu (Preset Topics)</span>
+              <span>Chọn Bộ Đề Thi Mẫu</span>
             </h2>
             <p className="text-xs text-muted-foreground">
               Chọn chủ đề bạn muốn luyện tập hoặc bấm &ldquo;Chọn Đề Ngẫu

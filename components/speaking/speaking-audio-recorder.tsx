@@ -242,15 +242,15 @@ export function SpeakingAudioRecorder({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {/* DSP/WASM Noise Suppression Toggle Badge */}
+            {/* Noise Suppression Toggle Badge */}
             <button
               type="button"
               onClick={() => toggleNoiseSuppression()}
               data-testid="noise-suppression-toggle-badge"
               title={
                 isNoiseSuppressionActive
-                  ? "Bộ lọc khử ồn WASM (DSP) đang BẬT - Nhấn để TẮT"
-                  : "Bộ lọc khử ồn WASM (DSP) đang TẮT - Nhấn để BẬT"
+                  ? "Bộ lọc khử tiếng ồn đang BẬT - Nhấn để TẮT"
+                  : "Bộ lọc khử tiếng ồn đang TẮT - Nhấn để BẬT"
               }
               className={cn(
                 "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors cursor-pointer select-none",
@@ -260,7 +260,7 @@ export function SpeakingAudioRecorder({
               )}
             >
               <AudioLines className="w-3 h-3" />
-              <span>WASM Filter {isNoiseSuppressionActive ? "ON" : "OFF"}</span>
+              <span>Lọc ồn: {isNoiseSuppressionActive ? "BẬT" : "TẮT"}</span>
             </button>
 
             {/* Status Badges */}

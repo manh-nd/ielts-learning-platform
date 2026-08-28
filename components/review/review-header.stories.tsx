@@ -79,9 +79,9 @@ export const InteractiveActionsTest: Story = {
     expect(canvas.getByText("Nguyễn Minh Anh")).toBeInTheDocument();
     expect(canvas.getByText("284 từ")).toBeInTheDocument();
 
-    // Click 1-Click Quick Approve
+    // Click Quick Approve AI
     const quickApproveBtn = canvas.getByRole("button", {
-      name: /Chấp nhận AI/i,
+      name: /Apply đề xuất AI/i,
     });
     expect(quickApproveBtn).toBeInTheDocument();
     await userEvent.click(quickApproveBtn);

@@ -168,15 +168,15 @@ export function LiveSpeakingCueCardModal({
             )}
           </div>
 
-          {/* Scratchpad Note-taking with Tiptap Editor */}
+          {/* Scratchpad Note-taking */}
           <div className="md:col-span-5 space-y-1.5 flex flex-col">
             <div className="flex items-center justify-between text-[11px] px-0.5">
               <span className="font-medium text-foreground flex items-center gap-1">
                 <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                <span>Bảng nháp (Tiptap Scratchpad):</span>
+                <span>Bảng nháp ghi chú:</span>
               </span>
               <span className="text-[10px] text-muted-foreground">
-                Markdown & Bullet list
+                Ghi chú nhanh ý tưởng
               </span>
             </div>
             <TiptapEditor

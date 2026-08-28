@@ -442,7 +442,7 @@ export function DiagnosticPopover({
                   data-testid={`apply-correction-btn-${annotation.errorId}`}
                 >
                   <Sparkles className="h-3.5 w-3.5" />
-                  Áp dụng gợi ý (1-Click)
+                  Apply gợi ý
                 </Button>
               )}
             </div>

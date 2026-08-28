@@ -12,8 +12,7 @@ const meta = {
   tags: ["autodocs"],
   args: {
     title: "Phòng Thi Thử IELTS Speaking Trực Tiếp",
-    subtitle:
-      "Đối thoại thời gian thực 1-on-1 với Giám khảo AI (Gemini 3.1 Flash Live)",
+    subtitle: "Đối thoại thời gian thực 1-on-1 với Giám khảo AI (Examiner)",
     candidateName: "Nguyễn Văn Mạnh",
     topic: SPEAKING_MOCK_TOPICS[0],
     targetPart: "full",

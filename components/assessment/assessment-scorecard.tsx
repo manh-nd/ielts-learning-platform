@@ -158,7 +158,7 @@ export function AssessmentScorecard({
                   variant="default"
                   className="text-[10px] bg-primary/90 text-primary-foreground"
                 >
-                  <Scale className="mr-1 h-3 w-3" /> Teacher Grading Mode
+                  <Scale className="mr-1 h-3 w-3" /> Chế độ chấm điểm Giáo viên
                 </Badge>
               )}
             </div>

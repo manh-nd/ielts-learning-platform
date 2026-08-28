@@ -43,7 +43,7 @@ export function LiveConnectionBadge({
         )}
       >
         <Loader2 className="w-3 h-3 animate-spin" />
-        Cấp Token bảo mật...
+        Đang khởi tạo phiên...
       </Badge>
     );
   }
@@ -59,7 +59,7 @@ export function LiveConnectionBadge({
         )}
       >
         <Wifi className="w-3 h-3 animate-pulse" />
-        Kết nối Live API...
+        Đang kết nối phòng thi...
       </Badge>
     );
   }
@@ -130,7 +130,7 @@ export function LiveConnectionBadge({
         className={cn("gap-1.5 text-xs", className)}
       >
         <AlertCircle className="w-3 h-3" />
-        Lỗi kết nối Live
+        Lỗi kết nối
       </Badge>
     );
   }

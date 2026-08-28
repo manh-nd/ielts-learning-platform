@@ -76,7 +76,7 @@ export const WithCardAction: Story = {
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>AI Proposal Draft</CardTitle>
-        <CardDescription>Generated via Gemini 3.5 Flash Lite</CardDescription>
+        <CardDescription>Đề xuất chấm điểm từ AI</CardDescription>
         <CardAction>
           <Badge variant="default" className="gap-1">
             <Sparkles className="size-2.5" />

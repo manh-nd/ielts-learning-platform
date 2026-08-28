@@ -142,8 +142,8 @@ export function FeedbackDiffViewer({
             So sánh Đánh giá AI vs Quyết định của Giáo viên
           </h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Bản ghi nhận đối chiếu dữ liệu (`EvaluationFeedback`) phục vụ tinh
-            chỉnh mô hình và kiểm toán chất lượng.
+            Bản ghi nhận đối chiếu dữ liệu phục vụ nâng cao chất lượng chấm
+            chữa.
           </p>
         </div>
 

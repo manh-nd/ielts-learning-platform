@@ -4,7 +4,7 @@ import { LiveSpeakingClientView } from "./live-speaking-client-view";
 export const metadata = {
   title: "Phòng Thi Speaking Trực Tiếp | IELTS Master",
   description:
-    "Thi thử IELTS Speaking thời gian thực 1-on-1 với Giám khảo AI (Gemini 3.1 Flash Live).",
+    "Thi thử IELTS Speaking thời gian thực 1-on-1 với Giám khảo AI (Examiner).",
 };
 
 export default async function LearnerLiveSpeakingPage() {

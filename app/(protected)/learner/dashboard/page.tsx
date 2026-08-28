@@ -82,7 +82,7 @@ export default async function LearnerDashboardPage() {
               variant="outline"
               className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-xs"
             >
-              Gemini Live API
+              Phòng thi Trực tiếp
             </Badge>
           </div>
 
@@ -100,7 +100,7 @@ export default async function LearnerDashboardPage() {
           <div className="flex items-center gap-3 pt-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <CheckCircle2Icon className="size-3.5 text-emerald-500" />
-              Lọc nhiễu âm thanh WASM
+              Lọc tiếng ồn thông minh
             </span>
             <span className="flex items-center gap-1">
               <CheckCircle2Icon className="size-3.5 text-emerald-500" />
@@ -133,7 +133,7 @@ export default async function LearnerDashboardPage() {
               variant="outline"
               className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 text-xs"
             >
-              Tiptap v3 & AI
+              AI Chấm chữa
             </Badge>
           </div>
 
@@ -142,9 +142,9 @@ export default async function LearnerDashboardPage() {
               IELTS Writing Essay Assessment
             </h2>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Soạn thảo bài viết Task 1 & Task 2 trên trình soạn thảo Tiptap
-              hiện đại, nhận phân tích ngữ pháp, từ vựng C1-C2 và phản hồi chi
-              tiết từ Giảng viên.
+              Soạn thảo bài viết Task 1 & Task 2 trên trình soạn thảo hiện đại,
+              nhận phân tích ngữ pháp, từ vựng C1-C2 và phản hồi chi tiết từ
+              Giảng viên.
             </p>
           </div>
 

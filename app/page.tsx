@@ -61,7 +61,7 @@ export default function Home() {
         <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-xs text-primary shadow-xs">
           <SparklesIcon className="size-3.5" />
           <span className="font-semibold">Công nghệ AI Mới nhất:</span>
-          <span>Gemini Live Audio & Tiptap Rich-Text</span>
+          <span>Giám khảo AI Trực tiếp & Trình soạn thảo Chuyên sâu</span>
         </div>
 
         <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-foreground max-w-3xl leading-tight">
@@ -160,7 +160,8 @@ export default function Home() {
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Thi thử Speaking tương tác âm thanh hai chiều thời gian thực với
-              công nghệ AI Gemini và bộ lọc nhiễu âm thanh Web Audio / WASM.
+              công nghệ AI tương tác trực tiếp và bộ lọc khử tiếng ồn thời gian
+              thực.
             </p>
           </div>
 
@@ -172,8 +173,8 @@ export default function Home() {
               Writing Diagnostic
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Trình soạn thảo Tiptap v3 tích hợp công cụ kiểm tra độ dài từ,
-              phân tích 4 tiêu chí chấm điểm và phát hiện lỗi ngữ pháp tức thì.
+              Trình soạn thảo tích hợp công cụ kiểm tra độ dài từ, phân tích 4
+              tiêu chí chấm điểm và phát hiện lỗi ngữ pháp tức thì.
             </p>
           </div>
 
@@ -185,8 +186,9 @@ export default function Home() {
               Giảng viên Chấm chữa
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Không gian chuyên sâu cho Giáo viên duyệt chấm bài, thêm chú thích
-              inline annotations, và xuất bản bảng điểm chính thức.
+              Không gian chuyên sâu cho Giáo viên duyệt chấm bài, thêm ghi chú
+              và gợi ý sửa trực tiếp trên bài viết, và xuất bản bảng điểm chính
+              thức.
             </p>
           </div>
         </div>

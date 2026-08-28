@@ -370,8 +370,8 @@ export function SpeakingSummaryView({
             <DialogTitle>Xác nhận nộp bài thi IELTS Speaking?</DialogTitle>
             <DialogDescription>
               Hệ thống sẽ tải lên {totalAnswered} file ghi âm (
-              {formatDuration(totalSpeakingSeconds)}) lên hệ thống lưu trữ và
-              kích hoạt dịch vụ Gemini AI Evaluation chấm điểm 4 tiêu chí.
+              {formatDuration(totalSpeakingSeconds)}) và kích hoạt chấm điểm tự
+              động 4 tiêu chí chuẩn IELTS.
               {!isAllAnswered && (
                 <span className="block mt-2 font-medium text-amber-600 dark:text-amber-400">
                   Lưu ý: Bạn còn {allQuestions.length - totalAnswered} câu chưa

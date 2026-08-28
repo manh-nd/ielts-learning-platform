@@ -27,8 +27,8 @@ export const STATUS_LABELS: Record<AssessmentStatus, string> = {
   ai_proposal_available: "AI Đã Đề Xuất",
   teacher_assessed: "Đã chấm",
   in_review: "Đang Chấm",
-  approved: "Đã Duyệt Nội Bộ (PUBLICATION-01)",
-  published: "Đã Công Bố Cho Học Viên (PUBLICATION-02)",
+  approved: "Đã Duyệt Nội Bộ",
+  published: "Đã Công Bố Cho Học Viên",
 };
 
 export interface ReviewStudentInfo {
@@ -194,7 +194,7 @@ export function ReviewHeader({
                 className="text-[11px] sm:text-xs gap-1 border-emerald-300 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-800 dark:hover:bg-emerald-950/50 shrink-0"
               >
                 <CheckCheck className="h-3.5 w-3.5 text-emerald-600" />
-                <span className="hidden sm:inline">1-Click</span> Chấp nhận AI
+                <span>Apply đề xuất AI</span>
               </Button>
             )}
 

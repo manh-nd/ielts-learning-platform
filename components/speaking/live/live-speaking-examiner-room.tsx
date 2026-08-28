@@ -32,7 +32,7 @@ export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
 
 export function LiveSpeakingExaminerRoom({
   title = "Phòng Thi Thử IELTS Speaking Trực Tiếp",
-  subtitle = "Đối thoại thời gian thực 1-on-1 với Giám khảo AI (Gemini 3.1 Flash Live)",
+  subtitle = "Đối thoại thời gian thực 1-on-1 với Giám khảo AI (Examiner)",
   candidateName = "Thí sinh",
   topic,
   targetPart = "full",
@@ -373,7 +373,7 @@ export function LiveSpeakingExaminerRoom({
             </div>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               {isMuted
-                ? "Microphone đang tắt tiếng (Muted)"
+                ? "Microphone đang tắt tiếng"
                 : voiceActivity === "user_speaking"
                   ? "Đang trả lời câu hỏi..."
                   : isConnected
@@ -418,7 +418,7 @@ export function LiveSpeakingExaminerRoom({
       <CardFooter className="flex items-center justify-between border-t bg-muted/10 px-5 py-3.5">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="w-4 h-4 text-emerald-800 dark:text-emerald-300" />
-          <span>Gemini 3.1 Flash Live (WebSockets & Native Audio)</span>
+          <span>Mô hình: Gemini 3.1 Flash Live</span>
         </div>
 
         <LiveSessionControls
