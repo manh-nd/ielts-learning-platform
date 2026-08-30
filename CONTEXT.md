@@ -6,17 +6,21 @@ Platform for IELTS Speaking & Writing assessment where AI produces proposals and
 
 ### Homework & Submission
 
-**Homework**:
+**HomeworkAssignment**:
 An assignment created by a Teacher and assigned to a Classroom with one or more Prompts.
-_Avoid_: AssignmentEntity, Exercise, Task
+_Avoid_: Homework, AssignmentEntity, Exercise, Task
 
 **HomeworkSubmission**:
-The root record representing a Learner's work for a specific Homework, maintaining the sequence of Submission Attempts and review state.
-_Avoid_: SubmissionRecord, StudentHomework
+The aggregate root record representing a single Learner's work for a specific HomeworkAssignment, maintaining the sequence of SubmissionAttempts, Teacher review state, and final publication.
+_Avoid_: SubmissionRecord, StudentHomework, SpeakingAssessment
 
 **SubmissionAttempt**:
-An immutable snapshot of work submitted by a Learner at a specific point in time.
+An immutable snapshot of work submitted by a Learner at a specific point in time. A permitted resubmission creates a new SubmissionAttempt and never overwrites an earlier one.
 _Avoid_: SubmissionRevision, SubmissionVersion
+
+**SubmissionDeadline**:
+The final instant when a Learner may submit or resubmit Homework, interpreted in the Classroom timezone. A Teacher may extend it, but no SubmissionAttempt is accepted after it passes.
+_Avoid_: SoftDeadline, SuggestedDueDate
 
 **CurrentAttempt**:
 The most recent SubmissionAttempt submitted by the Learner before Teacher Review starts.
@@ -26,27 +30,47 @@ _Avoid_: ActiveSubmission, LatestAttempt
 The specific SubmissionAttempt locked in and evaluated when the Teacher starts review.
 _Avoid_: TargetAttempt, LockedAttempt
 
-**HomeworkAssessment**:
-The root record governing the full assessment lifecycle for a single ReviewedAttempt — from AI proposal through Teacher evaluation and publication.
-_Avoid_: AssessmentRecord, GradingSession, ReviewResult
-
-### Assessment Lifecycle & Proposals
-
-**AiAssessmentProposal**:
-An AI-generated draft containing criterion scores, overall band, and feedback. Non-authoritative suggestion.
-_Avoid_: AssessmentResult, AiScore, SystemGrade
+**TeacherReviewDraft**:
+The teacher's in-progress, editable evaluation draft associated with a specific SubmissionAttempt under review within a HomeworkSubmission.
+_Avoid_: ReviewSession, TeacherGradingRecord
 
 **TeacherAssessment**:
 The professional evaluation created, verified, or corrected by a Teacher.
 _Avoid_: ManualGrade, FinalScore
 
 **PublishedAssessment**:
-The official assessment visible to the Learner immediately after the Teacher completes review by choosing “Duyệt”.
-_Avoid_: PublicGrade, FinalResult
+The official TeacherAssessment visible to the Learner after the Teacher completes review by choosing “Duyệt”. In the MVP, approval and publication are one business decision rather than separate lifecycle states.
+_Avoid_: PublicGrade, FinalResult, ApprovedAssessment, SpeakingAssessment
+
+### Assessment & AI Evaluation
+
+**HomeworkEvaluation**:
+The aggregate root managing the asynchronous AI evaluation lifecycle for a specific SubmissionAttempt, tracking EvaluationRuns and producing an AiAssessmentProposal.
+_Avoid_: HomeworkAssessment, EvaluationJob, GradingRun
+
+**PracticeEvaluation**:
+The aggregate root managing the asynchronous AI evaluation lifecycle for a SpeakingPractice session, tracking EvaluationRuns and producing PracticeFeedback.
+_Avoid_: PracticeAssessment, ScoringJob
+
+**AiAssessmentProposal**:
+An AI-generated draft containing criterion scores, overall band, and feedback specifically for teacher review. Non-authoritative suggestion, strictly hidden from learners.
+_Avoid_: AssessmentResult, EvaluationResult, AiScore, SystemGrade
+
+**PracticeFeedback**:
+The unofficial, learner-facing coaching report containing estimated scores, key strengths, improvement priorities, and sample answers produced by a PracticeEvaluation.
+_Avoid_: EvaluationResult, PracticeAssessment, PracticeScorecard
+
+**EvaluationRun**:
+An individual execution attempt of AI evaluation within a PracticeEvaluation or HomeworkEvaluation lifecycle. Retries create new EvaluationRuns without overwriting historical runs.
+_Avoid_: EvaluationAttempt, GradingRetry, JobExecution
+
+**IeltsRubric**:
+The immutable IELTS scoring criteria and descriptor definitions referenced by version across evaluations.
+_Avoid_: IELTSRubric, DynamicRubric, ScoringGuide
 
 **EvaluationFeedback (AiFeedbackDataset)**:
-Structured comparison data capturing original AI proposal vs Teacher final assessment and score deltas for AI calibration.
-_Avoid_: TrainingData, DiffLog
+Structured comparison data capturing the original AI proposal, the TeacherAssessment, and their score deltas for audit, product evaluation, and prompt or workflow improvement. It is never model-training data.
+_Avoid_: TrainingData, ModelTrainingDataset, DiffLog
 
 ### Prompts & Questions
 
@@ -64,15 +88,19 @@ _Avoid_: DeletedPrompt, DisabledQuestion
 
 ### Practice
 
+**SpeakingPractice**:
+The aggregate root representing a Learner-initiated speaking activity that returns immediate, explicitly unofficial AI feedback (PracticeFeedback) without Teacher review. It is distinct from an exam-condition MockTest and never produces a PublishedAssessment.
+_Avoid_: SpeakingSession, SpeakingMockTest, FullSpeakingExam
+
 **MockTest**:
-A self-service practice test taken by a Learner using a randomly selected active Prompt. AI assesses directly and publishes immediately without Teacher approval.
+A self-service exam simulation taken by a Learner using a randomly selected ActivePrompt. Its AI result is immediately visible without Teacher review but is not a PublishedAssessment.
 _Avoid_: PracticeTest, QuickTest, SelfTest
 
 ### Speaking & Audio Responses
 
 **SpeakingResponse**:
-A single audio recording and transcript corresponding to a specific question or cue card within a SubmissionAttempt or MockTest.
-_Avoid_: AudioRecord, SpeakingItem, VoiceAnswer
+A single audio recording and transcript corresponding to a specific question or cue card within a SubmissionAttempt or SpeakingPractice. Audio is authoritative evidence while transcript is derived.
+_Avoid_: AudioRecord, SpeakingItem, SpeakingAudio, GenericTranscript, VoiceAnswer
 
 **SpeakingReviewAnnotation**:
 A teacher-authored evaluation note attached to an exact audio timestamp and category (pronunciation, grammar, lexical, fluency) within a SpeakingResponse.
@@ -88,10 +116,6 @@ _Avoid_: Course, Batch, ClassGroup
 The association between a Learner and a Classroom.
 _Avoid_: Enrollment, UserClass
 
-**HomeworkAssignment**:
-The binding of a Homework to a Classroom.
-_Avoid_: ClassHomework, TaskAssignment
-
 ### Speaking Modality & Workflows
 
 **SpeakingDiscreteHomework**:
@@ -99,7 +123,7 @@ A homework assignment consisting of discrete speaking tasks or prompt items (e.g
 _Avoid_: SpeakingTaskAssignment, HomeworkRecording
 
 **SpeakingContinuousMockTest**:
-A full 3-part continuous exam simulation randomly drawn from the active prompt bank that AI evaluates and publishes immediately without teacher review.
+A future three-part MockTest modality conducted under exam conditions and drawn from the active prompt bank. Unlike SpeakingPractice, it is an exam simulation rather than an unofficial coaching activity.
 _Avoid_: FullSpeakingExam, InstantSpeakingTest
 
 ### Design System & Visual Tokens
