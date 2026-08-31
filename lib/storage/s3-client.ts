@@ -5,11 +5,21 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-// In-memory fallback cache for local dev / tests when S3 is unconfigured
-const directAudioDevCache = new Map<
-  string,
-  { data: Buffer; mimeType: string; updatedAt: number }
->();
+// In-memory fallback cache for local dev / tests when S3 is unconfigured (persisted on globalThis across Next.js dev route bundles)
+const globalForAudioCache = globalThis as unknown as {
+  directAudioDevCache?: Map<
+    string,
+    { data: Buffer; mimeType: string; updatedAt: number }
+  >;
+};
+
+export const directAudioDevCache =
+  globalForAudioCache.directAudioDevCache ||
+  new Map<string, { data: Buffer; mimeType: string; updatedAt: number }>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForAudioCache.directAudioDevCache = directAudioDevCache;
+}
 
 export interface SpeakingUploadInfo {
   uploadUrl: string;

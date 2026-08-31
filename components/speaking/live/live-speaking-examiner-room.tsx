@@ -194,8 +194,26 @@ export function LiveSpeakingExaminerRoom({
     let storageKey = "";
     let base64Audio = "";
 
-    // 1. Attempt Presigned S3/Storage Direct Upload
+    // 1. Convert to base64 as guaranteed fallback & attempt Presigned S3 upload
     if (finalizedAudio?.blob) {
+      try {
+        const reader = new FileReader();
+        base64Audio = await new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            const res = reader.result as string;
+            const commaIndex = res.indexOf(",");
+            resolve(commaIndex !== -1 ? res.slice(commaIndex + 1) : res);
+          };
+          reader.readAsDataURL(finalizedAudio.blob);
+        });
+        setPersistedAudioBase64(base64Audio);
+      } catch (readErr) {
+        console.warn(
+          "[LiveExaminerRoom] Could not read audio blob as base64:",
+          readErr
+        );
+      }
+
       try {
         const uploadUrlRes = await fetch("/api/speaking/upload-url", {
           method: "POST",
@@ -229,30 +247,9 @@ export function LiveSpeakingExaminerRoom({
         }
       } catch (uploadErr) {
         console.warn(
-          "[LiveExaminerRoom] Direct storage upload failed, falling back to base64:",
+          "[LiveExaminerRoom] Direct storage upload failed:",
           uploadErr
         );
-      }
-
-      // Fallback to base64 if S3 upload didn't yield a key
-      if (!storageKey) {
-        try {
-          const reader = new FileReader();
-          base64Audio = await new Promise<string>((resolve) => {
-            reader.onloadend = () => {
-              const res = reader.result as string;
-              const commaIndex = res.indexOf(",");
-              resolve(commaIndex !== -1 ? res.slice(commaIndex + 1) : res);
-            };
-            reader.readAsDataURL(finalizedAudio.blob);
-          });
-          setPersistedAudioBase64(base64Audio);
-        } catch (readErr) {
-          console.warn(
-            "[LiveExaminerRoom] Could not read audio blob:",
-            readErr
-          );
-        }
       }
     }
 

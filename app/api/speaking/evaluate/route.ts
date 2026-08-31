@@ -65,8 +65,22 @@ export interface DevResponseRecord {
   createdAt: Date;
 }
 
-export const devSessionCache = new Map<string, DevSessionRecord>();
-export const devResponseCache = new Map<string, DevResponseRecord[]>();
+const globalForSessionCache = globalThis as unknown as {
+  devSessionCache?: Map<string, DevSessionRecord>;
+  devResponseCache?: Map<string, DevResponseRecord[]>;
+};
+
+export const devSessionCache =
+  globalForSessionCache.devSessionCache || new Map<string, DevSessionRecord>();
+
+export const devResponseCache =
+  globalForSessionCache.devResponseCache ||
+  new Map<string, DevResponseRecord[]>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForSessionCache.devSessionCache = devSessionCache;
+  globalForSessionCache.devResponseCache = devResponseCache;
+}
 
 export async function POST(req: NextRequest) {
   let sessionId = `ses_${Date.now()}`;
