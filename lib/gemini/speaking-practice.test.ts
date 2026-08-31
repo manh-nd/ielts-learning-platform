@@ -1684,4 +1684,160 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
     const sessionRecord = devSessionCache.get(legacySessionId);
     expect(sessionRecord?.userId).toBeNull();
   });
+
+  // Test 21: Real UI retry flow re-sending same sessionId + storageKey + audioBase64 delegates to RetryEvaluation
+  it("Test 21: Real UI retry flow re-sending same sessionId + storageKey + audioBase64 delegates to RetryEvaluation", async () => {
+    const { POST, devSessionCache } =
+      await import("../../app/api/speaking/evaluate/route");
+    const { geminiRotator } = await import("./index");
+    const { NextRequest } = await import("next/server");
+
+    const testSessionId = `ses_ui_retry_${Date.now()}`;
+    const testStorageKey = `speaking/user_ui_retry/${testSessionId}/candidate.webm`;
+    const originalAudioBase64 =
+      Buffer.from("original-ui-audio").toString("base64");
+    const reSentAudioBase64 =
+      Buffer.from("re-sent-ui-audio").toString("base64");
+
+    let failEvaluation = true;
+    let evaluatedAudioContent = "";
+
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      estimatedPerformance: {
+        fluencyAndCoherence: 8.0,
+        lexicalResource: 7.5,
+        grammaticalRangeAndAccuracy: 7.5,
+        pronunciation: 8.0,
+      },
+      strengths: [],
+      priorities: [],
+      summary: "UI retry evaluation succeeded.",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(
+          async ({
+            contents,
+            config,
+          }: {
+            contents?: Array<{
+              inlineData?: { data: string };
+              text?: string;
+            }>;
+            config?: { responseMimeType?: string };
+          }) => {
+            if (failEvaluation) {
+              throw new Error("503 Service Unavailable on first attempt");
+            }
+            if (contents) {
+              for (const c of contents) {
+                if (c.inlineData?.data) {
+                  evaluatedAudioContent = Buffer.from(
+                    c.inlineData.data,
+                    "base64"
+                  ).toString();
+                }
+              }
+            }
+            if (config?.responseMimeType !== "application/json") {
+              return { text: "Verbatim candidate response." };
+            }
+            return {
+              text: JSON.stringify(mockFeedback),
+              usageMetadata: {
+                promptTokenCount: 500,
+                candidatesTokenCount: 200,
+                totalTokenCount: 700,
+              },
+            };
+          }
+        ),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      // 1. Initial attempt fails
+      const initialReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          headers: createMockAuthHeaders({
+            id: "user_ui_retry",
+            role: "learner",
+            name: "UI Retry Candidate",
+          }),
+          body: JSON.stringify({
+            sessionId: testSessionId,
+            topicTitle: "UI Retry Topic",
+            practiceMode: "part_1",
+            audioBase64: originalAudioBase64,
+            storageKey: testStorageKey,
+            durationSeconds: 45,
+            questions: ["Tell me about your morning routine."],
+          }),
+        }
+      );
+
+      const initialRes = await POST(initialReq);
+      expect(initialRes.status).toBe(502);
+
+      const sessionAfterFail = devSessionCache.get(testSessionId);
+      expect(sessionAfterFail?.status).toBe("completed");
+      const createdAtBeforeRetry = sessionAfterFail?.createdAt;
+
+      // 2. Real browser retry: re-sends SAME sessionId, SAME storageKey, and audioBase64
+      failEvaluation = false;
+      const retryReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          headers: createMockAuthHeaders({
+            id: "user_ui_retry",
+            role: "learner",
+            name: "UI Retry Candidate",
+          }),
+          body: JSON.stringify({
+            sessionId: testSessionId,
+            topicTitle: "UI Retry Topic",
+            practiceMode: "part_1",
+            audioBase64: reSentAudioBase64, // re-sent by UI
+            storageKey: testStorageKey, // re-sent by UI
+            durationSeconds: 45,
+          }),
+        }
+      );
+
+      const retryRes = await POST(retryReq);
+      const retryData = await retryRes.json();
+
+      expect(retryRes.status).toBe(200);
+      expect(retryData.success).toBe(true);
+      expect(retryData.sessionId).toBe(testSessionId);
+
+      // Verify evaluated audio was the persisted OriginalAudio, NOT re-sent payload
+      expect(evaluatedAudioContent).toBe("original-ui-audio");
+
+      // Verify practice was not re-committed/recreated (createdAt preserved, status evaluated)
+      const sessionAfterRetry = devSessionCache.get(testSessionId);
+      expect(sessionAfterRetry?.status).toBe("evaluated");
+      expect(sessionAfterRetry?.createdAt).toEqual(createdAtBeforeRetry);
+      expect(sessionAfterRetry?.scorecardJson).toBeDefined();
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
 });
