@@ -296,6 +296,7 @@ export function useGeminiLive(
     onStageChange,
     onError,
     onTranscriptUpdate,
+    onExamCompleted,
   } = config;
 
   const [status, setStatus] = useState<LiveSessionStatus>("idle");
@@ -815,9 +816,10 @@ export function useGeminiLive(
             console.error("[useGeminiLive] Error responding to end_exam:", err);
           }
         }
+        onExamCompleted?.();
       }
     },
-    [finishPart2PrepEarly, topic, updateStage]
+    [finishPart2PrepEarly, onExamCompleted, topic, updateStage]
   );
 
   const runMockSimulation = useCallback(() => {

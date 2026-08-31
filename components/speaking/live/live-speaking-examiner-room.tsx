@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Sparkles, User, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -46,6 +46,8 @@ export function LiveSpeakingExaminerRoom({
   onRestart,
   ...config
 }: LiveSpeakingExaminerRoomProps) {
+  const finishExamActionRef = useRef<() => void>(() => {});
+
   const {
     status,
     voiceActivity,
@@ -71,6 +73,9 @@ export function LiveSpeakingExaminerRoom({
     topic,
     targetPart,
     mockMode,
+    onExamCompleted: () => {
+      finishExamActionRef.current?.();
+    },
     ...config,
   });
 
@@ -187,8 +192,12 @@ export function LiveSpeakingExaminerRoom({
 
   // Finish exam manually or automatically
   const handleFinishExam = useCallback(async () => {
-    const finalizedAudio = await disconnect();
+    if (isEvaluating) return;
+    setIsEvaluating(true);
     setIsExamFinished(true);
+    setEvalError(null);
+
+    const finalizedAudio = await disconnect();
 
     let storageKey = "";
     let base64Audio = "";
@@ -276,14 +285,19 @@ export function LiveSpeakingExaminerRoom({
   }, [
     activeSessionId,
     disconnect,
+    isEvaluating,
     persistedAudioBase64,
     persistedStorageKey,
     triggerEvaluation,
     turnMarkers,
   ]);
 
+  useEffect(() => {
+    finishExamActionRef.current = handleFinishExam;
+  });
+
   // If exam has finished, display the comprehensive Result View
-  if (isExamFinished || examStage === "completed") {
+  if (isExamFinished) {
     return (
       <LiveSpeakingResultView
         evaluationResult={evaluationResult}
