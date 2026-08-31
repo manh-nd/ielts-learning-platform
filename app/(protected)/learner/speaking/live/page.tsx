@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 export default async function LearnerLiveSpeakingPage() {
-  const session = await requireRoleOrRedirect(["learner", "teacher"]);
+  const session = await requireRoleOrRedirect("learner");
 
   return (
     <div className="space-y-6 pb-12">

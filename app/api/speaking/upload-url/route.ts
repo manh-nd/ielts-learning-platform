@@ -3,21 +3,23 @@ import {
   buildSpeakingAudioStorageKey,
   getSpeakingUploadPresignedUrl,
 } from "@/lib/storage/s3-client";
+import { requireRole } from "@/lib/authorization";
+import { toErrorResponse, AppError } from "@/lib/errors";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await requireRole("learner", req.headers);
     const body = await req.json().catch(() => ({}));
     const {
-      userId = "anonymous",
       sessionId = `ses_${Date.now()}`,
       filename = "candidate.webm",
       mimeType = "audio/webm;codecs=opus",
     } = body;
 
     const storageKey = buildSpeakingAudioStorageKey(
-      userId,
+      session.user.id,
       sessionId,
       filename
     );
@@ -31,6 +33,9 @@ export async function POST(req: NextRequest) {
       ...uploadInfo,
     });
   } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return toErrorResponse(error);
+    }
     console.error("[UploadUrlAPI] Error generating upload URL:", error);
     return NextResponse.json(
       {

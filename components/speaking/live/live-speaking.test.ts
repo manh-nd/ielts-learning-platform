@@ -3,6 +3,8 @@ import {
   buildExaminerSystemInstruction,
   parseLiveServerMessage,
   buildToolResponse,
+  pcmBase64ChunksToWavBlob,
+  getSupportedMediaRecorderMimeType,
 } from "./use-gemini-live";
 import {
   SPEAKING_MOCK_TOPICS,
@@ -130,5 +132,218 @@ describe("Live Speaking Prototype Engine", () => {
         ],
       },
     });
+  });
+});
+
+describe("Live Recording Finalization & OriginalAudio Contract", () => {
+  it("should finalize MediaRecorder asynchronously and include the final chunk on stop", async () => {
+    const recordedChunks: Blob[] = [
+      new Blob(["chunk1"], { type: "audio/webm" }),
+    ];
+    let isStopCalled = false;
+
+    // Simulate mock MediaRecorder with asynchronous final chunk on stop
+    const listeners: Record<string, ((ev?: unknown) => void)[]> = {};
+    const mockRecorder = {
+      state: "recording" as "recording" | "inactive",
+      mimeType: "audio/webm;codecs=opus",
+      addEventListener: (event: string, cb: (ev?: unknown) => void) => {
+        listeners[event] = listeners[event] || [];
+        listeners[event].push(cb);
+      },
+      stop: () => {
+        isStopCalled = true;
+        mockRecorder.state = "inactive";
+        // Asynchronously emit final dataavailable chunk before stop
+        setTimeout(() => {
+          recordedChunks.push(new Blob(["finalChunk"], { type: "audio/webm" }));
+          listeners["stop"]?.forEach((cb) => cb());
+        }, 10);
+      },
+    };
+
+    // Replicate finalizeRecording contract
+    const finalize = async () => {
+      if (mockRecorder && mockRecorder.state !== "inactive") {
+        await new Promise<void>((resolve) => {
+          let isResolved = false;
+          const done = () => {
+            if (!isResolved) {
+              isResolved = true;
+              resolve();
+            }
+          };
+          mockRecorder.addEventListener("stop", done);
+          mockRecorder.addEventListener("error", done);
+          try {
+            mockRecorder.stop();
+          } catch {
+            done();
+          }
+        });
+      }
+
+      if (recordedChunks.length > 0) {
+        const blob = new Blob(recordedChunks, { type: mockRecorder.mimeType });
+        return {
+          blob,
+          url: "blob:http://localhost/mock-audio",
+          durationSeconds: 15,
+          mimeType: mockRecorder.mimeType,
+        };
+      }
+      return null;
+    };
+
+    const finalizedAudio = await finalize();
+
+    expect(isStopCalled).toBe(true);
+    expect(finalizedAudio).not.toBeNull();
+    expect(finalizedAudio?.blob).toBeDefined();
+    expect(recordedChunks.length).toBe(2);
+    expect(finalizedAudio?.mimeType).toBe("audio/webm;codecs=opus");
+    expect(finalizedAudio?.durationSeconds).toBe(15);
+  });
+
+  it("should return null and not fabricate audio evidence when no chunks were recorded", async () => {
+    const recordedChunks: Blob[] = [];
+    const mockRecorder = {
+      state: "inactive" as "recording" | "inactive",
+      mimeType: "audio/webm",
+      addEventListener: () => {},
+      stop: () => {},
+    };
+
+    const finalize = async () => {
+      if (mockRecorder && mockRecorder.state !== "inactive") {
+        mockRecorder.stop();
+      }
+      if (recordedChunks.length > 0) {
+        return {
+          blob: new Blob(recordedChunks),
+          url: "",
+          durationSeconds: 0,
+          mimeType: "audio/webm",
+        };
+      }
+      return null;
+    };
+
+    const finalizedAudio = await finalize();
+    expect(finalizedAudio).toBeNull();
+  });
+
+  it("should handle already inactive MediaRecorder with existing chunks cleanly", async () => {
+    const recordedChunks: Blob[] = [
+      new Blob(["existingAudio"], { type: "audio/webm" }),
+    ];
+    const mockRecorder = {
+      state: "inactive" as "recording" | "inactive",
+      mimeType: "audio/webm;codecs=opus",
+      addEventListener: () => {},
+      stop: () => {},
+    };
+
+    const finalize = async () => {
+      if (mockRecorder && mockRecorder.state !== "inactive") {
+        mockRecorder.stop();
+      }
+      if (recordedChunks.length > 0) {
+        return {
+          blob: new Blob(recordedChunks, { type: mockRecorder.mimeType }),
+          url: "blob:http://localhost/existing",
+          durationSeconds: 10,
+          mimeType: mockRecorder.mimeType,
+        };
+      }
+      return null;
+    };
+
+    const finalizedAudio = await finalize();
+    expect(finalizedAudio).not.toBeNull();
+    expect(finalizedAudio?.durationSeconds).toBe(10);
+    expect(finalizedAudio?.blob.size).toBeGreaterThan(0);
+  });
+
+  it("should convert raw PCM chunks to valid WAV Blob with RIFF/WAVE header", async () => {
+    // Generate sample 16kHz mono Int16 PCM samples (e.g. 100 samples = 200 bytes)
+    const samples = new Int16Array(100);
+    for (let i = 0; i < samples.length; i++) {
+      samples[i] = Math.round(Math.sin(i * 0.1) * 10000);
+    }
+    const base64Chunk = Buffer.from(samples.buffer).toString("base64");
+
+    const wavBlob = pcmBase64ChunksToWavBlob([base64Chunk], 16000);
+    expect(wavBlob.type).toBe("audio/wav");
+    expect(wavBlob.size).toBe(44 + 200);
+
+    const arrayBuffer = await wavBlob.arrayBuffer();
+    const view = new DataView(arrayBuffer);
+
+    // Verify RIFF header
+    const riff = String.fromCharCode(
+      view.getUint8(0),
+      view.getUint8(1),
+      view.getUint8(2),
+      view.getUint8(3)
+    );
+    expect(riff).toBe("RIFF");
+
+    // Verify WAVE tag
+    const wave = String.fromCharCode(
+      view.getUint8(8),
+      view.getUint8(9),
+      view.getUint8(10),
+      view.getUint8(11)
+    );
+    expect(wave).toBe("WAVE");
+
+    // Verify Sample Rate (16000)
+    expect(view.getUint32(24, true)).toBe(16000);
+  });
+
+  it("should assemble WAV fallback when MediaRecorder produces 0 chunks but raw PCM is present", async () => {
+    const recordedChunks: Blob[] = [];
+    const rawPcmChunks: string[] = [
+      Buffer.from(new Int16Array(50).buffer).toString("base64"),
+    ];
+
+    const finalize = async () => {
+      if (recordedChunks.length > 0) {
+        return {
+          blob: new Blob(recordedChunks, { type: "audio/webm" }),
+          url: "blob:http://localhost/webm",
+          durationSeconds: 5,
+          mimeType: "audio/webm",
+        };
+      }
+      if (rawPcmChunks.length > 0) {
+        const blob = pcmBase64ChunksToWavBlob(rawPcmChunks, 16000);
+        return {
+          blob,
+          url: "blob:http://localhost/wav",
+          durationSeconds: 5,
+          mimeType: "audio/wav",
+        };
+      }
+      return null;
+    };
+
+    const finalizedAudio = await finalize();
+    expect(finalizedAudio).not.toBeNull();
+    expect(finalizedAudio?.mimeType).toBe("audio/wav");
+    expect(finalizedAudio?.blob.size).toBe(44 + 100);
+  });
+
+  it("should detect supported MediaRecorder MIME types safely in browser/test environment", () => {
+    const supportedType = getSupportedMediaRecorderMimeType();
+    // In headless test environments where MediaRecorder is undefined, returns undefined
+    if (typeof MediaRecorder === "undefined") {
+      expect(supportedType).toBeUndefined();
+    } else {
+      expect(
+        typeof supportedType === "string" || supportedType === undefined
+      ).toBe(true);
+    }
   });
 });

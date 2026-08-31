@@ -94,6 +94,7 @@ export interface LiveSpeakingConfig {
   onError?: (error: Error) => void;
   enableNoiseSuppression?: boolean;
   onTranscriptUpdate?: (transcripts: TranscriptItem[]) => void;
+  onExamCompleted?: () => void;
 }
 
 export interface UseGeminiLiveReturn {
@@ -113,7 +114,7 @@ export interface UseGeminiLiveReturn {
   inputVolume: number;
   recordedAudio: RecordedAudioData | null;
   connect: () => Promise<void>;
-  disconnect: () => void;
+  disconnect: () => Promise<RecordedAudioData | null>;
   toggleMute: () => void;
   toggleNoiseSuppression: (enabled?: boolean) => void;
   sendTextMessage: (text: string) => void;

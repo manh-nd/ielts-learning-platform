@@ -5,11 +5,21 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-// In-memory fallback cache for local dev / tests when S3 is unconfigured
-const directAudioDevCache = new Map<
-  string,
-  { data: Buffer; mimeType: string; updatedAt: number }
->();
+// In-memory fallback cache for local dev / tests when S3 is unconfigured (persisted on globalThis across Next.js dev route bundles)
+const globalForAudioCache = globalThis as unknown as {
+  directAudioDevCache?: Map<
+    string,
+    { data: Buffer; mimeType: string; updatedAt: number }
+  >;
+};
+
+export const directAudioDevCache =
+  globalForAudioCache.directAudioDevCache ||
+  new Map<string, { data: Buffer; mimeType: string; updatedAt: number }>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForAudioCache.directAudioDevCache = directAudioDevCache;
+}
 
 export interface SpeakingUploadInfo {
   uploadUrl: string;
@@ -28,6 +38,23 @@ export function buildSpeakingAudioStorageKey(
   const cleanUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
   const cleanSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
   return `speaking/${cleanUserId}/${cleanSessionId}/${filename}`;
+}
+
+/**
+ * Verifies whether a given storage key belongs to the specified userId and optionally matching sessionId namespace.
+ */
+export function isSpeakingAudioStorageKeyOwnedBy(
+  storageKey: string,
+  userId: string,
+  sessionId?: string
+): boolean {
+  if (!storageKey || !userId) return false;
+  const cleanUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  if (sessionId) {
+    const cleanSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
+    return storageKey.startsWith(`speaking/${cleanUserId}/${cleanSessionId}/`);
+  }
+  return storageKey.startsWith(`speaking/${cleanUserId}/`);
 }
 
 /**

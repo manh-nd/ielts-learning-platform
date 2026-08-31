@@ -24,6 +24,7 @@ export class PcmAudioController {
 
   private onMicLevelCallback: ((level: number) => void) | null = null;
   private onSpeakerLevelCallback: ((level: number) => void) | null = null;
+  private isClosed: boolean = false;
 
   constructor() {}
 
@@ -49,6 +50,7 @@ export class PcmAudioController {
     onAudioChunk: (base64Chunk: string, rms: number) => void
   ) {
     this.stopRecording();
+    this.isClosed = false;
 
     if (
       typeof navigator === "undefined" ||
@@ -193,6 +195,8 @@ export class PcmAudioController {
    * Schedules a 24kHz mono PCM audio chunk for gapless playback.
    */
   playAudioChunk(base64Chunk: string) {
+    if (this.isClosed) return;
+
     if (!this.playAudioContext) {
       const AudioContextClass =
         window.AudioContext ||
@@ -307,6 +311,7 @@ export class PcmAudioController {
    * Cleans up all audio resources (both record and playback).
    */
   close() {
+    this.isClosed = true;
     this.stopRecording();
     this.cleanupPlayback();
   }

@@ -8,16 +8,18 @@ import {
   getSpeakingAudioBuffer,
   buildSpeakingAudioStorageKey,
   persistSpeakingAudioBuffer,
+  isSpeakingAudioStorageKeyOwnedBy,
 } from "@/lib/storage/s3-client";
 import { db } from "@/lib/db";
 import {
   speakingSessions,
   speakingResponses,
   speakingReviewAnnotations,
-  user,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { PracticeEvaluationResult } from "@/lib/gemini/speaking-schema";
+import { requireRole } from "@/lib/authorization";
+import { toErrorResponse, AppError, ForbiddenError } from "@/lib/errors";
 
 export const runtime = "nodejs";
 
@@ -63,8 +65,22 @@ export interface DevResponseRecord {
   createdAt: Date;
 }
 
-export const devSessionCache = new Map<string, DevSessionRecord>();
-export const devResponseCache = new Map<string, DevResponseRecord[]>();
+const globalForSessionCache = globalThis as unknown as {
+  devSessionCache?: Map<string, DevSessionRecord>;
+  devResponseCache?: Map<string, DevResponseRecord[]>;
+};
+
+export const devSessionCache =
+  globalForSessionCache.devSessionCache || new Map<string, DevSessionRecord>();
+
+export const devResponseCache =
+  globalForSessionCache.devResponseCache ||
+  new Map<string, DevResponseRecord[]>();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForSessionCache.devSessionCache = devSessionCache;
+  globalForSessionCache.devResponseCache = devResponseCache;
+}
 
 export async function POST(req: NextRequest) {
   let sessionId = `ses_${Date.now()}`;
@@ -74,9 +90,11 @@ export async function POST(req: NextRequest) {
   let mimeType = "audio/webm;codecs=opus";
 
   try {
+    const session = await requireRole("learner", req.headers);
+    const authenticatedUserId = session.user.id;
+
     const body = await req.json();
     const {
-      userId = "anonymous",
       candidateName,
       part1Question = "Part 1 Introduction and Interview",
       part2Topic = "Part 2 Individual Long Turn Cue Card",
@@ -91,6 +109,60 @@ export async function POST(req: NextRequest) {
     if (body.topicTitle) topicTitle = body.topicTitle;
     if (body.durationSeconds) durationSeconds = body.durationSeconds;
     effectiveStorageKey = storageKey;
+
+    // 0. Resolve & verify existing SpeakingPractice owner before loading audio or evaluating
+    let existingSessionUserId: string | null = null;
+    let sessionExists = false;
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const existingSessionRow = await db
+          .select({ userId: speakingSessions.userId })
+          .from(speakingSessions)
+          .where(eq(speakingSessions.id, sessionId));
+        if (existingSessionRow.length > 0) {
+          sessionExists = true;
+          existingSessionUserId = existingSessionRow[0].userId;
+        }
+      } catch {
+        // ignore lookup error
+      }
+    }
+
+    if (!sessionExists) {
+      const cached = devSessionCache.get(sessionId);
+      if (cached) {
+        sessionExists = true;
+        existingSessionUserId = cached.userId;
+      }
+    }
+
+    if (sessionExists) {
+      // Require existingSession.userId === authenticated session.user.id
+      // Reject if userId is null (legacy) or belongs to another learner
+      if (
+        !existingSessionUserId ||
+        existingSessionUserId !== authenticatedUserId
+      ) {
+        throw new ForbiddenError(
+          "Cannot retry, mutate, or access a speaking practice belonging to another user."
+        );
+      }
+    }
+
+    // Verify storageKey ownership if client supplied one (must match user and session namespace)
+    if (
+      effectiveStorageKey &&
+      !isSpeakingAudioStorageKeyOwnedBy(
+        effectiveStorageKey,
+        authenticatedUserId,
+        sessionId
+      )
+    ) {
+      throw new ForbiddenError(
+        "Cannot evaluate audio with a storage key outside the session namespace."
+      );
+    }
 
     // 1. Resolve & Verify Audio Payload (Strict verification: no phantom storageKey bypass)
     let audioBuffer: Buffer | undefined;
@@ -136,6 +208,17 @@ export async function POST(req: NextRequest) {
       }
 
       if (existingStorageKey) {
+        if (
+          !isSpeakingAudioStorageKeyOwnedBy(
+            existingStorageKey,
+            authenticatedUserId,
+            sessionId
+          )
+        ) {
+          throw new ForbiddenError(
+            "Cannot retry evaluation using audio outside the session namespace."
+          );
+        }
         const audioData = await getSpeakingAudioBuffer(existingStorageKey);
         if (audioData && audioData.buffer && audioData.buffer.length > 0) {
           audioBuffer = audioData.buffer;
@@ -151,7 +234,11 @@ export async function POST(req: NextRequest) {
       audioBuffer = Buffer.from(audioBase64, "base64");
       const targetStorageKey =
         effectiveStorageKey ||
-        buildSpeakingAudioStorageKey(userId, sessionId, "candidate.webm");
+        buildSpeakingAudioStorageKey(
+          authenticatedUserId,
+          sessionId,
+          "candidate.webm"
+        );
 
       const persistRes = await persistSpeakingAudioBuffer(
         targetStorageKey,
@@ -200,6 +287,15 @@ export async function POST(req: NextRequest) {
         []) as CandidateTurnMarkerInput[];
       // Check existing session for fallback metadata if this is a retry
       const existingCachedSession = devSessionCache.get(sessionId);
+      if (
+        existingCachedSession &&
+        (!existingCachedSession.userId ||
+          existingCachedSession.userId !== authenticatedUserId)
+      ) {
+        throw new ForbiddenError(
+          "Cannot access speaking practice belonging to another user."
+        );
+      }
       const existingEvidence = existingCachedSession?.evidenceJson as
         | {
             turnMarkers?: CandidateTurnMarkerInput[];
@@ -213,7 +309,8 @@ export async function POST(req: NextRequest) {
       const effectiveCandidateName =
         candidateName ||
         existingCachedSession?.candidateName ||
-        (userId !== "anonymous" ? userId : "Anonymous Candidate");
+        session.user.name ||
+        "Học viên";
 
       const effectiveTurnMarkers =
         typedTurnMarkers.length > 0
@@ -241,21 +338,6 @@ export async function POST(req: NextRequest) {
         existingCachedSession?.durationSeconds ||
         durationSeconds;
 
-      let registeredUserId: string | null = null;
-      if (userId && userId !== "anonymous" && process.env.DATABASE_URL) {
-        try {
-          const userRecord = await db
-            .select({ id: user.id })
-            .from(user)
-            .where(eq(user.id, userId));
-          if (userRecord.length > 0) {
-            registeredUserId = userRecord[0].id;
-          }
-        } catch {
-          // Ignore user lookup failure
-        }
-      }
-
       // STEP A: Commit completed Practice to DB before AI evaluation (PracticeEnded != PracticeEvaluated)
       const audioUrl = effectiveStorageKey
         ? `/api/speaking/upload-direct?key=${encodeURIComponent(effectiveStorageKey)}`
@@ -266,7 +348,7 @@ export async function POST(req: NextRequest) {
       const createdAt = existingCachedSession?.createdAt || now;
       devSessionCache.set(sessionId, {
         id: sessionId,
-        userId: registeredUserId,
+        userId: authenticatedUserId,
         candidateName: effectiveCandidateName,
         topicTitle: effectiveTopicTitle,
         status: "completed",
@@ -307,7 +389,7 @@ export async function POST(req: NextRequest) {
             .insert(speakingSessions)
             .values({
               id: sessionId,
-              userId: registeredUserId,
+              userId: authenticatedUserId,
               candidateName: effectiveCandidateName,
               topicTitle: effectiveTopicTitle,
               status: "completed",
@@ -327,6 +409,7 @@ export async function POST(req: NextRequest) {
                 durationSeconds: effectiveDuration,
                 updatedAt: new Date(),
               },
+              where: eq(speakingSessions.userId, authenticatedUserId),
             });
 
           await db
@@ -419,7 +502,12 @@ export async function POST(req: NextRequest) {
                 evidenceJson: failedEvidence,
                 updatedAt: new Date(),
               })
-              .where(eq(speakingSessions.id, sessionId));
+              .where(
+                and(
+                  eq(speakingSessions.id, sessionId),
+                  eq(speakingSessions.userId, authenticatedUserId)
+                )
+              );
           } catch (updateErr) {
             console.warn(
               "[EvaluateSpeakingAPI] Failed to update error evidence in DB:",
@@ -473,7 +561,12 @@ export async function POST(req: NextRequest) {
               },
               updatedAt: new Date(),
             })
-            .where(eq(speakingSessions.id, sessionId));
+            .where(
+              and(
+                eq(speakingSessions.id, sessionId),
+                eq(speakingSessions.userId, authenticatedUserId)
+              )
+            );
 
           await db
             .update(speakingResponses)
@@ -578,30 +671,13 @@ export async function POST(req: NextRequest) {
     // 5. Persist to Database via Drizzle ORM (fail-safe for dev/test)
     try {
       if (process.env.DATABASE_URL) {
-        // Resolve registered user ID if user exists in database
-        let registeredUserId: string | null = null;
-        if (userId && userId !== "anonymous") {
-          try {
-            const userRecord = await db
-              .select({ id: user.id })
-              .from(user)
-              .where(eq(user.id, userId));
-            if (userRecord.length > 0) {
-              registeredUserId = userRecord[0].id;
-            }
-          } catch {
-            // Ignore lookup failure
-          }
-        }
-
         await db
           .insert(speakingSessions)
           .values({
             id: sessionId,
-            userId: registeredUserId,
+            userId: authenticatedUserId,
             candidateName:
-              candidateName ||
-              (userId !== "anonymous" ? userId : "Anonymous Candidate"),
+              candidateName || session.user.name || "Anonymous Candidate",
             topicTitle,
             status: "evaluated",
             targetPart: "full",
@@ -673,6 +749,9 @@ export async function POST(req: NextRequest) {
       sessionId,
     });
   } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return toErrorResponse(error);
+    }
     console.error("[EvaluateSpeakingAPI] Evaluation error:", error);
     return NextResponse.json(
       {
@@ -688,6 +767,9 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await requireRole("learner", req.headers);
+    const authenticatedUserId = session.user.id;
+
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("sessionId");
 
@@ -706,7 +788,14 @@ export async function GET(req: NextRequest) {
           .where(eq(speakingSessions.id, sessionId));
 
         if (sessionList.length > 0) {
-          const session = sessionList[0];
+          const foundSession = sessionList[0];
+          if (foundSession.userId !== authenticatedUserId) {
+            return NextResponse.json(
+              { error: "Session not found" },
+              { status: 404 }
+            );
+          }
+
           const responses = await db
             .select()
             .from(speakingResponses)
@@ -714,7 +803,7 @@ export async function GET(req: NextRequest) {
 
           return NextResponse.json({
             success: true,
-            session,
+            session: foundSession,
             responses,
           });
         }
@@ -726,6 +815,13 @@ export async function GET(req: NextRequest) {
     // Check dev in-memory cache
     const cachedSession = devSessionCache.get(sessionId);
     if (cachedSession) {
+      if (cachedSession.userId !== authenticatedUserId) {
+        return NextResponse.json(
+          { error: "Session not found" },
+          { status: 404 }
+        );
+      }
+
       const cachedResponses = devResponseCache.get(sessionId) || [];
       return NextResponse.json({
         success: true,
@@ -736,6 +832,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return toErrorResponse(error);
+    }
     console.error("[EvaluateSpeakingAPI] Session query error:", error);
     return NextResponse.json(
       {

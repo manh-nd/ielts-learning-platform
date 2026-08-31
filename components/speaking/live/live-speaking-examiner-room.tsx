@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Sparkles, User, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -46,6 +46,8 @@ export function LiveSpeakingExaminerRoom({
   onRestart,
   ...config
 }: LiveSpeakingExaminerRoomProps) {
+  const finishExamActionRef = useRef<() => void>(() => {});
+
   const {
     status,
     voiceActivity,
@@ -71,6 +73,9 @@ export function LiveSpeakingExaminerRoom({
     topic,
     targetPart,
     mockMode,
+    onExamCompleted: () => {
+      finishExamActionRef.current?.();
+    },
     ...config,
   });
 
@@ -112,14 +117,10 @@ export function LiveSpeakingExaminerRoom({
       const resolvedStorageKey =
         storageKeyToUse || persistedStorageKey || undefined;
       const resolvedBase64 =
-        audioBase64ToUse ||
-        (!resolvedStorageKey ? persistedAudioBase64 || "" : undefined);
+        audioBase64ToUse || persistedAudioBase64 || undefined;
 
       try {
         const payload = {
-          userId: candidateName
-            ? candidateName.replace(/\s+/g, "_").toLowerCase()
-            : "learner_candidate",
           sessionId: resolvedSessionId,
           topicTitle: topic?.title || "General IELTS Speaking Mock Test",
           candidateName,
@@ -191,25 +192,44 @@ export function LiveSpeakingExaminerRoom({
 
   // Finish exam manually or automatically
   const handleFinishExam = useCallback(async () => {
-    disconnect();
+    if (isEvaluating) return;
+    setIsEvaluating(true);
     setIsExamFinished(true);
+    setEvalError(null);
+
+    const finalizedAudio = await disconnect();
 
     let storageKey = "";
     let base64Audio = "";
 
-    // 1. Attempt Presigned S3/Storage Direct Upload
-    if (recordedAudio?.blob) {
+    // 1. Convert to base64 as guaranteed fallback & attempt Presigned S3 upload
+    if (finalizedAudio?.blob) {
+      try {
+        const reader = new FileReader();
+        base64Audio = await new Promise<string>((resolve) => {
+          reader.onloadend = () => {
+            const res = reader.result as string;
+            const commaIndex = res.indexOf(",");
+            resolve(commaIndex !== -1 ? res.slice(commaIndex + 1) : res);
+          };
+          reader.readAsDataURL(finalizedAudio.blob);
+        });
+        setPersistedAudioBase64(base64Audio);
+      } catch (readErr) {
+        console.warn(
+          "[LiveExaminerRoom] Could not read audio blob as base64:",
+          readErr
+        );
+      }
+
       try {
         const uploadUrlRes = await fetch("/api/speaking/upload-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: candidateName
-              ? candidateName.replace(/\s+/g, "_").toLowerCase()
-              : "learner_candidate",
             sessionId: activeSessionId,
             filename: "candidate.webm",
-            mimeType: recordedAudio.mimeType || "audio/webm;codecs=opus",
+            mimeType: finalizedAudio.mimeType || "audio/webm;codecs=opus",
           }),
         });
 
@@ -223,9 +243,9 @@ export function LiveSpeakingExaminerRoom({
             method: "PUT",
             headers: {
               "Content-Type":
-                recordedAudio.mimeType || "audio/webm;codecs=opus",
+                finalizedAudio.mimeType || "audio/webm;codecs=opus",
             },
-            body: recordedAudio.blob,
+            body: finalizedAudio.blob,
           });
 
           if (putRes.ok) {
@@ -235,51 +255,49 @@ export function LiveSpeakingExaminerRoom({
         }
       } catch (uploadErr) {
         console.warn(
-          "[LiveExaminerRoom] Direct storage upload failed, falling back to base64:",
+          "[LiveExaminerRoom] Direct storage upload failed:",
           uploadErr
         );
       }
+    }
 
-      // Fallback to base64 if S3 upload didn't yield a key
-      if (!storageKey) {
-        try {
-          const reader = new FileReader();
-          base64Audio = await new Promise<string>((resolve) => {
-            reader.onloadend = () => {
-              const res = reader.result as string;
-              const commaIndex = res.indexOf(",");
-              resolve(commaIndex !== -1 ? res.slice(commaIndex + 1) : res);
-            };
-            reader.readAsDataURL(recordedAudio.blob);
-          });
-          setPersistedAudioBase64(base64Audio);
-        } catch (readErr) {
-          console.warn(
-            "[LiveExaminerRoom] Could not read audio blob:",
-            readErr
-          );
-        }
-      }
+    if (
+      !finalizedAudio?.blob &&
+      !base64Audio &&
+      !storageKey &&
+      !persistedAudioBase64 &&
+      !persistedStorageKey
+    ) {
+      setEvalError(
+        "Chưa ghi nhận được âm thanh từ microphone. Vui lòng nói vào microphone trước khi nộp bài."
+      );
+      setIsEvaluating(false);
+      return;
     }
 
     await triggerEvaluation(
       activeSessionId,
       storageKey,
       base64Audio,
-      recordedAudio?.durationSeconds,
+      finalizedAudio?.durationSeconds,
       turnMarkers
     );
   }, [
     activeSessionId,
-    candidateName,
     disconnect,
-    recordedAudio,
+    isEvaluating,
+    persistedAudioBase64,
+    persistedStorageKey,
     triggerEvaluation,
     turnMarkers,
   ]);
 
+  useEffect(() => {
+    finishExamActionRef.current = handleFinishExam;
+  });
+
   // If exam has finished, display the comprehensive Result View
-  if (isExamFinished || examStage === "completed") {
+  if (isExamFinished) {
     return (
       <LiveSpeakingResultView
         evaluationResult={evaluationResult}
@@ -493,7 +511,7 @@ export function LiveSpeakingExaminerRoom({
           isNoiseSuppressionActive={isNoiseSuppressionActive}
           inputVolume={inputVolume}
           onConnect={connect}
-          onDisconnect={disconnect}
+          onDisconnect={handleFinishExam}
           onToggleMute={toggleMute}
           onToggleNoiseSuppression={toggleNoiseSuppression}
         />
