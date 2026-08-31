@@ -55,7 +55,7 @@ export async function finishSpeakingPractice(
   } = input;
 
   // 0. Resolve & verify existing SpeakingPractice owner before loading audio or evaluating
-  const { practice: existingPractice, responses: existingResponses } =
+  const { practice: existingPractice } =
     await speakingPracticeRepository.findById(sessionId);
 
   if (existingPractice) {
@@ -68,18 +68,17 @@ export async function finishSpeakingPractice(
       );
     }
 
-    // If client provided no new audio, delegate to retry flow
-    if (!audioBase64 && !storageKey && existingResponses.length > 0) {
-      return retryPracticeEvaluation({
-        authenticatedUserId,
-        sessionId,
-        topicTitle: input.topicTitle,
-        candidateName,
-        questions,
-        durationSeconds: input.durationSeconds,
-        turnMarkers,
-      });
-    }
+    // Existing owned SpeakingPractice is always treated as RetryEvaluation
+    // re-using the same persisted immutable OriginalAudio without re-committing
+    return retryPracticeEvaluation({
+      authenticatedUserId,
+      sessionId,
+      topicTitle: input.topicTitle,
+      candidateName,
+      questions,
+      durationSeconds: input.durationSeconds,
+      turnMarkers,
+    });
   }
 
   let effectiveStorageKey = storageKey;
@@ -170,23 +169,9 @@ export async function finishSpeakingPractice(
 
   // 2. Prepare Effective Metadata
   const typedTurnMarkers = turnMarkers as CandidateTurnMarkerInput[];
-  const existingEvidence = existingPractice?.evidenceJson as
-    | {
-        turnMarkers?: CandidateTurnMarkerInput[];
-        liveTranscript?: string;
-      }
-    | undefined;
-
-  const effectiveTopicTitle =
-    input.topicTitle || existingPractice?.topicTitle || topicTitle;
-
-  const effectiveCandidateName =
-    candidateName || existingPractice?.candidateName || "Học viên";
-
-  const effectiveTurnMarkers =
-    typedTurnMarkers.length > 0
-      ? typedTurnMarkers
-      : existingEvidence?.turnMarkers || [];
+  const effectiveTopicTitle = input.topicTitle || topicTitle;
+  const effectiveCandidateName = candidateName || "Học viên";
+  const effectiveTurnMarkers = typedTurnMarkers;
 
   const part1Questions: string[] =
     questions ||
@@ -202,12 +187,9 @@ export async function finishSpeakingPractice(
           .filter((t) => t.sender === "user")
           .map((t) => t.text)
           .join(" ")
-      : existingEvidence?.liveTranscript || "";
+      : "";
 
-  const effectiveDuration =
-    input.durationSeconds ||
-    existingPractice?.durationSeconds ||
-    durationSeconds;
+  const effectiveDuration = input.durationSeconds || durationSeconds;
 
   // STEP A: Commit completed Practice before AI evaluation (PracticeEnded != PracticeEvaluated)
   const audioUrl = effectiveStorageKey

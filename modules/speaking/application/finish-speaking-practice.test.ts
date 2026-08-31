@@ -161,4 +161,127 @@ describe("finishSpeakingPractice Use Case", () => {
       geminiRotator.executeWithRotation = originalExecute;
     }
   });
+
+  it("should treat request with existing owned sessionId as RetryEvaluation even if client re-sends storageKey and audioBase64", async () => {
+    const sessionId = "ses_ui_retry_flow";
+    const testStorageKey = `speaking/user_ui/${sessionId}/candidate.webm`;
+    const originalAudioBase64 = Buffer.from("original-browser-audio").toString(
+      "base64"
+    );
+    const reSentAudioBase64 = Buffer.from("tampered-re-sent-audio").toString(
+      "base64"
+    );
+
+    let failEvaluation = true;
+    let evaluatedAudioContent = "";
+
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      estimatedPerformance: { fluencyAndCoherence: 7.5 },
+      strengths: [],
+      priorities: [],
+      summary: "UI retry success feedback",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(
+          async ({
+            contents,
+            config,
+          }: {
+            contents?: Array<{
+              inlineData?: { data: string };
+              text?: string;
+            }>;
+            config?: { responseMimeType?: string };
+          }) => {
+            if (failEvaluation) {
+              throw new Error("503 Overloaded on initial try");
+            }
+            // Capture the audio that was passed to the evaluator
+            if (contents) {
+              for (const c of contents) {
+                if (c.inlineData?.data) {
+                  evaluatedAudioContent = Buffer.from(
+                    c.inlineData.data,
+                    "base64"
+                  ).toString();
+                }
+              }
+            }
+            if (config?.responseMimeType !== "application/json") {
+              return { text: "Verbatim transcript text." };
+            }
+            return {
+              text: JSON.stringify(mockFeedback),
+              usageMetadata: {
+                promptTokenCount: 100,
+                candidatesTokenCount: 50,
+                totalTokenCount: 150,
+              },
+            };
+          }
+        ),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      // Step 1: Initial evaluate fails
+      const initialRes = await finishSpeakingPractice({
+        authenticatedUserId: "user_ui",
+        sessionId,
+        topicTitle: "UI Topic",
+        audioBase64: originalAudioBase64,
+        storageKey: testStorageKey,
+        durationSeconds: 30,
+        questions: ["What is your favorite food?"],
+      });
+
+      expect(initialRes.success).toBe(false);
+      expect(initialRes.httpStatus).toBe(502);
+
+      const sessionAfterFail = devSessionCache.get(sessionId);
+      expect(sessionAfterFail?.status).toBe("completed");
+      const originalCreatedAt = sessionAfterFail?.createdAt;
+
+      // Step 2: UI Retry button sends SAME sessionId + SAME storageKey + re-sends audioBase64
+      failEvaluation = false;
+      const retryRes = await finishSpeakingPractice({
+        authenticatedUserId: "user_ui",
+        sessionId, // SAME sessionId
+        topicTitle: "UI Topic",
+        audioBase64: reSentAudioBase64, // Browser re-sends audio
+        storageKey: testStorageKey,
+        durationSeconds: 30,
+      });
+
+      expect(retryRes.success).toBe(true);
+      expect(retryRes.httpStatus).toBe(200);
+      expect(retryRes.sessionId).toBe(sessionId);
+
+      // Verify evaluated audio was the persisted OriginalAudio, NOT re-sent payload
+      expect(evaluatedAudioContent).toBe("original-browser-audio");
+
+      // Verify session was not re-committed/recreated (createdAt preserved, status is evaluated)
+      const sessionAfterRetry = devSessionCache.get(sessionId);
+      expect(sessionAfterRetry?.status).toBe("evaluated");
+      expect(sessionAfterRetry?.createdAt).toEqual(originalCreatedAt);
+      expect(sessionAfterRetry?.scorecardJson).toBeDefined();
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
 });
