@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./hooks/use-live-audio-recorder";
 export * from "./use-gemini-live";
 export * from "./live-connection-badge";
 export * from "./live-transcript-stream";

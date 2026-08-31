@@ -42,85 +42,13 @@ export interface ParsedLiveMessage {
   goAway?: Record<string, unknown>;
   resumptionHandle?: string;
 }
+import {
+  useLiveAudioRecorder,
+  getSupportedMediaRecorderMimeType,
+  pcmBase64ChunksToWavBlob,
+} from "./hooks/use-live-audio-recorder";
 
-export function getSupportedMediaRecorderMimeType(): string | undefined {
-  if (typeof MediaRecorder === "undefined") return undefined;
-  const candidateTypes = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/aac",
-    "audio/ogg;codecs=opus",
-    "audio/ogg",
-  ];
-  for (const type of candidateTypes) {
-    try {
-      if (
-        typeof MediaRecorder.isTypeSupported === "function" &&
-        MediaRecorder.isTypeSupported(type)
-      ) {
-        return type;
-      }
-    } catch {
-      // continue
-    }
-  }
-  return undefined;
-}
-
-export function pcmBase64ChunksToWavBlob(
-  base64Chunks: string[],
-  sampleRate = 16000
-): Blob {
-  const byteArrays: Uint8Array[] = [];
-  let totalLength = 0;
-  for (const chunk of base64Chunks) {
-    const binary =
-      typeof atob !== "undefined"
-        ? atob(chunk)
-        : Buffer.from(chunk, "base64").toString("binary");
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    byteArrays.push(bytes);
-    totalLength += bytes.length;
-  }
-
-  const combined = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const arr of byteArrays) {
-    combined.set(arr, offset);
-    offset += arr.length;
-  }
-
-  const wavBuffer = new ArrayBuffer(44 + totalLength);
-  const view = new DataView(wavBuffer);
-
-  // "RIFF"
-  view.setUint32(0, 0x52494646, false);
-  view.setUint32(4, 36 + totalLength, true);
-  // "WAVE"
-  view.setUint32(8, 0x57415645, false);
-
-  // "fmt "
-  view.setUint32(12, 0x666d7420, false);
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // Linear PCM
-  view.setUint16(22, 1, true); // 1 Channel (Mono)
-  view.setUint32(24, sampleRate, true); // 16000
-  view.setUint32(28, sampleRate * 2, true); // Byte rate (16000 * 2)
-  view.setUint16(32, 2, true); // Block align (2)
-  view.setUint16(34, 16, true); // 16 bits per sample
-
-  // "data"
-  view.setUint32(36, 0x64617461, false);
-  view.setUint32(40, totalLength, true);
-
-  new Uint8Array(wavBuffer, 44).set(combined);
-
-  return new Blob([wavBuffer], { type: "audio/wav" });
-}
+export { getSupportedMediaRecorderMimeType, pcmBase64ChunksToWavBlob };
 
 export function parseLiveServerMessage(raw: unknown): ParsedLiveMessage {
   if (typeof raw !== "object" || raw === null) {
@@ -321,20 +249,9 @@ export function useGeminiLive(
   const [scratchpadNotes, setScratchpadNotes] = useState<string>("");
   const [transcripts, setTranscripts] = useState<TranscriptItem[]>([]);
   const [turnMarkers, setTurnMarkers] = useState<CandidateTurnMarker[]>([]);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [isNoiseSuppressionActive, setIsNoiseSuppressionActive] =
-    useState<boolean>(enableNoiseSuppression);
   const [error, setError] = useState<Error | null>(null);
-  const [inputVolume, setInputVolume] = useState<number>(0);
-  const [recordedAudio, setRecordedAudio] = useState<RecordedAudioData | null>(
-    null
-  );
 
   // References
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
-  const rawPcmChunksRef = useRef<string[]>([]);
   const recordStartTimeRef = useRef<number>(0);
   const turnMarkersRef = useRef<CandidateTurnMarker[]>([]);
   const currentTurnStartMsRef = useRef<number>(0);
@@ -344,7 +261,6 @@ export function useGeminiLive(
   const audioControllerRef = useRef<PcmAudioController | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const isMutedRef = useRef<boolean>(false);
-  const isNoiseSuppressionActiveRef = useRef<boolean>(enableNoiseSuppression);
   const mockTimerRef = useRef<NodeJS.Timeout | null>(null);
   const prepIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const activeToolCallIdRef = useRef<string | null>(null);
@@ -410,6 +326,59 @@ export function useGeminiLive(
     }
   }, []);
 
+  const {
+    isMuted,
+    isNoiseSuppressionActive,
+    inputVolume,
+    recordedAudio,
+    startRecording: startAudioRecording,
+    finalizeRecording,
+    resetRecording,
+    toggleMute: toggleRecorderMute,
+    toggleNoiseSuppression,
+    cleanup: cleanupRecorder,
+  } = useLiveAudioRecorder({
+    enableNoiseSuppression,
+    onMicLevel: (level) => {
+      if (level > 0.05) {
+        clearNudgeTimer();
+        if (!currentTurnStartMsRef.current) {
+          currentTurnStartMsRef.current =
+            Date.now() - recordStartTimeRef.current;
+        }
+        setVoiceActivity((curr) =>
+          curr === "ai_speaking" ? curr : "user_speaking"
+        );
+        setSpeakingState({ kind: "user-speaking" });
+      } else {
+        setVoiceActivity((curr) => (curr === "user_speaking" ? "idle" : curr));
+      }
+    },
+    onMuteChange: (muted) => {
+      if (
+        muted &&
+        wsRef.current &&
+        wsRef.current.readyState === WebSocket.OPEN
+      ) {
+        try {
+          wsRef.current.send(
+            JSON.stringify({
+              realtimeInput: {
+                audioStreamEnd: true,
+              },
+            })
+          );
+        } catch {
+          // Ignored
+        }
+      }
+    },
+  });
+
+  useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
+
   const startNudgeTimer = useCallback(() => {
     clearNudgeTimer();
     if (examStage === 2 && part2Phase === "prep_countdown") return;
@@ -443,14 +412,6 @@ export function useGeminiLive(
       }
     }, 9000);
   }, [clearNudgeTimer, examStage, part2Phase]);
-
-  useEffect(() => {
-    isMutedRef.current = isMuted;
-  }, [isMuted]);
-
-  useEffect(() => {
-    isNoiseSuppressionActiveRef.current = isNoiseSuppressionActive;
-  }, [isNoiseSuppressionActive]);
 
   const updateStatus = useCallback(
     (newStatus: LiveSessionStatus) => {
@@ -488,26 +449,11 @@ export function useGeminiLive(
       prepIntervalRef.current = null;
     }
 
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state !== "inactive"
-    ) {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {
-        // Ignored
-      }
-    }
-    mediaRecorderRef.current = null;
+    cleanupRecorder();
 
     if (audioControllerRef.current) {
       audioControllerRef.current.close();
       audioControllerRef.current = null;
-    }
-
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
     }
 
     if (wsRef.current) {
@@ -530,9 +476,8 @@ export function useGeminiLive(
       playCallEndSound();
     }
 
-    setInputVolume(0);
     setVoiceActivity("idle");
-  }, [clearNudgeTimer, releaseWakeLock]);
+  }, [cleanupRecorder, clearNudgeTimer, releaseWakeLock]);
 
   const updateTranscriptStream = useCallback(() => {
     const committed = [...committedTranscriptsRef.current];
@@ -912,9 +857,8 @@ export function useGeminiLive(
 
   const connect = useCallback(async () => {
     cleanupAudio();
+    resetRecording();
     setError(null);
-    recordedChunksRef.current = [];
-    rawPcmChunksRef.current = [];
     currentTurnTextRef.current = { user: "", examiner: "" };
     committedTranscriptsRef.current = [];
     turnMarkersRef.current = [];
@@ -952,29 +896,6 @@ export function useGeminiLive(
       const controller = new PcmAudioController();
       audioControllerRef.current = controller;
 
-      controller.onMicLevel((level) => {
-        if (isMutedRef.current) {
-          setInputVolume(0);
-          return;
-        }
-        setInputVolume(level);
-        if (level > 0.05) {
-          clearNudgeTimer();
-          if (!currentTurnStartMsRef.current) {
-            currentTurnStartMsRef.current =
-              Date.now() - recordStartTimeRef.current;
-          }
-          setVoiceActivity((curr) =>
-            curr === "ai_speaking" ? curr : "user_speaking"
-          );
-          setSpeakingState({ kind: "user-speaking" });
-        } else {
-          setVoiceActivity((curr) =>
-            curr === "user_speaking" ? "idle" : curr
-          );
-        }
-      });
-
       controller.onSpeakerLevel((level) => {
         if (level > 0.01) {
           setVoiceActivity("ai_speaking");
@@ -986,9 +907,7 @@ export function useGeminiLive(
 
       // Start recording immediately with user click gesture
       try {
-        await controller.startRecording((base64PCM, rms) => {
-          rawPcmChunksRef.current.push(base64PCM);
-
+        await startAudioRecording(controller, (base64PCM, rms) => {
           const currentWs = wsRef.current;
           if (
             currentWs &&
@@ -1021,32 +940,6 @@ export function useGeminiLive(
             currentWs.send(JSON.stringify(audioPayload));
           }
         });
-
-        // Parallel continuous MediaRecorder for Candidate Audio (Source of Truth)
-        const micStream = controller.getMediaStream();
-        if (micStream && typeof MediaRecorder !== "undefined") {
-          try {
-            recordedChunksRef.current = [];
-            const mimeType = getSupportedMediaRecorderMimeType();
-            let recorder: MediaRecorder;
-            try {
-              recorder = mimeType
-                ? new MediaRecorder(micStream, { mimeType })
-                : new MediaRecorder(micStream);
-            } catch {
-              recorder = new MediaRecorder(micStream);
-            }
-            recorder.ondataavailable = (ev) => {
-              if (ev.data && ev.data.size > 0) {
-                recordedChunksRef.current.push(ev.data);
-              }
-            };
-            recorder.start(1000);
-            mediaRecorderRef.current = recorder;
-          } catch (recErr) {
-            console.warn("[useGeminiLive] MediaRecorder start error:", recErr);
-          }
-        }
       } catch (micErr) {
         console.error("[useGeminiLive] Failed to start microphone:", micErr);
         const err = new Error(
@@ -1332,100 +1225,9 @@ export function useGeminiLive(
     clearNudgeTimer,
     requestWakeLock,
     startNudgeTimer,
+    resetRecording,
+    startAudioRecording,
   ]);
-
-  const finalizeRecording =
-    useCallback(async (): Promise<RecordedAudioData | null> => {
-      const recorder = mediaRecorderRef.current;
-      if (recorder && recorder.state !== "inactive") {
-        await new Promise<void>((resolve) => {
-          let isResolved = false;
-          const done = () => {
-            if (!isResolved) {
-              isResolved = true;
-              resolve();
-            }
-          };
-
-          recorder.addEventListener("stop", done, { once: true });
-          recorder.addEventListener("error", done, { once: true });
-
-          try {
-            recorder.stop();
-          } catch {
-            done();
-          }
-        });
-      }
-
-      if (recordedChunksRef.current.length > 0) {
-        const mimeType = recorder?.mimeType || "audio/webm;codecs=opus";
-        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-        let url = "";
-        try {
-          if (
-            typeof window !== "undefined" &&
-            window.URL &&
-            typeof window.URL.createObjectURL === "function"
-          ) {
-            url = window.URL.createObjectURL(blob);
-          }
-        } catch {
-          // Ignored in test / headless environments
-        }
-        const durationSeconds = Math.max(
-          1,
-          Math.round(
-            (Date.now() - (recordStartTimeRef.current || Date.now())) / 1000
-          )
-        );
-
-        const audioData: RecordedAudioData = {
-          blob,
-          url,
-          durationSeconds,
-          mimeType,
-        };
-
-        setRecordedAudio(audioData);
-        return audioData;
-      }
-
-      // Secondary fallback: assemble WAV Blob from raw PCM chunks if MediaRecorder produced 0 chunks
-      if (rawPcmChunksRef.current.length > 0) {
-        const blob = pcmBase64ChunksToWavBlob(rawPcmChunksRef.current, 16000);
-        let url = "";
-        try {
-          if (
-            typeof window !== "undefined" &&
-            window.URL &&
-            typeof window.URL.createObjectURL === "function"
-          ) {
-            url = window.URL.createObjectURL(blob);
-          }
-        } catch {
-          // Ignored
-        }
-        const durationSeconds = Math.max(
-          1,
-          Math.round(
-            (Date.now() - (recordStartTimeRef.current || Date.now())) / 1000
-          )
-        );
-
-        const audioData: RecordedAudioData = {
-          blob,
-          url,
-          durationSeconds,
-          mimeType: "audio/wav",
-        };
-
-        setRecordedAudio(audioData);
-        return audioData;
-      }
-
-      return null;
-    }, []);
 
   const disconnect =
     useCallback(async (): Promise<RecordedAudioData | null> => {
@@ -1446,37 +1248,8 @@ export function useGeminiLive(
     }, [cleanupAudio, finalizeRecording, updateStatus]);
 
   const toggleMute = useCallback(() => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      // Send audioStreamEnd to flush cached audio when muting
-      if (
-        next &&
-        wsRef.current &&
-        wsRef.current.readyState === WebSocket.OPEN
-      ) {
-        try {
-          wsRef.current.send(
-            JSON.stringify({
-              realtimeInput: {
-                audioStreamEnd: true,
-              },
-            })
-          );
-        } catch {
-          // Ignored
-        }
-      }
-      return next;
-    });
-  }, []);
-
-  const toggleNoiseSuppression = useCallback((enabled?: boolean) => {
-    setIsNoiseSuppressionActive((prev) => {
-      const next = enabled !== undefined ? enabled : !prev;
-      isNoiseSuppressionActiveRef.current = next;
-      return next;
-    });
-  }, []);
+    toggleRecorderMute();
+  }, [toggleRecorderMute]);
 
   const sendTextMessage = useCallback((text: string) => {
     if (

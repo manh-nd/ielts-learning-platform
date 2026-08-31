@@ -88,9 +88,7 @@ export interface MarkEvaluationFailedPracticeParams {
 }
 
 export class SpeakingPracticeRepository {
-  async findById(
-    sessionId: string
-  ): Promise<{
+  async findById(sessionId: string): Promise<{
     practice: SpeakingPracticeRecord | null;
     responses: SpeakingResponseRecord[];
   }> {
