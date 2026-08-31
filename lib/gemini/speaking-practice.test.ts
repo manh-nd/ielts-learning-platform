@@ -642,6 +642,81 @@ describe("Part 1 Evaluator Fallback & Cascade Hierarchy", () => {
       geminiRotator.executeWithRotation = originalExecute;
     }
   });
+
+  // Test 9: Normalizes unrounded LLM scores (e.g. 6.3 -> 6.5, 5.8 -> 6.0) gracefully
+  it("Test 9: Normalizes unrounded LLM scores in estimatedPerformance gracefully", async () => {
+    const { geminiRotator } = await import("./index");
+
+    const unroundedFeedbackJson = JSON.stringify({
+      evidenceScope: { mode: "part_1", responseCount: 4 },
+      estimatedPerformance: {
+        fluencyAndCoherence: 6.3, // Non-half increment from LLM
+        lexicalResource: 5.8, // Non-half increment from LLM
+        grammaticalRangeAndAccuracy: 6.25, // Non-half increment from LLM
+        pronunciation: "6.7", // String format from LLM
+      },
+      strengths: [
+        {
+          criterion: "FC",
+          observation: "Spoke smoothly without major pauses.",
+        },
+      ],
+      priorities: [
+        {
+          criterion: "PR",
+          observation: "Work on word endings.",
+        },
+      ],
+      summary: "Good effort in Part 1 practice.",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    });
+
+    const mockClient = {
+      models: {
+        generateContent: mock(async () => ({
+          text: unroundedFeedbackJson,
+          usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 50 },
+        })),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      const result = await evaluateSpeakingPracticePart1({
+        topicTitle: "Hobbies",
+        questions: ["What do you do in your free time?"],
+        audioBuffer: Buffer.from("dummy-audio"),
+        liveTranscript: "I like reading books.",
+      });
+
+      expect(result.practiceFeedback.estimatedPerformance).toBeDefined();
+      expect(
+        result.practiceFeedback.estimatedPerformance?.fluencyAndCoherence
+      ).toBe(6.5);
+      expect(
+        result.practiceFeedback.estimatedPerformance?.lexicalResource
+      ).toBe(6.0);
+      expect(
+        result.practiceFeedback.estimatedPerformance
+          ?.grammaticalRangeAndAccuracy
+      ).toBe(6.5);
+      expect(result.practiceFeedback.estimatedPerformance?.pronunciation).toBe(
+        6.5
+      );
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
 });
 
 function createMockAuthHeaders(

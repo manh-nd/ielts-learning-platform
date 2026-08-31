@@ -926,10 +926,26 @@ export const practiceFeedbackJsonSchema = {
     estimatedPerformance: {
       type: "object",
       properties: {
-        fluencyAndCoherence: { type: "number" },
-        lexicalResource: { type: "number" },
-        grammaticalRangeAndAccuracy: { type: "number" },
-        pronunciation: { type: "number" },
+        fluencyAndCoherence: {
+          type: "number",
+          description:
+            "Estimated formative score 0-9 in 0.5 increments (e.g. 5.5, 6.0, 6.5)",
+        },
+        lexicalResource: {
+          type: "number",
+          description:
+            "Estimated formative score 0-9 in 0.5 increments (e.g. 5.5, 6.0, 6.5)",
+        },
+        grammaticalRangeAndAccuracy: {
+          type: "number",
+          description:
+            "Estimated formative score 0-9 in 0.5 increments (e.g. 5.5, 6.0, 6.5)",
+        },
+        pronunciation: {
+          type: "number",
+          description:
+            "Estimated formative score 0-9 in 0.5 increments (e.g. 5.5, 6.0, 6.5)",
+        },
       },
     },
     strengths: {

@@ -341,8 +341,25 @@ export async function evaluateSpeakingAudio(
     );
   }
 
-  // Calculate overall band using official IELTS rounding formula
+  // Sanitize criteria scores to valid 0.5 increments
   const { criteriaScores } = parsedData.overallScorecard;
+  if (criteriaScores) {
+    for (const key of [
+      "fluencyAndCoherence",
+      "lexicalResource",
+      "grammaticalRangeAndAccuracy",
+      "pronunciation",
+    ] as const) {
+      if (typeof criteriaScores[key] === "number") {
+        criteriaScores[key] = Math.max(
+          0,
+          Math.min(9, Math.round(criteriaScores[key] * 2) / 2)
+        );
+      }
+    }
+  }
+
+  // Calculate overall band using official IELTS rounding formula
   const calculatedBand = calculateIeltsOverallBand(
     criteriaScores.fluencyAndCoherence,
     criteriaScores.lexicalResource,
@@ -734,6 +751,37 @@ ${
   let practiceFeedback: PracticeFeedback;
   try {
     const rawParsed = JSON.parse(jsonString);
+
+    // Sanitize and round estimatedPerformance scores to valid IELTS 0.5 increments
+    if (
+      rawParsed &&
+      typeof rawParsed === "object" &&
+      rawParsed.estimatedPerformance &&
+      typeof rawParsed.estimatedPerformance === "object"
+    ) {
+      const est = rawParsed.estimatedPerformance as Record<string, unknown>;
+      const scoreKeys = [
+        "fluencyAndCoherence",
+        "lexicalResource",
+        "grammaticalRangeAndAccuracy",
+        "pronunciation",
+      ] as const;
+
+      for (const key of scoreKeys) {
+        const val = est[key];
+        if (typeof val === "number" && !Number.isNaN(val)) {
+          est[key] = Math.max(0, Math.min(9, Math.round(val * 2) / 2));
+        } else if (typeof val === "string") {
+          const parsed = parseFloat(val);
+          if (!Number.isNaN(parsed)) {
+            est[key] = Math.max(0, Math.min(9, Math.round(parsed * 2) / 2));
+          } else {
+            delete est[key];
+          }
+        }
+      }
+    }
+
     practiceFeedback = PracticeFeedbackSchema.parse(rawParsed);
   } catch (parseErr) {
     throw new Error(
