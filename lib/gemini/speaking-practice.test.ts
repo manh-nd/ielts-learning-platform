@@ -645,39 +645,226 @@ describe("Part 1 Evaluator Fallback & Cascade Hierarchy", () => {
 });
 
 describe("Audio Persistence & Evaluation Failure Invariants", () => {
-  // Test 8: evaluation failure does not invalidate completed Practice
-  it("Test 8: evaluation failure does not invalidate completed Practice (audio remains accessible)", async () => {
-    const { getSpeakingAudioBuffer, saveDirectAudioDevFallback } =
-      await import("../storage/s3-client");
+  // Test 8: evaluation failure after persisted audio leaves a committed 'completed' Practice with its storage reference
+  it("Test 8: evaluation failure leaves committed 'completed' Practice with storage reference intact", async () => {
+    const { POST, GET } = await import("../../app/api/speaking/evaluate/route");
+    const { geminiRotator } = await import("./index");
+    const { NextRequest } = await import("next/server");
 
-    const testStorageKey = `speaking/test_user/test_ses_eval_fail/candidate.webm`;
-    const rawAudioBuffer = Buffer.from("valid-spoken-audio-evidence");
-
-    // Save audio
-    await saveDirectAudioDevFallback(
-      testStorageKey,
-      rawAudioBuffer,
-      "audio/webm"
+    const testSessionId = `ses_eval_fail_${Date.now()}`;
+    const testStorageKey = `speaking/user_123/${testSessionId}/candidate.webm`;
+    const testAudioBase64 = Buffer.from("mock-spoken-audio-bytes").toString(
+      "base64"
     );
 
-    // Verify audio remains retrievable despite simulated AI failure
-    const audioData = await getSpeakingAudioBuffer(testStorageKey);
-    expect(audioData).not.toBeNull();
-    expect(audioData?.buffer.toString()).toBe("valid-spoken-audio-evidence");
+    // Mock AI evaluation to fail (simulate model unavailable/overloaded)
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(async () => {
+      throw new Error("503 The model is overloaded. AI evaluation failed.");
+    }) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      const postReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: testSessionId,
+            userId: "user_123",
+            candidateName: "Test Learner",
+            topicTitle: "Part 1 Practice Test",
+            practiceMode: "part_1",
+            audioBase64: testAudioBase64,
+            storageKey: testStorageKey,
+            durationSeconds: 45,
+            questions: ["Where do you live?"],
+            transcripts: [{ sender: "user", text: "I live in Da Nang." }],
+          }),
+        }
+      );
+
+      const postRes = await POST(postReq);
+      const postData = await postRes.json();
+
+      // 1. Assert response is 502 with error and status 'completed'
+      expect(postRes.status).toBe(502);
+      expect(postData.success).toBe(false);
+      expect(postData.error).toBe("EVALUATION_FAILED");
+      expect(postData.status).toBe("completed");
+      expect(postData.sessionId).toBe(testSessionId);
+
+      // 2. Assert Practice remains committed in storage/database as 'completed'
+      const getReq = new NextRequest(
+        `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
+        { method: "GET" }
+      );
+      const getRes = await GET(getReq);
+      const getData = await getRes.json();
+
+      expect(getRes.status).toBe(200);
+      expect(getData.success).toBe(true);
+      expect(getData.session.id).toBe(testSessionId);
+      expect(getData.session.status).toBe("completed");
+      expect(getData.session.scorecardJson).toBeNull();
+      expect(getData.session.evidenceJson.evaluationStatus).toBe("failed");
+      expect(getData.responses.length).toBeGreaterThan(0);
+      expect(getData.responses[0].storageKey).toBe(testStorageKey);
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
   });
 
-  // Test 9: audio persistence failure cannot create a committed Practice
-  it("Test 9: audio persistence failure returns error and blocks committed practice", async () => {
-    const { persistSpeakingAudioBuffer } = await import("../storage/s3-client");
+  // Test 9: forced audio persistence failure prevents Practice commit and returns AUDIO_PERSISTENCE_FAILED
+  it("Test 9: forced audio persistence failure prevents Practice commit and returns AUDIO_PERSISTENCE_FAILED", async () => {
+    const { POST, GET } = await import("../../app/api/speaking/evaluate/route");
+    const { setSimulatedPersistenceFailure } =
+      await import("../storage/s3-client");
+    const { NextRequest } = await import("next/server");
 
-    // Test that persistSpeakingAudioBuffer handles errors gracefully
-    const result = await persistSpeakingAudioBuffer(
-      "speaking/test_user/test_ses_persist_fail/candidate.webm",
-      Buffer.from("audio-bytes"),
-      "audio/webm"
+    const testSessionId = `ses_persist_fail_${Date.now()}`;
+    const testAudioBase64 = Buffer.from("mock-audio-bytes").toString("base64");
+
+    // Enable forced persistence failure
+    setSimulatedPersistenceFailure(true);
+
+    try {
+      const postReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: testSessionId,
+            userId: "user_fail",
+            candidateName: "Fail Learner",
+            topicTitle: "Part 1 Practice Test",
+            practiceMode: "part_1",
+            audioBase64: testAudioBase64, // Direct base64 without pre-persisted storageKey
+            durationSeconds: 30,
+            questions: ["What is your favorite color?"],
+          }),
+        }
+      );
+
+      const postRes = await POST(postReq);
+      const postData = await postRes.json();
+
+      // 1. Assert response is HTTP 500 with AUDIO_PERSISTENCE_FAILED
+      expect(postRes.status).toBe(500);
+      expect(postData.error).toBe("AUDIO_PERSISTENCE_FAILED");
+
+      // 2. Assert Practice was NOT committed to storage/database (GET returns 404)
+      const getReq = new NextRequest(
+        `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
+        { method: "GET" }
+      );
+      const getRes = await GET(getReq);
+      expect(getRes.status).toBe(404);
+    } finally {
+      setSimulatedPersistenceFailure(false);
+    }
+  });
+
+  // Test 10: successful evaluation commits 'completed' then transitions to 'evaluated'
+  it("Test 10: successful evaluation commits completed practice and transitions to evaluated", async () => {
+    const { POST, GET } = await import("../../app/api/speaking/evaluate/route");
+    const { geminiRotator } = await import("./index");
+    const { NextRequest } = await import("next/server");
+
+    const testSessionId = `ses_eval_success_${Date.now()}`;
+    const testStorageKey = `speaking/user_123/${testSessionId}/candidate.webm`;
+    const testAudioBase64 = Buffer.from("mock-spoken-audio-bytes").toString(
+      "base64"
     );
 
-    expect(result.success).toBe(true);
-    expect(result.storageKey).toContain("candidate.webm");
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      estimatedPerformance: {
+        fluencyAndCoherence: 7.0,
+        lexicalResource: 7.0,
+        grammaticalRangeAndAccuracy: 6.5,
+        pronunciation: 7.0,
+      },
+      strengths: [],
+      priorities: [],
+      summary: "Solid Part 1 responses.",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(
+          async ({ config }: { config?: { responseMimeType?: string } }) => {
+            if (config?.responseMimeType !== "application/json") {
+              return { text: "I live in Da Nang." };
+            }
+            return {
+              text: JSON.stringify(mockFeedback),
+              usageMetadata: {
+                promptTokenCount: 500,
+                candidatesTokenCount: 200,
+                totalTokenCount: 700,
+              },
+            };
+          }
+        ),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      const postReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: testSessionId,
+            userId: "user_123",
+            candidateName: "Success Learner",
+            topicTitle: "Part 1 Practice Test",
+            practiceMode: "part_1",
+            audioBase64: testAudioBase64,
+            storageKey: testStorageKey,
+            durationSeconds: 45,
+            questions: ["Where do you live?"],
+            transcripts: [{ sender: "user", text: "I live in Da Nang." }],
+          }),
+        }
+      );
+
+      const postRes = await POST(postReq);
+      const postData = await postRes.json();
+
+      expect(postRes.status).toBe(200);
+      expect(postData.success).toBe(true);
+      expect(postData.isPractice).toBe(true);
+      expect(postData.practiceMode).toBe("part_1");
+      expect(postData.result.estimatedPerformance.fluencyAndCoherence).toBe(
+        7.0
+      );
+
+      // Verify DB / storage record transitioned to 'evaluated'
+      const getReq = new NextRequest(
+        `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
+        { method: "GET" }
+      );
+      const getRes = await GET(getReq);
+      const getData = await getRes.json();
+
+      expect(getRes.status).toBe(200);
+      expect(getData.session.status).toBe("evaluated");
+      expect(getData.session.scorecardJson).toBeDefined();
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
   });
 });

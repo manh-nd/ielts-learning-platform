@@ -428,23 +428,19 @@ export interface EvaluatePracticePart1Options {
 }
 
 /**
- * Executes post-session STT comparison (Flash-Lite verbatim + Gemini Transcribe if available)
+ * Canonical Post-Session STT using Flash-Lite Verbatim Transcription
  */
-export async function transcribePracticeAudioComparison(
+export async function transcribePracticeAudioVerbatim(
   audioBase64: string,
   mimeType: string,
   liveTranscript?: string
 ): Promise<{
   flashLiteTranscript: string;
-  transcribeTranscript?: string;
-  transcribeTimestampTranscript?: string;
   bestTranscript: string;
 }> {
   let flashLiteTranscript = "";
-  let transcribeTranscript: string | undefined;
-  let transcribeTimestampTranscript: string | undefined;
 
-  // 1. Flash-Lite Verbatim Transcription (Baseline)
+  // Canonical Flash-Lite Verbatim Transcription
   try {
     const result = await geminiRotator.executeWithRotation(async (client) => {
       const response = await client.models.generateContent({
@@ -467,57 +463,25 @@ export async function transcribePracticeAudioComparison(
     flashLiteTranscript = result;
   } catch (err) {
     console.warn(
-      "[PracticeEvaluator] Flash-Lite transcription failed, using live transcript:",
+      "[PracticeEvaluator] Flash-Lite transcription failed, using live transcript fallback:",
       err
     );
     flashLiteTranscript = liveTranscript || "";
   }
 
-  // 2. Gemini Transcribe Verbatim Transcription (Experimental comparison - non-blocking)
-  try {
-    const transcribeResult = await geminiRotator.executeWithRotation(
-      async (client) => {
-        const response = await client.models.generateContent({
-          model: "gemini-3.5-transcribe",
-          contents: [
-            {
-              inlineData: {
-                mimeType,
-                data: audioBase64,
-              },
-            },
-          ],
-          config: {
-            // @ts-expect-error transcription_config is supported in gemini-3.5-transcribe
-            transcriptionConfig: {
-              mode: "verbatim",
-            },
-          },
-        });
-        return response.text?.trim() || "";
-      }
-    );
-    if (transcribeResult) {
-      transcribeTranscript = transcribeResult;
-    }
-  } catch (transcribeErr) {
-    // Non-blocking: Transcribe API quota or model status should not break learner flow
-    console.info(
-      "[PracticeEvaluator] Transcribe comparative pass skipped/failed:",
-      (transcribeErr as Error)?.message || transcribeErr
-    );
-  }
-
-  const bestTranscript =
-    flashLiteTranscript || transcribeTranscript || liveTranscript || "";
+  const bestTranscript = flashLiteTranscript || liveTranscript || "";
 
   return {
     flashLiteTranscript,
-    transcribeTranscript,
-    transcribeTimestampTranscript,
     bestTranscript,
   };
 }
+
+/**
+ * Backward-compatible alias for post-session transcription
+ */
+export const transcribePracticeAudioComparison =
+  transcribePracticeAudioVerbatim;
 
 /**
  * Post-Session Evaluator for Part 1 Speaking Practice (Single-Call Multimodal Architecture)
@@ -543,21 +507,14 @@ export async function evaluateSpeakingPracticePart1(
 
   const startTime = Date.now();
 
-  // Step 1: Run post-session transcription
-  let transcriptionData: {
-    flashLiteTranscript: string;
-    transcribeTranscript?: string;
-    transcribeTimestampTranscript?: string;
-    bestTranscript: string;
-  } = {
+  // Step 1: Run canonical post-session Flash-Lite verbatim transcription
+  let transcriptionData = {
     flashLiteTranscript: liveTranscript,
-    transcribeTranscript: undefined,
-    transcribeTimestampTranscript: undefined,
     bestTranscript: liveTranscript,
   };
 
   if (base64Audio) {
-    transcriptionData = await transcribePracticeAudioComparison(
+    transcriptionData = await transcribePracticeAudioVerbatim(
       base64Audio,
       mimeType,
       liveTranscript
@@ -790,9 +747,6 @@ ${
       bestTranscript: transcriptionData.bestTranscript,
       liveTranscript,
       flashLiteTranscript: transcriptionData.flashLiteTranscript,
-      transcribeTranscript: transcriptionData.transcribeTranscript,
-      transcribeTimestampTranscript:
-        transcriptionData.transcribeTimestampTranscript,
     },
     trace: {
       modelUsed: evaluatedModel,

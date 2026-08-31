@@ -180,6 +180,15 @@ export async function getDirectAudioDevFallback(
   return item ? { data: item.data, mimeType: item.mimeType } : null;
 }
 
+let simulatedPersistenceFailure = false;
+
+/**
+ * Test helper to simulate storage persistence failures
+ */
+export function setSimulatedPersistenceFailure(shouldFail: boolean): void {
+  simulatedPersistenceFailure = shouldFail;
+}
+
 /**
  * Durably persists raw audio buffer to S3 or internal dev fallback cache.
  */
@@ -188,6 +197,11 @@ export async function persistSpeakingAudioBuffer(
   data: Buffer,
   mimeType: string = "audio/webm;codecs=opus"
 ): Promise<{ success: boolean; storageKey: string }> {
+  if (simulatedPersistenceFailure) {
+    console.warn("[S3Client] Simulated storage persistence failure active.");
+    return { success: false, storageKey: "" };
+  }
+
   const s3 = getS3Client();
   if (s3) {
     try {
