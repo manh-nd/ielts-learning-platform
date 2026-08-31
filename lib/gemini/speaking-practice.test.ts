@@ -645,9 +645,10 @@ describe("Part 1 Evaluator Fallback & Cascade Hierarchy", () => {
 });
 
 describe("Audio Persistence & Evaluation Failure Invariants", () => {
-  // Test 8: evaluation failure after persisted audio leaves a committed 'completed' Practice with its storage reference
-  it("Test 8: evaluation failure leaves committed 'completed' Practice with storage reference intact", async () => {
+  // Test 8: evaluation failure after persisted audio leaves a committed 'completed' Practice whose storageKey resolves to actual audio bytes
+  it("Test 8: evaluation failure leaves committed 'completed' Practice whose storageKey resolves to actual audio bytes", async () => {
     const { POST, GET } = await import("../../app/api/speaking/evaluate/route");
+    const { getSpeakingAudioBuffer } = await import("../storage/s3-client");
     const { geminiRotator } = await import("./index");
     const { NextRequest } = await import("next/server");
 
@@ -709,6 +710,11 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
       expect(getData.session.evidenceJson.evaluationStatus).toBe("failed");
       expect(getData.responses.length).toBeGreaterThan(0);
       expect(getData.responses[0].storageKey).toBe(testStorageKey);
+
+      // 3. Assert committed storageKey resolves to actual audio bytes
+      const retrievedAudio = await getSpeakingAudioBuffer(testStorageKey);
+      expect(retrievedAudio).not.toBeNull();
+      expect(retrievedAudio?.buffer.toString()).toBe("mock-spoken-audio-bytes");
     } finally {
       geminiRotator.executeWithRotation = originalExecute;
     }
@@ -863,6 +869,234 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
       expect(getRes.status).toBe(200);
       expect(getData.session.status).toBe("evaluated");
       expect(getData.session.scorecardJson).toBeDefined();
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
+
+  // Test 11: phantom storageKey + base64 must actually persist/verify audio before Practice commit
+  it("Test 11: phantom storageKey + base64 must actually persist/verify audio before Practice commit", async () => {
+    const { POST } = await import("../../app/api/speaking/evaluate/route");
+    const { getSpeakingAudioBuffer } = await import("../storage/s3-client");
+    const { geminiRotator } = await import("./index");
+    const { NextRequest } = await import("next/server");
+
+    const testSessionId = `ses_phantom_${Date.now()}`;
+    const phantomStorageKey = `speaking/user_phantom/${testSessionId}/phantom.webm`;
+    const testAudioBase64 = Buffer.from("phantom-recovered-audio").toString(
+      "base64"
+    );
+
+    // Precondition: verify the storageKey does NOT exist prior to API call
+    const initialAudio = await getSpeakingAudioBuffer(phantomStorageKey);
+    expect(initialAudio).toBeNull();
+
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      estimatedPerformance: {
+        fluencyAndCoherence: 6.5,
+        lexicalResource: 6.5,
+        grammaticalRangeAndAccuracy: 6.0,
+        pronunciation: 6.5,
+      },
+      strengths: [],
+      priorities: [],
+      summary: "Phantom key test feedback.",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(
+          async ({ config }: { config?: { responseMimeType?: string } }) => {
+            if (config?.responseMimeType !== "application/json") {
+              return { text: "I like reading books." };
+            }
+            return {
+              text: JSON.stringify(mockFeedback),
+              usageMetadata: {
+                promptTokenCount: 500,
+                candidatesTokenCount: 200,
+                totalTokenCount: 700,
+              },
+            };
+          }
+        ),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      const postReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: testSessionId,
+            userId: "user_phantom",
+            candidateName: "Phantom User",
+            topicTitle: "Phantom Test Topic",
+            practiceMode: "part_1",
+            storageKey: phantomStorageKey, // unpersisted key
+            audioBase64: testAudioBase64,
+            durationSeconds: 30,
+            questions: ["What is your hobby?"],
+          }),
+        }
+      );
+
+      const postRes = await POST(postReq);
+      expect(postRes.status).toBe(200);
+
+      // Postcondition: storageKey was verified and written to storage
+      const persistedAudio = await getSpeakingAudioBuffer(phantomStorageKey);
+      expect(persistedAudio).not.toBeNull();
+      expect(persistedAudio?.buffer.toString()).toBe("phantom-recovered-audio");
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
+
+  // Test 12: retry evaluation uses same sessionId and persisted OriginalAudio without creating a second Practice
+  it("Test 12: retry evaluation reuses same sessionId and persisted OriginalAudio without creating a second Practice", async () => {
+    const { POST, GET, devSessionCache } =
+      await import("../../app/api/speaking/evaluate/route");
+    const { geminiRotator } = await import("./index");
+    const { NextRequest } = await import("next/server");
+
+    const testSessionId = `ses_retry_flow_${Date.now()}`;
+    const testStorageKey = `speaking/user_retry/${testSessionId}/candidate.webm`;
+    const testAudioBase64 = Buffer.from("retry-flow-audio").toString("base64");
+
+    const initialSessionsCount = devSessionCache.size;
+
+    // STEP 1: Initial practice evaluation fails
+    let failEvaluation = true;
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      estimatedPerformance: {
+        fluencyAndCoherence: 7.5,
+        lexicalResource: 7.0,
+        grammaticalRangeAndAccuracy: 7.0,
+        pronunciation: 7.5,
+      },
+      strengths: [],
+      priorities: [],
+      summary: "Retry success feedback.",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(
+          async ({ config }: { config?: { responseMimeType?: string } }) => {
+            if (failEvaluation) {
+              throw new Error("503 Overloaded on initial try");
+            }
+            if (config?.responseMimeType !== "application/json") {
+              return { text: "I live in Hue." };
+            }
+            return {
+              text: JSON.stringify(mockFeedback),
+              usageMetadata: {
+                promptTokenCount: 500,
+                candidatesTokenCount: 200,
+                totalTokenCount: 700,
+              },
+            };
+          }
+        ),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      const initialReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: testSessionId,
+            userId: "user_retry",
+            candidateName: "Retry Candidate",
+            topicTitle: "Hometown Topic",
+            practiceMode: "part_1",
+            audioBase64: testAudioBase64,
+            storageKey: testStorageKey,
+            durationSeconds: 50,
+            questions: ["Tell me about your hometown."],
+          }),
+        }
+      );
+
+      const initialRes = await POST(initialReq);
+      expect(initialRes.status).toBe(502);
+
+      // Verify session exists in 'completed' state
+      const check1Req = new NextRequest(
+        `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
+        { method: "GET" }
+      );
+      const check1Res = await GET(check1Req);
+      const check1Data = await check1Res.json();
+      expect(check1Data.session.status).toBe("completed");
+
+      // STEP 2: Retry evaluation - sends SAME sessionId and NO audioBase64 (server resolves persisted OriginalAudio)
+      failEvaluation = false;
+      const retryReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: testSessionId, // SAME sessionId
+            practiceMode: "part_1",
+            // Notice: no audioBase64 provided, server resolves stored audio from existing session
+          }),
+        }
+      );
+
+      const retryRes = await POST(retryReq);
+      const retryData = await retryRes.json();
+
+      expect(retryRes.status).toBe(200);
+      expect(retryData.success).toBe(true);
+      expect(retryData.sessionId).toBe(testSessionId);
+      expect(retryData.result.estimatedPerformance.fluencyAndCoherence).toBe(
+        7.5
+      );
+
+      // Verify session transitioned to 'evaluated'
+      const check2Req = new NextRequest(
+        `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
+        { method: "GET" }
+      );
+      const check2Res = await GET(check2Req);
+      const check2Data = await check2Res.json();
+      expect(check2Data.session.status).toBe("evaluated");
+      expect(check2Data.session.scorecardJson).toBeDefined();
+
+      // Verify no second Practice session was created
+      expect(devSessionCache.size).toBe(initialSessionsCount + 1);
     } finally {
       geminiRotator.executeWithRotation = originalExecute;
     }

@@ -92,35 +92,75 @@ export async function POST(req: NextRequest) {
     if (body.durationSeconds) durationSeconds = body.durationSeconds;
     effectiveStorageKey = storageKey;
 
-    // 1. Resolve Audio Payload from S3 storageKey or direct base64
+    // 1. Resolve & Verify Audio Payload (Strict verification: no phantom storageKey bypass)
     let audioBuffer: Buffer | undefined;
+    let isAudioPersisted = false;
 
+    // 1a. Try to load from provided storageKey
     if (effectiveStorageKey) {
       const audioData = await getSpeakingAudioBuffer(effectiveStorageKey);
-      if (audioData) {
+      if (audioData && audioData.buffer && audioData.buffer.length > 0) {
         audioBuffer = audioData.buffer;
         mimeType = audioData.mimeType;
+        isAudioPersisted = true;
+      } else {
+        console.warn(
+          `[EvaluateSpeakingAPI] Storage lookup for key "${effectiveStorageKey}" failed. Treating as unpersisted.`
+        );
+        isAudioPersisted = false;
       }
     }
 
-    if (!audioBuffer && audioBase64) {
-      audioBuffer = Buffer.from(audioBase64, "base64");
+    // 1b. If not yet loaded from storage, check if this is an existing session retry (resolve server-side)
+    if (!isAudioPersisted && sessionId) {
+      let existingStorageKey: string | null = null;
+      if (process.env.DATABASE_URL) {
+        try {
+          const existingResp = await db
+            .select({ storageKey: speakingResponses.storageKey })
+            .from(speakingResponses)
+            .where(eq(speakingResponses.sessionId, sessionId));
+          if (existingResp.length > 0 && existingResp[0].storageKey) {
+            existingStorageKey = existingResp[0].storageKey;
+          }
+        } catch {
+          // ignore lookup error
+        }
+      }
+
+      if (!existingStorageKey) {
+        const cachedResp = devResponseCache.get(sessionId);
+        if (cachedResp && cachedResp.length > 0 && cachedResp[0].storageKey) {
+          existingStorageKey = cachedResp[0].storageKey;
+        }
+      }
+
+      if (existingStorageKey) {
+        const audioData = await getSpeakingAudioBuffer(existingStorageKey);
+        if (audioData && audioData.buffer && audioData.buffer.length > 0) {
+          audioBuffer = audioData.buffer;
+          mimeType = audioData.mimeType;
+          effectiveStorageKey = existingStorageKey;
+          isAudioPersisted = true;
+        }
+      }
     }
 
-    // P0-4: Enforce OriginalAudio persistence invariant
-    if (!effectiveStorageKey && audioBuffer) {
-      const autoKey = buildSpeakingAudioStorageKey(
-        userId,
-        sessionId,
-        "candidate.webm"
-      );
+    // 1c. If not yet persisted, resolve audioBuffer from audioBase64 and durably persist it
+    if (!isAudioPersisted && audioBase64) {
+      audioBuffer = Buffer.from(audioBase64, "base64");
+      const targetStorageKey =
+        effectiveStorageKey ||
+        buildSpeakingAudioStorageKey(userId, sessionId, "candidate.webm");
+
       const persistRes = await persistSpeakingAudioBuffer(
-        autoKey,
+        targetStorageKey,
         audioBuffer,
         mimeType
       );
       if (persistRes.success) {
-        effectiveStorageKey = autoKey;
+        effectiveStorageKey = targetStorageKey;
+        isAudioPersisted = true;
       } else {
         console.error(
           "[EvaluateSpeakingAPI] Audio persistence failure: cannot commit practice."
@@ -136,12 +176,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (!audioBuffer || !effectiveStorageKey) {
+    // 1d. Final invariant validation: must be truly persisted and non-null
+    if (!isAudioPersisted || !audioBuffer || !effectiveStorageKey) {
       return NextResponse.json(
         {
           error: "ORIGINAL_AUDIO_MISSING",
           message:
-            "OriginalAudio evidence is missing or failed to persist. Cannot evaluate practice.",
+            "OriginalAudio evidence is missing or unverified. Cannot evaluate practice.",
         },
         { status: 400 }
       );
@@ -157,24 +198,48 @@ export async function POST(req: NextRequest) {
     if (isPart1Practice) {
       const typedTurnMarkers = (turnMarkers ||
         []) as CandidateTurnMarkerInput[];
+      // Check existing session for fallback metadata if this is a retry
+      const existingCachedSession = devSessionCache.get(sessionId);
+      const existingEvidence = existingCachedSession?.evidenceJson as
+        | {
+            turnMarkers?: CandidateTurnMarkerInput[];
+            liveTranscript?: string;
+          }
+        | undefined;
+
+      const effectiveTopicTitle =
+        body.topicTitle || existingCachedSession?.topicTitle || topicTitle;
+
+      const effectiveCandidateName =
+        candidateName ||
+        existingCachedSession?.candidateName ||
+        (userId !== "anonymous" ? userId : "Anonymous Candidate");
+
+      const effectiveTurnMarkers =
+        typedTurnMarkers.length > 0
+          ? typedTurnMarkers
+          : existingEvidence?.turnMarkers || [];
+
       const part1Questions: string[] =
         body.questions ||
-        (typedTurnMarkers.length > 0
-          ? typedTurnMarkers.map(
+        (effectiveTurnMarkers.length > 0
+          ? effectiveTurnMarkers.map(
               (m: CandidateTurnMarkerInput) => m.promptQuestion
             )
           : [part1Question]);
 
-      const userTranscripts = (
-        transcripts as Array<{ sender: string; text: string }>
-      )
-        .filter((t) => t.sender === "user")
-        .map((t) => t.text)
-        .join(" ");
+      const userTranscripts =
+        transcripts.length > 0
+          ? (transcripts as Array<{ sender: string; text: string }>)
+              .filter((t) => t.sender === "user")
+              .map((t) => t.text)
+              .join(" ")
+          : existingEvidence?.liveTranscript || "";
 
-      const resolvedCandidateName =
-        candidateName ||
-        (userId !== "anonymous" ? userId : "Anonymous Candidate");
+      const effectiveDuration =
+        body.durationSeconds ||
+        existingCachedSession?.durationSeconds ||
+        durationSeconds;
 
       let registeredUserId: string | null = null;
       if (userId && userId !== "anonymous" && process.env.DATABASE_URL) {
@@ -198,21 +263,22 @@ export async function POST(req: NextRequest) {
 
       // Always commit to in-memory dev cache
       const now = new Date();
+      const createdAt = existingCachedSession?.createdAt || now;
       devSessionCache.set(sessionId, {
         id: sessionId,
         userId: registeredUserId,
-        candidateName: resolvedCandidateName,
-        topicTitle,
+        candidateName: effectiveCandidateName,
+        topicTitle: effectiveTopicTitle,
         status: "completed",
         targetPart: "part_1",
-        durationSeconds,
+        durationSeconds: effectiveDuration,
         overallBand: null,
         scorecardJson: null,
         evidenceJson: {
-          turnMarkers: typedTurnMarkers,
+          turnMarkers: effectiveTurnMarkers,
           liveTranscript: userTranscripts,
         },
-        createdAt: now,
+        createdAt,
         updatedAt: now,
       });
 
@@ -222,16 +288,16 @@ export async function POST(req: NextRequest) {
           sessionId,
           partNumber: 1,
           itemIndex: 0,
-          promptQuestion: topicTitle,
+          promptQuestion: effectiveTopicTitle,
           storageKey: effectiveStorageKey,
           audioUrl,
           mimeType,
           startMs: 0,
-          endMs: durationSeconds * 1000,
-          durationSeconds,
+          endMs: effectiveDuration * 1000,
+          durationSeconds: effectiveDuration,
           liveTranscript: userTranscripts,
           verifiedTranscript: null,
-          createdAt: now,
+          createdAt,
         },
       ]);
 
@@ -242,15 +308,15 @@ export async function POST(req: NextRequest) {
             .values({
               id: sessionId,
               userId: registeredUserId,
-              candidateName: resolvedCandidateName,
-              topicTitle,
+              candidateName: effectiveCandidateName,
+              topicTitle: effectiveTopicTitle,
               status: "completed",
               targetPart: "part_1",
-              durationSeconds,
+              durationSeconds: effectiveDuration,
               overallBand: null,
               scorecardJson: null,
               evidenceJson: {
-                turnMarkers: typedTurnMarkers,
+                turnMarkers: effectiveTurnMarkers,
                 liveTranscript: userTranscripts,
               },
             })
@@ -258,7 +324,7 @@ export async function POST(req: NextRequest) {
               target: speakingSessions.id,
               set: {
                 status: "completed",
-                durationSeconds,
+                durationSeconds: effectiveDuration,
                 updatedAt: new Date(),
               },
             });
@@ -270,13 +336,13 @@ export async function POST(req: NextRequest) {
               sessionId,
               partNumber: 1,
               itemIndex: 0,
-              promptQuestion: topicTitle,
+              promptQuestion: effectiveTopicTitle,
               storageKey: effectiveStorageKey,
               audioUrl,
               mimeType,
               startMs: 0,
-              endMs: durationSeconds * 1000,
-              durationSeconds,
+              endMs: effectiveDuration * 1000,
+              durationSeconds: effectiveDuration,
               liveTranscript: userTranscripts,
               verifiedTranscript: null,
             })
@@ -311,14 +377,14 @@ export async function POST(req: NextRequest) {
       try {
         practiceResult = await evaluateSpeakingPracticePart1({
           practiceId: sessionId,
-          topicTitle,
+          topicTitle: effectiveTopicTitle,
           questions: part1Questions,
           audioBuffer,
           audioBase64: !audioBuffer ? audioBase64 : undefined,
           mimeType,
-          durationSeconds,
+          durationSeconds: effectiveDuration,
           liveTranscript: userTranscripts,
-          turnMarkers: typedTurnMarkers,
+          turnMarkers: effectiveTurnMarkers,
         });
       } catch (evalErr) {
         evaluationError =

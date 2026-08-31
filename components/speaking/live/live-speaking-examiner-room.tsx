@@ -74,6 +74,15 @@ export function LiveSpeakingExaminerRoom({
     ...config,
   });
 
+  const [activeSessionId, setActiveSessionId] = useState<string>(
+    () => `ses_live_${Date.now()}`
+  );
+  const [persistedStorageKey, setPersistedStorageKey] = useState<string | null>(
+    null
+  );
+  const [persistedAudioBase64, setPersistedAudioBase64] = useState<
+    string | null
+  >(null);
   const [evaluationResult, setEvaluationResult] =
     useState<IeltsSpeakingEvaluationResult | null>(null);
   const [practiceFeedback, setPracticeFeedback] =
@@ -90,20 +99,28 @@ export function LiveSpeakingExaminerRoom({
   // Dispatch evaluation request to server
   const triggerEvaluation = useCallback(
     async (
-      storageKey?: string,
-      audioBase64?: string,
+      sessionIdToUse?: string,
+      storageKeyToUse?: string,
+      audioBase64ToUse?: string,
       audioDuration?: number,
       markers?: CandidateTurnMarker[]
     ) => {
       setIsEvaluating(true);
       setEvalError(null);
 
+      const resolvedSessionId = sessionIdToUse || activeSessionId;
+      const resolvedStorageKey =
+        storageKeyToUse || persistedStorageKey || undefined;
+      const resolvedBase64 =
+        audioBase64ToUse ||
+        (!resolvedStorageKey ? persistedAudioBase64 || "" : undefined);
+
       try {
         const payload = {
           userId: candidateName
             ? candidateName.replace(/\s+/g, "_").toLowerCase()
             : "learner_candidate",
-          sessionId: `ses_live_${Date.now()}`,
+          sessionId: resolvedSessionId,
           topicTitle: topic?.title || "General IELTS Speaking Mock Test",
           candidateName,
           practiceMode: isPart1Practice ? "part_1" : undefined,
@@ -122,9 +139,10 @@ export function LiveSpeakingExaminerRoom({
             topic?.part1.questions[0] || "Introduction and interview questions",
           part2Topic: topic?.part2.topicTitle || "Individual long turn topic",
           part3Theme: topic?.part3.theme || "Two-way discussion topic",
-          storageKey: storageKey || undefined,
-          audioBase64: !storageKey ? audioBase64 || "" : undefined,
-          durationSeconds: audioDuration || 120,
+          storageKey: resolvedStorageKey,
+          audioBase64: resolvedBase64,
+          durationSeconds:
+            audioDuration || recordedAudio?.durationSeconds || 120,
         };
 
         const res = await fetch("/api/speaking/evaluate", {
@@ -158,7 +176,17 @@ export function LiveSpeakingExaminerRoom({
         setIsEvaluating(false);
       }
     },
-    [candidateName, isPart1Practice, topic, transcripts, turnMarkers]
+    [
+      activeSessionId,
+      candidateName,
+      isPart1Practice,
+      persistedAudioBase64,
+      persistedStorageKey,
+      recordedAudio,
+      topic,
+      transcripts,
+      turnMarkers,
+    ]
   );
 
   // Finish exam manually or automatically
@@ -179,7 +207,7 @@ export function LiveSpeakingExaminerRoom({
             userId: candidateName
               ? candidateName.replace(/\s+/g, "_").toLowerCase()
               : "learner_candidate",
-            sessionId: `ses_${Date.now()}`,
+            sessionId: activeSessionId,
             filename: "candidate.webm",
             mimeType: recordedAudio.mimeType || "audio/webm;codecs=opus",
           }),
@@ -202,6 +230,7 @@ export function LiveSpeakingExaminerRoom({
 
           if (putRes.ok) {
             storageKey = uploadInfo.storageKey;
+            setPersistedStorageKey(storageKey);
           }
         }
       } catch (uploadErr) {
@@ -223,6 +252,7 @@ export function LiveSpeakingExaminerRoom({
             };
             reader.readAsDataURL(recordedAudio.blob);
           });
+          setPersistedAudioBase64(base64Audio);
         } catch (readErr) {
           console.warn(
             "[LiveExaminerRoom] Could not read audio blob:",
@@ -233,12 +263,14 @@ export function LiveSpeakingExaminerRoom({
     }
 
     await triggerEvaluation(
+      activeSessionId,
       storageKey,
       base64Audio,
       recordedAudio?.durationSeconds,
       turnMarkers
     );
   }, [
+    activeSessionId,
     candidateName,
     disconnect,
     recordedAudio,
@@ -258,12 +290,21 @@ export function LiveSpeakingExaminerRoom({
         error={evalError}
         recordedAudio={recordedAudio}
         transcripts={transcripts}
-        onRetryEvaluation={() => triggerEvaluation()}
+        onRetryEvaluation={() =>
+          triggerEvaluation(
+            activeSessionId,
+            persistedStorageKey || undefined,
+            persistedAudioBase64 || undefined
+          )
+        }
         onRestartTest={() => {
           setIsExamFinished(false);
           setEvaluationResult(null);
           setPracticeFeedback(null);
           setTraceMetadata(null);
+          setPersistedStorageKey(null);
+          setPersistedAudioBase64(null);
+          setActiveSessionId(`ses_live_${Date.now()}`);
           onRestart?.();
         }}
         onBackToDashboard={() => {
