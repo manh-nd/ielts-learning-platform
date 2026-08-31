@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   evaluateSpeakingAudio,
+  evaluateSpeakingPracticePart1,
   SpeakingAudioInput,
 } from "@/lib/gemini/speaking-evaluator";
-import { getSpeakingAudioBuffer } from "@/lib/storage/s3-client";
+import {
+  getSpeakingAudioBuffer,
+  buildSpeakingAudioStorageKey,
+  persistSpeakingAudioBuffer,
+} from "@/lib/storage/s3-client";
 import { db } from "@/lib/db";
 import {
   speakingSessions,
@@ -12,6 +17,7 @@ import {
   user,
 } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import type { PracticeEvaluationResult } from "@/lib/gemini/speaking-schema";
 
 export const runtime = "nodejs";
 
@@ -24,14 +30,54 @@ export interface CandidateTurnMarkerInput {
   liveTranscript?: string;
 }
 
+// In-memory dev/test fallback cache for sessions and responses when PostgreSQL is unconfigured
+export interface DevSessionRecord {
+  id: string;
+  userId: string | null;
+  candidateName: string | null;
+  topicTitle: string;
+  status: "in_progress" | "completed" | "evaluated" | "abandoned";
+  targetPart: string;
+  durationSeconds: number;
+  overallBand: number | null;
+  scorecardJson: unknown | null;
+  evidenceJson: unknown | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DevResponseRecord {
+  id: string;
+  sessionId: string;
+  partNumber: number;
+  itemIndex: number;
+  promptQuestion: string;
+  storageKey: string | null;
+  audioUrl: string | null;
+  mimeType: string | null;
+  startMs: number;
+  endMs: number;
+  durationSeconds: number;
+  liveTranscript: string | null;
+  verifiedTranscript: string | null;
+  createdAt: Date;
+}
+
+export const devSessionCache = new Map<string, DevSessionRecord>();
+export const devResponseCache = new Map<string, DevResponseRecord[]>();
+
 export async function POST(req: NextRequest) {
+  let sessionId = `ses_${Date.now()}`;
+  let topicTitle = "IELTS Speaking Examination";
+  let durationSeconds = 120;
+  let effectiveStorageKey: string | undefined;
+  let mimeType = "audio/webm;codecs=opus";
+
   try {
     const body = await req.json();
     const {
       userId = "anonymous",
       candidateName,
-      sessionId = `ses_${Date.now()}`,
-      topicTitle = "IELTS Speaking Examination",
       part1Question = "Part 1 Introduction and Interview",
       part2Topic = "Part 2 Individual Long Turn Cue Card",
       part3Theme = "Part 3 Two-Way Discussion",
@@ -39,26 +85,431 @@ export async function POST(req: NextRequest) {
       turnMarkers = [] as CandidateTurnMarkerInput[],
       audioBase64,
       storageKey,
-      durationSeconds = 120,
     } = body;
 
-    // 1. Resolve Audio Payload from S3 storageKey or direct base64
-    let audioBuffer: Buffer | undefined;
-    let mimeType = "audio/webm;codecs=opus";
+    if (body.sessionId) sessionId = body.sessionId;
+    if (body.topicTitle) topicTitle = body.topicTitle;
+    if (body.durationSeconds) durationSeconds = body.durationSeconds;
+    effectiveStorageKey = storageKey;
 
-    if (storageKey) {
-      const audioData = await getSpeakingAudioBuffer(storageKey);
-      if (audioData) {
+    // 1. Resolve & Verify Audio Payload (Strict verification: no phantom storageKey bypass)
+    let audioBuffer: Buffer | undefined;
+    let isAudioPersisted = false;
+
+    // 1a. Try to load from provided storageKey
+    if (effectiveStorageKey) {
+      const audioData = await getSpeakingAudioBuffer(effectiveStorageKey);
+      if (audioData && audioData.buffer && audioData.buffer.length > 0) {
         audioBuffer = audioData.buffer;
         mimeType = audioData.mimeType;
+        isAudioPersisted = true;
+      } else {
+        console.warn(
+          `[EvaluateSpeakingAPI] Storage lookup for key "${effectiveStorageKey}" failed. Treating as unpersisted.`
+        );
+        isAudioPersisted = false;
       }
     }
 
-    if (!audioBuffer && audioBase64) {
-      audioBuffer = Buffer.from(audioBase64, "base64");
+    // 1b. If not yet loaded from storage, check if this is an existing session retry (resolve server-side)
+    if (!isAudioPersisted && sessionId) {
+      let existingStorageKey: string | null = null;
+      if (process.env.DATABASE_URL) {
+        try {
+          const existingResp = await db
+            .select({ storageKey: speakingResponses.storageKey })
+            .from(speakingResponses)
+            .where(eq(speakingResponses.sessionId, sessionId));
+          if (existingResp.length > 0 && existingResp[0].storageKey) {
+            existingStorageKey = existingResp[0].storageKey;
+          }
+        } catch {
+          // ignore lookup error
+        }
+      }
+
+      if (!existingStorageKey) {
+        const cachedResp = devResponseCache.get(sessionId);
+        if (cachedResp && cachedResp.length > 0 && cachedResp[0].storageKey) {
+          existingStorageKey = cachedResp[0].storageKey;
+        }
+      }
+
+      if (existingStorageKey) {
+        const audioData = await getSpeakingAudioBuffer(existingStorageKey);
+        if (audioData && audioData.buffer && audioData.buffer.length > 0) {
+          audioBuffer = audioData.buffer;
+          mimeType = audioData.mimeType;
+          effectiveStorageKey = existingStorageKey;
+          isAudioPersisted = true;
+        }
+      }
     }
 
-    // 2. Prepare items for evaluation
+    // 1c. If not yet persisted, resolve audioBuffer from audioBase64 and durably persist it
+    if (!isAudioPersisted && audioBase64) {
+      audioBuffer = Buffer.from(audioBase64, "base64");
+      const targetStorageKey =
+        effectiveStorageKey ||
+        buildSpeakingAudioStorageKey(userId, sessionId, "candidate.webm");
+
+      const persistRes = await persistSpeakingAudioBuffer(
+        targetStorageKey,
+        audioBuffer,
+        mimeType
+      );
+      if (persistRes.success) {
+        effectiveStorageKey = targetStorageKey;
+        isAudioPersisted = true;
+      } else {
+        console.error(
+          "[EvaluateSpeakingAPI] Audio persistence failure: cannot commit practice."
+        );
+        return NextResponse.json(
+          {
+            error: "AUDIO_PERSISTENCE_FAILED",
+            message:
+              "OriginalAudio could not be durably persisted. Practice cannot be committed.",
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // 1d. Final invariant validation: must be truly persisted and non-null
+    if (!isAudioPersisted || !audioBuffer || !effectiveStorageKey) {
+      return NextResponse.json(
+        {
+          error: "ORIGINAL_AUDIO_MISSING",
+          message:
+            "OriginalAudio evidence is missing or unverified. Cannot evaluate practice.",
+        },
+        { status: 400 }
+      );
+    }
+
+    // 2. Check if this is a Part 1 Practice Evaluation
+    const isPart1Practice =
+      body.practiceMode === "part_1" ||
+      body.practiceMode === "part1" ||
+      body.targetPart === "part1" ||
+      body.targetPart === "part_1";
+
+    if (isPart1Practice) {
+      const typedTurnMarkers = (turnMarkers ||
+        []) as CandidateTurnMarkerInput[];
+      // Check existing session for fallback metadata if this is a retry
+      const existingCachedSession = devSessionCache.get(sessionId);
+      const existingEvidence = existingCachedSession?.evidenceJson as
+        | {
+            turnMarkers?: CandidateTurnMarkerInput[];
+            liveTranscript?: string;
+          }
+        | undefined;
+
+      const effectiveTopicTitle =
+        body.topicTitle || existingCachedSession?.topicTitle || topicTitle;
+
+      const effectiveCandidateName =
+        candidateName ||
+        existingCachedSession?.candidateName ||
+        (userId !== "anonymous" ? userId : "Anonymous Candidate");
+
+      const effectiveTurnMarkers =
+        typedTurnMarkers.length > 0
+          ? typedTurnMarkers
+          : existingEvidence?.turnMarkers || [];
+
+      const part1Questions: string[] =
+        body.questions ||
+        (effectiveTurnMarkers.length > 0
+          ? effectiveTurnMarkers.map(
+              (m: CandidateTurnMarkerInput) => m.promptQuestion
+            )
+          : [part1Question]);
+
+      const userTranscripts =
+        transcripts.length > 0
+          ? (transcripts as Array<{ sender: string; text: string }>)
+              .filter((t) => t.sender === "user")
+              .map((t) => t.text)
+              .join(" ")
+          : existingEvidence?.liveTranscript || "";
+
+      const effectiveDuration =
+        body.durationSeconds ||
+        existingCachedSession?.durationSeconds ||
+        durationSeconds;
+
+      let registeredUserId: string | null = null;
+      if (userId && userId !== "anonymous" && process.env.DATABASE_URL) {
+        try {
+          const userRecord = await db
+            .select({ id: user.id })
+            .from(user)
+            .where(eq(user.id, userId));
+          if (userRecord.length > 0) {
+            registeredUserId = userRecord[0].id;
+          }
+        } catch {
+          // Ignore user lookup failure
+        }
+      }
+
+      // STEP A: Commit completed Practice to DB before AI evaluation (PracticeEnded != PracticeEvaluated)
+      const audioUrl = effectiveStorageKey
+        ? `/api/speaking/upload-direct?key=${encodeURIComponent(effectiveStorageKey)}`
+        : null;
+
+      // Always commit to in-memory dev cache
+      const now = new Date();
+      const createdAt = existingCachedSession?.createdAt || now;
+      devSessionCache.set(sessionId, {
+        id: sessionId,
+        userId: registeredUserId,
+        candidateName: effectiveCandidateName,
+        topicTitle: effectiveTopicTitle,
+        status: "completed",
+        targetPart: "part_1",
+        durationSeconds: effectiveDuration,
+        overallBand: null,
+        scorecardJson: null,
+        evidenceJson: {
+          turnMarkers: effectiveTurnMarkers,
+          liveTranscript: userTranscripts,
+        },
+        createdAt,
+        updatedAt: now,
+      });
+
+      devResponseCache.set(sessionId, [
+        {
+          id: `resp_${sessionId}_p1_0`,
+          sessionId,
+          partNumber: 1,
+          itemIndex: 0,
+          promptQuestion: effectiveTopicTitle,
+          storageKey: effectiveStorageKey,
+          audioUrl,
+          mimeType,
+          startMs: 0,
+          endMs: effectiveDuration * 1000,
+          durationSeconds: effectiveDuration,
+          liveTranscript: userTranscripts,
+          verifiedTranscript: null,
+          createdAt,
+        },
+      ]);
+
+      if (process.env.DATABASE_URL) {
+        try {
+          await db
+            .insert(speakingSessions)
+            .values({
+              id: sessionId,
+              userId: registeredUserId,
+              candidateName: effectiveCandidateName,
+              topicTitle: effectiveTopicTitle,
+              status: "completed",
+              targetPart: "part_1",
+              durationSeconds: effectiveDuration,
+              overallBand: null,
+              scorecardJson: null,
+              evidenceJson: {
+                turnMarkers: effectiveTurnMarkers,
+                liveTranscript: userTranscripts,
+              },
+            })
+            .onConflictDoUpdate({
+              target: speakingSessions.id,
+              set: {
+                status: "completed",
+                durationSeconds: effectiveDuration,
+                updatedAt: new Date(),
+              },
+            });
+
+          await db
+            .insert(speakingResponses)
+            .values({
+              id: `resp_${sessionId}_p1_0`,
+              sessionId,
+              partNumber: 1,
+              itemIndex: 0,
+              promptQuestion: effectiveTopicTitle,
+              storageKey: effectiveStorageKey,
+              audioUrl,
+              mimeType,
+              startMs: 0,
+              endMs: effectiveDuration * 1000,
+              durationSeconds: effectiveDuration,
+              liveTranscript: userTranscripts,
+              verifiedTranscript: null,
+            })
+            .onConflictDoUpdate({
+              target: speakingResponses.id,
+              set: {
+                storageKey: effectiveStorageKey,
+                audioUrl,
+                liveTranscript: userTranscripts,
+              },
+            });
+        } catch (dbErr) {
+          console.error(
+            "[EvaluateSpeakingAPI] Database commit failure for completed practice:",
+            dbErr
+          );
+          return NextResponse.json(
+            {
+              error: "PRACTICE_PERSISTENCE_FAILED",
+              message:
+                "Failed to commit completed practice session to database.",
+            },
+            { status: 500 }
+          );
+        }
+      }
+
+      // STEP B: Run AI evaluation
+      let practiceResult: PracticeEvaluationResult | null = null;
+      let evaluationError: string | null = null;
+
+      try {
+        practiceResult = await evaluateSpeakingPracticePart1({
+          practiceId: sessionId,
+          topicTitle: effectiveTopicTitle,
+          questions: part1Questions,
+          audioBuffer,
+          audioBase64: !audioBuffer ? audioBase64 : undefined,
+          mimeType,
+          durationSeconds: effectiveDuration,
+          liveTranscript: userTranscripts,
+          turnMarkers: effectiveTurnMarkers,
+        });
+      } catch (evalErr) {
+        evaluationError =
+          (evalErr as Error)?.message ||
+          "Practice AI evaluation failed to complete";
+        console.error(
+          "[EvaluateSpeakingAPI] Practice AI evaluation failed:",
+          evaluationError
+        );
+      }
+
+      // STEP C: If AI evaluation failed, practice remains 'completed' with error recorded
+      if (!practiceResult) {
+        const failedEvidence = {
+          turnMarkers: typedTurnMarkers,
+          liveTranscript: userTranscripts,
+          evaluationStatus: "failed",
+          evaluationError,
+        };
+
+        const existingSession = devSessionCache.get(sessionId);
+        if (existingSession) {
+          existingSession.evidenceJson = failedEvidence;
+          existingSession.updatedAt = new Date();
+        }
+
+        if (process.env.DATABASE_URL) {
+          try {
+            await db
+              .update(speakingSessions)
+              .set({
+                evidenceJson: failedEvidence,
+                updatedAt: new Date(),
+              })
+              .where(eq(speakingSessions.id, sessionId));
+          } catch (updateErr) {
+            console.warn(
+              "[EvaluateSpeakingAPI] Failed to update error evidence in DB:",
+              updateErr
+            );
+          }
+        }
+
+        return NextResponse.json(
+          {
+            success: false,
+            error: "EVALUATION_FAILED",
+            message: evaluationError,
+            sessionId,
+            isPractice: true,
+            practiceMode: "part_1",
+            status: "completed",
+          },
+          { status: 502 }
+        );
+      }
+
+      // STEP D: If AI evaluation succeeded, transition Practice to 'evaluated'
+      const existingSession = devSessionCache.get(sessionId);
+      if (existingSession) {
+        existingSession.status = "evaluated";
+        existingSession.scorecardJson = practiceResult.practiceFeedback;
+        existingSession.evidenceJson = {
+          transcripts: practiceResult.transcripts,
+          trace: practiceResult.trace,
+        };
+        existingSession.updatedAt = new Date();
+      }
+
+      const existingResponses = devResponseCache.get(sessionId);
+      if (existingResponses && existingResponses[0]) {
+        existingResponses[0].verifiedTranscript =
+          practiceResult.transcripts.bestTranscript || null;
+      }
+
+      if (process.env.DATABASE_URL) {
+        try {
+          await db
+            .update(speakingSessions)
+            .set({
+              status: "evaluated",
+              scorecardJson: practiceResult.practiceFeedback,
+              evidenceJson: {
+                transcripts: practiceResult.transcripts,
+                trace: practiceResult.trace,
+              },
+              updatedAt: new Date(),
+            })
+            .where(eq(speakingSessions.id, sessionId));
+
+          await db
+            .update(speakingResponses)
+            .set({
+              verifiedTranscript:
+                practiceResult.transcripts.bestTranscript || null,
+            })
+            .where(eq(speakingResponses.id, `resp_${sessionId}_p1_0`));
+        } catch (dbUpdateErr) {
+          console.error(
+            "[EvaluateSpeakingAPI] Database update to evaluated status failed:",
+            dbUpdateErr
+          );
+          return NextResponse.json(
+            {
+              error: "PRACTICE_PERSISTENCE_FAILED",
+              message:
+                "Failed to update evaluated practice feedback in database.",
+            },
+            { status: 500 }
+          );
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        isPractice: true,
+        practiceMode: "part_1",
+        result: practiceResult.practiceFeedback,
+        transcripts: practiceResult.transcripts,
+        trace: practiceResult.trace,
+        sessionId,
+      });
+    }
+
+    // 3. Prepare items for full test evaluation
     let items: SpeakingAudioInput[] = [];
 
     const typedTurnMarkers = (turnMarkers || []) as CandidateTurnMarkerInput[];
@@ -121,10 +572,10 @@ export async function POST(req: NextRequest) {
       ];
     }
 
-    // 3. Execute 2-Stage Evaluation Engine
+    // 4. Execute 2-Stage Evaluation Engine
     const result = await evaluateSpeakingAudio(items);
 
-    // 4. Persist to Database via Drizzle ORM (fail-safe for dev/test)
+    // 5. Persist to Database via Drizzle ORM (fail-safe for dev/test)
     try {
       if (process.env.DATABASE_URL) {
         // Resolve registered user ID if user exists in database
@@ -229,6 +680,67 @@ export async function POST(req: NextRequest) {
         message:
           (error as Error)?.message ||
           "Internal error during speaking assessment",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const sessionId = searchParams.get("sessionId");
+
+    if (!sessionId) {
+      return NextResponse.json(
+        { error: "Missing required sessionId query parameter" },
+        { status: 400 }
+      );
+    }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const sessionList = await db
+          .select()
+          .from(speakingSessions)
+          .where(eq(speakingSessions.id, sessionId));
+
+        if (sessionList.length > 0) {
+          const session = sessionList[0];
+          const responses = await db
+            .select()
+            .from(speakingResponses)
+            .where(eq(speakingResponses.sessionId, sessionId));
+
+          return NextResponse.json({
+            success: true,
+            session,
+            responses,
+          });
+        }
+      } catch (dbErr) {
+        console.warn("[EvaluateSpeakingAPI] Database GET fallback:", dbErr);
+      }
+    }
+
+    // Check dev in-memory cache
+    const cachedSession = devSessionCache.get(sessionId);
+    if (cachedSession) {
+      const cachedResponses = devResponseCache.get(sessionId) || [];
+      return NextResponse.json({
+        success: true,
+        session: cachedSession,
+        responses: cachedResponses,
+      });
+    }
+
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  } catch (error: unknown) {
+    console.error("[EvaluateSpeakingAPI] Session query error:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to retrieve session",
+        message: (error as Error)?.message,
       },
       { status: 500 }
     );
