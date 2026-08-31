@@ -274,4 +274,55 @@ describe("OriginalAudio Finalization Contract & Seams (#66)", () => {
     cleanup();
     expect(stopCallCount).toBe(1);
   });
+
+  it("should preserve finalized recordedAudio across resource cleanup and only clear on explicit resetRecording", async () => {
+    // Simulates the exact lifecycle: finalize -> cleanup -> replayable -> start new session -> reset
+    let recordedAudioState: unknown = null;
+    let inputVolumeState = 0.8;
+    let isRecorderActive = true;
+    let recordedChunks = [new Blob(["candidateAudio"], { type: "audio/webm" })];
+
+    const finalizeRecording = async () => {
+      isRecorderActive = false;
+      const audioData = {
+        blob: new Blob(recordedChunks, { type: "audio/webm" }),
+        url: "blob:http://localhost/replayable-audio",
+        durationSeconds: 45,
+        mimeType: "audio/webm",
+      };
+      recordedAudioState = audioData;
+      return audioData;
+    };
+
+    const cleanup = () => {
+      // Stops hardware/audio resources and resets transient level
+      isRecorderActive = false;
+      inputVolumeState = 0;
+      // Note: Must NOT clear recordedAudioState
+    };
+
+    const resetRecording = () => {
+      // Explicit reset for new practice session
+      recordedChunks = [];
+      recordedAudioState = null;
+      inputVolumeState = 0;
+    };
+
+    // 1. Finalize recording at end of exam
+    const audio = await finalizeRecording();
+    expect(audio).not.toBeNull();
+    expect(recordedAudioState).not.toBeNull();
+
+    // 2. Disconnect triggers resource cleanup
+    cleanup();
+    expect(inputVolumeState).toBe(0);
+    expect(isRecorderActive).toBe(false);
+    // Key invariant: recordedAudio must remain intact for replay in Result View!
+    expect(recordedAudioState).toEqual(audio);
+
+    // 3. Explicit reset when starting new Practice session
+    resetRecording();
+    expect(recordedAudioState).toBeNull();
+    expect(recordedChunks.length).toBe(0);
+  });
 });

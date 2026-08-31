@@ -296,8 +296,8 @@ export function useLiveAudioRecorder(
 
   const cleanup = useCallback(() => {
     stopRecording();
-    resetRecording();
-  }, [stopRecording, resetRecording]);
+    setInputVolume(0);
+  }, [stopRecording]);
 
   const toggleMute = useCallback(() => {
     setIsMuted((prev) => {
