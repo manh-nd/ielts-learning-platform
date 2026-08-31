@@ -5,11 +5,12 @@ import {
   persistSpeakingAudioBuffer,
   isSpeakingAudioStorageKeyOwnedBy,
 } from "@/lib/storage/s3-client";
-import { evaluateSpeakingPracticePart1 } from "@/lib/gemini/speaking-evaluator";
 import { ForbiddenError } from "@/lib/errors";
-import type {
+import {
   CandidateTurnMarkerInput,
   PracticeEvaluationExecutionResult,
+  retryPracticeEvaluation,
+  executePracticeEvaluation,
 } from "./retry-practice-evaluation";
 
 export interface FinishSpeakingPracticeInput {
@@ -53,9 +54,6 @@ export async function finishSpeakingPractice(
     mimeType = "audio/webm;codecs=opus",
   } = input;
 
-  let effectiveStorageKey = storageKey;
-  let effectiveMimeType = mimeType;
-
   // 0. Resolve & verify existing SpeakingPractice owner before loading audio or evaluating
   const { practice: existingPractice, responses: existingResponses } =
     await speakingPracticeRepository.findById(sessionId);
@@ -69,7 +67,23 @@ export async function finishSpeakingPractice(
         "Cannot retry, mutate, or access a speaking practice belonging to another user."
       );
     }
+
+    // If client provided no new audio, delegate to retry flow
+    if (!audioBase64 && !storageKey && existingResponses.length > 0) {
+      return retryPracticeEvaluation({
+        authenticatedUserId,
+        sessionId,
+        topicTitle: input.topicTitle,
+        candidateName,
+        questions,
+        durationSeconds: input.durationSeconds,
+        turnMarkers,
+      });
+    }
   }
+
+  let effectiveStorageKey = storageKey;
+  let effectiveMimeType = mimeType;
 
   // Verify storageKey ownership if client supplied one (must match user and session namespace)
   if (
@@ -104,32 +118,7 @@ export async function finishSpeakingPractice(
     }
   }
 
-  // 1b. If not yet loaded from storage, check if this is an existing session retry (resolve server-side)
-  if (!isAudioPersisted && existingPractice && existingResponses.length > 0) {
-    const existingStorageKey = existingResponses[0].storageKey;
-    if (existingStorageKey) {
-      if (
-        !isSpeakingAudioStorageKeyOwnedBy(
-          existingStorageKey,
-          authenticatedUserId,
-          sessionId
-        )
-      ) {
-        throw new ForbiddenError(
-          "Cannot retry evaluation using audio outside the session namespace."
-        );
-      }
-      const audioData = await getSpeakingAudioBuffer(existingStorageKey);
-      if (audioData && audioData.buffer && audioData.buffer.length > 0) {
-        audioBuffer = audioData.buffer;
-        effectiveMimeType = audioData.mimeType;
-        effectiveStorageKey = existingStorageKey;
-        isAudioPersisted = true;
-      }
-    }
-  }
-
-  // 1c. If not yet persisted, resolve audioBuffer from audioBase64 and durably persist it
+  // 1b. If not yet persisted, resolve audioBuffer from audioBase64 and durably persist it
   if (!isAudioPersisted && audioBase64) {
     audioBuffer = Buffer.from(audioBase64, "base64");
     const targetStorageKey =
@@ -165,7 +154,7 @@ export async function finishSpeakingPractice(
     }
   }
 
-  // 1d. Final invariant validation: must be truly persisted and non-null
+  // 1c. Final invariant validation: must be truly persisted and non-null
   if (!isAudioPersisted || !audioBuffer || !effectiveStorageKey) {
     return {
       success: false,
@@ -255,95 +244,17 @@ export async function finishSpeakingPractice(
     };
   }
 
-  // STEP B: Run AI evaluation (PracticeEvaluation)
-  let practiceResult = null;
-  let evaluationError: string | null = null;
-
-  try {
-    practiceResult = await evaluateSpeakingPracticePart1({
-      practiceId: sessionId,
-      topicTitle: effectiveTopicTitle,
-      questions: part1Questions,
-      audioBuffer,
-      audioBase64: !audioBuffer ? audioBase64 : undefined,
-      mimeType: effectiveMimeType,
-      durationSeconds: effectiveDuration,
-      liveTranscript: userTranscripts,
-      turnMarkers: effectiveTurnMarkers,
-    });
-  } catch (evalErr) {
-    evaluationError =
-      (evalErr as Error)?.message ||
-      "Practice AI evaluation failed to complete";
-    console.error(
-      "[finishSpeakingPractice] Practice AI evaluation failed:",
-      evaluationError
-    );
-  }
-
-  // STEP C: If AI evaluation failed, practice remains 'completed' with error recorded
-  if (!practiceResult) {
-    const failedEvidence = {
-      turnMarkers: effectiveTurnMarkers,
-      liveTranscript: userTranscripts,
-      evaluationStatus: "failed",
-      evaluationError,
-    };
-
-    await speakingPracticeRepository.markEvaluationFailed({
-      sessionId,
-      userId: authenticatedUserId,
-      failedEvidence,
-    });
-
-    return {
-      success: false,
-      isPractice: true,
-      practiceMode: "part_1",
-      error: "EVALUATION_FAILED",
-      message: evaluationError,
-      sessionId,
-      status: "completed",
-      httpStatus: 502,
-    };
-  }
-
-  // STEP D: If AI evaluation succeeded, transition Practice to 'evaluated'
-  try {
-    await speakingPracticeRepository.markEvaluated({
-      sessionId,
-      userId: authenticatedUserId,
-      scorecardJson: practiceResult.practiceFeedback,
-      evidenceJson: {
-        transcripts: practiceResult.transcripts,
-        trace: practiceResult.trace,
-      },
-      verifiedTranscript: practiceResult.transcripts.bestTranscript || null,
-    });
-  } catch (markErr) {
-    console.error(
-      "[finishSpeakingPractice] Failed to mark practice as evaluated:",
-      markErr
-    );
-    return {
-      success: false,
-      isPractice: true,
-      practiceMode: "part_1",
-      sessionId,
-      error: "PRACTICE_PERSISTENCE_FAILED",
-      message: "Failed to update evaluated practice feedback in database.",
-      httpStatus: 500,
-    };
-  }
-
-  return {
-    success: true,
-    isPractice: true,
-    practiceMode: "part_1",
-    result: practiceResult.practiceFeedback,
-    transcripts: practiceResult.transcripts,
-    trace: practiceResult.trace,
+  // STEP B: Run AI evaluation (PracticeEvaluation) & persist result
+  return executePracticeEvaluation({
     sessionId,
-    httpStatus: 200,
-  };
+    authenticatedUserId,
+    topicTitle: effectiveTopicTitle,
+    questions: part1Questions,
+    audioBuffer,
+    audioBase64: !audioBuffer ? audioBase64 : undefined,
+    mimeType: effectiveMimeType,
+    durationSeconds: effectiveDuration,
+    liveTranscript: userTranscripts,
+    turnMarkers: effectiveTurnMarkers,
+  });
 }

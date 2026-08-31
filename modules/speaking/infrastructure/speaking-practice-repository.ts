@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { speakingSessions, speakingResponses } from "./speaking-schema";
 import { eq, and } from "drizzle-orm";
 
-export interface DevSessionRecord {
+export interface SpeakingPracticeRecord {
   id: string;
   userId: string | null;
   candidateName: string | null;
@@ -17,7 +17,7 @@ export interface DevSessionRecord {
   updatedAt: Date;
 }
 
-export interface DevResponseRecord {
+export interface SpeakingResponseRecord {
   id: string;
   sessionId: string;
   partNumber: number;
@@ -34,17 +34,25 @@ export interface DevResponseRecord {
   createdAt: Date;
 }
 
+// Backward-compatible type aliases
+export type DevSessionRecord = SpeakingPracticeRecord;
+export type DevResponseRecord = SpeakingResponseRecord;
+
 const globalForSessionCache = globalThis as unknown as {
-  devSessionCache?: Map<string, DevSessionRecord>;
-  devResponseCache?: Map<string, DevResponseRecord[]>;
+  devSessionCache?: Map<string, SpeakingPracticeRecord>;
+  devResponseCache?: Map<string, SpeakingResponseRecord[]>;
 };
 
 export const devSessionCache =
-  globalForSessionCache.devSessionCache || new Map<string, DevSessionRecord>();
+  globalForSessionCache.devSessionCache ||
+  new Map<string, SpeakingPracticeRecord>();
 
 export const devResponseCache =
   globalForSessionCache.devResponseCache ||
-  new Map<string, DevResponseRecord[]>();
+  new Map<string, SpeakingResponseRecord[]>();
+
+export const speakingPracticeCache = devSessionCache;
+export const speakingResponseCache = devResponseCache;
 
 if (process.env.NODE_ENV !== "production") {
   globalForSessionCache.devSessionCache = devSessionCache;
@@ -83,8 +91,8 @@ export class SpeakingPracticeRepository {
   async findById(
     sessionId: string
   ): Promise<{
-    practice: DevSessionRecord | null;
-    responses: DevResponseRecord[];
+    practice: SpeakingPracticeRecord | null;
+    responses: SpeakingResponseRecord[];
   }> {
     if (process.env.DATABASE_URL) {
       try {
@@ -100,8 +108,8 @@ export class SpeakingPracticeRepository {
             .where(eq(speakingResponses.sessionId, sessionId));
 
           return {
-            practice: sessionRows[0] as unknown as DevSessionRecord,
-            responses: responseRows as unknown as DevResponseRecord[],
+            practice: sessionRows[0] as unknown as SpeakingPracticeRecord,
+            responses: responseRows as unknown as SpeakingResponseRecord[],
           };
         }
       } catch (dbErr) {

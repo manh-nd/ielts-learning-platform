@@ -1,7 +1,7 @@
 import {
   speakingPracticeRepository,
-  DevSessionRecord,
-  DevResponseRecord,
+  SpeakingPracticeRecord,
+  SpeakingResponseRecord,
 } from "../infrastructure/speaking-practice-repository";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 
@@ -11,8 +11,8 @@ export interface GetSpeakingPracticeInput {
 }
 
 export interface GetSpeakingPracticeResult {
-  session: DevSessionRecord;
-  responses: DevResponseRecord[];
+  session: SpeakingPracticeRecord;
+  responses: SpeakingResponseRecord[];
 }
 
 /**

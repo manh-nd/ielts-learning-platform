@@ -40,6 +40,129 @@ export interface PracticeEvaluationExecutionResult {
   httpStatus: number;
 }
 
+export interface ExecuteEvaluationParams {
+  sessionId: string;
+  authenticatedUserId: string;
+  topicTitle: string;
+  questions: string[];
+  audioBuffer: Buffer;
+  audioBase64?: string;
+  mimeType: string;
+  durationSeconds: number;
+  liveTranscript: string;
+  turnMarkers: CandidateTurnMarkerInput[];
+}
+
+/**
+ * Shared evaluation lifecycle runner:
+ * Runs AI evaluation, persists failure or success, and returns formatted result.
+ */
+export async function executePracticeEvaluation(
+  params: ExecuteEvaluationParams
+): Promise<PracticeEvaluationExecutionResult> {
+  const {
+    sessionId,
+    authenticatedUserId,
+    topicTitle,
+    questions,
+    audioBuffer,
+    audioBase64,
+    mimeType,
+    durationSeconds,
+    liveTranscript,
+    turnMarkers,
+  } = params;
+
+  let practiceResult = null;
+  let evaluationError: string | null = null;
+
+  try {
+    practiceResult = await evaluateSpeakingPracticePart1({
+      practiceId: sessionId,
+      topicTitle,
+      questions,
+      audioBuffer,
+      audioBase64: !audioBuffer ? audioBase64 : undefined,
+      mimeType,
+      durationSeconds,
+      liveTranscript,
+      turnMarkers,
+    });
+  } catch (evalErr) {
+    evaluationError =
+      (evalErr as Error)?.message ||
+      "Practice AI evaluation failed to complete";
+    console.error(
+      "[executePracticeEvaluation] Practice AI evaluation failed:",
+      evaluationError
+    );
+  }
+
+  if (!practiceResult) {
+    const failedEvidence = {
+      turnMarkers,
+      liveTranscript,
+      evaluationStatus: "failed",
+      evaluationError,
+    };
+
+    await speakingPracticeRepository.markEvaluationFailed({
+      sessionId,
+      userId: authenticatedUserId,
+      failedEvidence,
+    });
+
+    return {
+      success: false,
+      isPractice: true,
+      practiceMode: "part_1",
+      error: "EVALUATION_FAILED",
+      message: evaluationError,
+      sessionId,
+      status: "completed",
+      httpStatus: 502,
+    };
+  }
+
+  try {
+    await speakingPracticeRepository.markEvaluated({
+      sessionId,
+      userId: authenticatedUserId,
+      scorecardJson: practiceResult.practiceFeedback,
+      evidenceJson: {
+        transcripts: practiceResult.transcripts,
+        trace: practiceResult.trace,
+      },
+      verifiedTranscript: practiceResult.transcripts.bestTranscript || null,
+    });
+  } catch (markErr) {
+    console.error(
+      "[executePracticeEvaluation] Failed to mark practice as evaluated:",
+      markErr
+    );
+    return {
+      success: false,
+      isPractice: true,
+      practiceMode: "part_1",
+      sessionId,
+      error: "PRACTICE_PERSISTENCE_FAILED",
+      message: "Failed to update evaluated practice feedback in database.",
+      httpStatus: 500,
+    };
+  }
+
+  return {
+    success: true,
+    isPractice: true,
+    practiceMode: "part_1",
+    result: practiceResult.practiceFeedback,
+    transcripts: practiceResult.transcripts,
+    trace: practiceResult.trace,
+    sessionId,
+    httpStatus: 200,
+  };
+}
+
 /**
  * Retries AI evaluation on an existing, owned SpeakingPractice using its persisted immutable OriginalAudio.
  * Never creates a second Practice.
@@ -144,77 +267,15 @@ export async function retryPracticeEvaluation(
   const userTranscripts = existingEvidence?.liveTranscript || "";
 
   // 5. Execute PracticeEvaluation with same immutable OriginalAudio
-  let practiceResult = null;
-  let evaluationError: string | null = null;
-
-  try {
-    practiceResult = await evaluateSpeakingPracticePart1({
-      practiceId: sessionId,
-      topicTitle: effectiveTopicTitle,
-      questions: effectiveQuestions,
-      audioBuffer: audioData.buffer,
-      mimeType: audioData.mimeType,
-      durationSeconds: effectiveDuration,
-      liveTranscript: userTranscripts,
-      turnMarkers: effectiveTurnMarkers,
-    });
-  } catch (evalErr) {
-    evaluationError =
-      (evalErr as Error)?.message ||
-      "Practice AI evaluation failed to complete";
-    console.error(
-      "[retryPracticeEvaluation] Practice AI evaluation failed:",
-      evaluationError
-    );
-  }
-
-  // 6. Handle AI evaluation failure: Practice remains 'completed' with error recorded
-  if (!practiceResult) {
-    const failedEvidence = {
-      turnMarkers: effectiveTurnMarkers,
-      liveTranscript: userTranscripts,
-      evaluationStatus: "failed",
-      evaluationError,
-    };
-
-    await speakingPracticeRepository.markEvaluationFailed({
-      sessionId,
-      userId: authenticatedUserId,
-      failedEvidence,
-    });
-
-    return {
-      success: false,
-      isPractice: true,
-      practiceMode: "part_1",
-      error: "EVALUATION_FAILED",
-      message: evaluationError,
-      sessionId,
-      status: "completed",
-      httpStatus: 502,
-    };
-  }
-
-  // 7. Handle AI evaluation success: Transition Practice to 'evaluated'
-  await speakingPracticeRepository.markEvaluated({
+  return executePracticeEvaluation({
     sessionId,
-    userId: authenticatedUserId,
-    scorecardJson: practiceResult.practiceFeedback,
-    evidenceJson: {
-      transcripts: practiceResult.transcripts,
-      trace: practiceResult.trace,
-    },
-    verifiedTranscript: practiceResult.transcripts.bestTranscript || null,
+    authenticatedUserId,
+    topicTitle: effectiveTopicTitle,
+    questions: effectiveQuestions,
+    audioBuffer: audioData.buffer,
+    mimeType: audioData.mimeType,
+    durationSeconds: effectiveDuration,
+    liveTranscript: userTranscripts,
+    turnMarkers: effectiveTurnMarkers,
   });
-
-  return {
-    success: true,
-    isPractice: true,
-    practiceMode: "part_1",
-    result: practiceResult.practiceFeedback,
-    transcripts: practiceResult.transcripts,
-    trace: practiceResult.trace,
-    sessionId,
-    httpStatus: 200,
-  };
 }

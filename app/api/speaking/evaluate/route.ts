@@ -24,6 +24,7 @@ import {
   NotFoundError,
 } from "@/lib/errors";
 import { finishSpeakingPractice } from "@/modules/speaking/application/finish-speaking-practice";
+import { retryPracticeEvaluation } from "@/modules/speaking/application/retry-practice-evaluation";
 import { getSpeakingPractice } from "@/modules/speaking/application/get-speaking-practice";
 import {
   devSessionCache,
@@ -77,20 +78,34 @@ export async function POST(req: NextRequest) {
       body.targetPart === "part_1";
 
     if (isPart1Practice) {
-      const practiceResult = await finishSpeakingPractice({
-        authenticatedUserId,
-        sessionId,
-        topicTitle: body.topicTitle || topicTitle,
-        candidateName,
-        questions: body.questions,
-        part1Question,
-        durationSeconds: body.durationSeconds || durationSeconds,
-        transcripts,
-        turnMarkers,
-        audioBase64,
-        storageKey: effectiveStorageKey,
-        mimeType,
-      });
+      const isExplicitRetry = Boolean(
+        body.sessionId && !body.audioBase64 && !body.storageKey
+      );
+
+      const practiceResult = isExplicitRetry
+        ? await retryPracticeEvaluation({
+            authenticatedUserId,
+            sessionId: body.sessionId,
+            topicTitle: body.topicTitle,
+            candidateName,
+            questions: body.questions,
+            durationSeconds: body.durationSeconds,
+            turnMarkers,
+          })
+        : await finishSpeakingPractice({
+            authenticatedUserId,
+            sessionId,
+            topicTitle: body.topicTitle || topicTitle,
+            candidateName,
+            questions: body.questions,
+            part1Question,
+            durationSeconds: body.durationSeconds || durationSeconds,
+            transcripts,
+            turnMarkers,
+            audioBase64,
+            storageKey: effectiveStorageKey,
+            mimeType,
+          });
 
       if (!practiceResult.success) {
         return NextResponse.json(
