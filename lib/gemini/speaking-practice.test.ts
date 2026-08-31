@@ -1516,4 +1516,172 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
     const postRes = await POST(postReq);
     expect(postRes.status).toBe(403);
   });
+
+  // Test 19: Learner A cannot hijack Learner B's sessionId by supplying their own storageKey
+  it("Test 19: Learner A cannot hijack Learner B's sessionId by supplying their own storageKey", async () => {
+    const { POST, devSessionCache } =
+      await import("../../app/api/speaking/evaluate/route");
+    const { geminiRotator } = await import("./index");
+    const { NextRequest } = await import("next/server");
+    const { persistSpeakingAudioBuffer } = await import("../storage/s3-client");
+
+    const victimSessionId = `ses_victim_${Date.now()}`;
+    const victimStorageKey = `speaking/learner_b/${victimSessionId}/candidate.webm`;
+    const victimAudioBase64 = Buffer.from("learner-b-spoken-audio").toString(
+      "base64"
+    );
+
+    const attackerStorageKey = `speaking/learner_a/ses_attacker_123/candidate.webm`;
+    const attackerAudioBytes = Buffer.from("learner-a-exploit-audio");
+    await persistSpeakingAudioBuffer(attackerStorageKey, attackerAudioBytes);
+
+    let evaluatorCallCount = 0;
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      strengths: [],
+      priorities: [],
+      summary: "Evaluator response",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(async () => {
+          evaluatorCallCount++;
+          return {
+            text: JSON.stringify(mockFeedback),
+            usageMetadata: {
+              promptTokenCount: 100,
+              candidatesTokenCount: 50,
+              totalTokenCount: 150,
+            },
+          };
+        }),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      // 1. Learner B creates and evaluates their Practice
+      const victimReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          headers: createMockAuthHeaders({
+            id: "learner_b",
+            role: "learner",
+            name: "Learner B",
+          }),
+          body: JSON.stringify({
+            sessionId: victimSessionId,
+            practiceMode: "part_1",
+            audioBase64: victimAudioBase64,
+            storageKey: victimStorageKey,
+            durationSeconds: 40,
+            questions: ["What is your favorite book?"],
+          }),
+        }
+      );
+      const victimRes = await POST(victimReq);
+      expect(victimRes.status).toBe(200);
+
+      const victimOriginalSession = JSON.stringify(
+        devSessionCache.get(victimSessionId)
+      );
+      const baselineEvaluatorCount = evaluatorCallCount;
+
+      // 2. Attacker (Learner A) tries to hijack Learner B's sessionId by providing attacker's valid storageKey
+      const hijackReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          headers: createMockAuthHeaders({
+            id: "learner_a",
+            role: "learner",
+            name: "Learner A",
+          }),
+          body: JSON.stringify({
+            sessionId: victimSessionId, // Learner B's sessionId
+            storageKey: attackerStorageKey, // Valid storageKey owned by Learner A
+            practiceMode: "part_1",
+            durationSeconds: 30,
+          }),
+        }
+      );
+      const hijackRes = await POST(hijackReq);
+
+      // Assert 403 Forbidden
+      expect(hijackRes.status).toBe(403);
+
+      // Assert evaluator was NOT called for Learner B's practice
+      expect(evaluatorCallCount).toBe(baselineEvaluatorCount);
+
+      // Assert Learner B's session was not mutated
+      const victimSessionAfter = JSON.stringify(
+        devSessionCache.get(victimSessionId)
+      );
+      expect(victimSessionAfter).toBe(victimOriginalSession);
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
+
+  // Test 20: Legacy Practice with userId = null cannot be claimed by an authenticated Learner
+  it("Test 20: Legacy Practice with userId = null cannot be claimed by an authenticated Learner", async () => {
+    const { POST, devSessionCache } =
+      await import("../../app/api/speaking/evaluate/route");
+    const { NextRequest } = await import("next/server");
+
+    const legacySessionId = `ses_legacy_null_${Date.now()}`;
+
+    // Seed in-memory cache with an unclaimed legacy session
+    devSessionCache.set(legacySessionId, {
+      id: legacySessionId,
+      userId: null, // Legacy null owner
+      candidateName: "Guest Candidate",
+      topicTitle: "Legacy Topic",
+      status: "completed",
+      targetPart: "part_1",
+      durationSeconds: 60,
+      overallBand: null,
+      scorecardJson: null,
+      evidenceJson: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const claimReq = new NextRequest(
+      "http://localhost:3000/api/speaking/evaluate",
+      {
+        method: "POST",
+        headers: createMockAuthHeaders({
+          id: "learner_claimant",
+          role: "learner",
+          name: "Learner Claimant",
+        }),
+        body: JSON.stringify({
+          sessionId: legacySessionId,
+          practiceMode: "part_1",
+          storageKey: `speaking/learner_claimant/${legacySessionId}/candidate.webm`,
+        }),
+      }
+    );
+
+    const claimRes = await POST(claimReq);
+    expect(claimRes.status).toBe(403);
+
+    // Verify session was not claimed
+    const sessionRecord = devSessionCache.get(legacySessionId);
+    expect(sessionRecord?.userId).toBeNull();
+  });
 });

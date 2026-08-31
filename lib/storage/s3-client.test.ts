@@ -18,12 +18,22 @@ describe("S3 Storage & Presigned Upload Pipeline (ADR-0004 & ADR-0003)", () => {
     expect(key).toBe("speaking/usr_123/ses_456/candidate.webm");
   });
 
-  it("should correctly verify storage key ownership by userId", () => {
+  it("should correctly verify storage key ownership by userId and sessionId", () => {
     const ownedKey = "speaking/usr_123/ses_456/candidate.webm";
     const otherKey = "speaking/usr_999/ses_456/candidate.webm";
+    const otherSessionKey = "speaking/usr_123/ses_999/candidate.webm";
 
     expect(isSpeakingAudioStorageKeyOwnedBy(ownedKey, "usr_123")).toBe(true);
+    expect(
+      isSpeakingAudioStorageKeyOwnedBy(ownedKey, "usr_123", "ses_456")
+    ).toBe(true);
+    expect(
+      isSpeakingAudioStorageKeyOwnedBy(otherSessionKey, "usr_123", "ses_456")
+    ).toBe(false);
     expect(isSpeakingAudioStorageKeyOwnedBy(otherKey, "usr_123")).toBe(false);
+    expect(
+      isSpeakingAudioStorageKeyOwnedBy(otherKey, "usr_123", "ses_456")
+    ).toBe(false);
     expect(isSpeakingAudioStorageKeyOwnedBy("", "usr_123")).toBe(false);
   });
 

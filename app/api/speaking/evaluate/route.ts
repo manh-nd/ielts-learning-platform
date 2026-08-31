@@ -16,7 +16,7 @@ import {
   speakingResponses,
   speakingReviewAnnotations,
 } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { PracticeEvaluationResult } from "@/lib/gemini/speaking-schema";
 import { requireRole } from "@/lib/authorization";
 import { toErrorResponse, AppError, ForbiddenError } from "@/lib/errors";
@@ -96,16 +96,57 @@ export async function POST(req: NextRequest) {
     if (body.durationSeconds) durationSeconds = body.durationSeconds;
     effectiveStorageKey = storageKey;
 
-    // Verify storageKey ownership if client supplied one
+    // 0. Resolve & verify existing SpeakingPractice owner before loading audio or evaluating
+    let existingSessionUserId: string | null = null;
+    let sessionExists = false;
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const existingSessionRow = await db
+          .select({ userId: speakingSessions.userId })
+          .from(speakingSessions)
+          .where(eq(speakingSessions.id, sessionId));
+        if (existingSessionRow.length > 0) {
+          sessionExists = true;
+          existingSessionUserId = existingSessionRow[0].userId;
+        }
+      } catch {
+        // ignore lookup error
+      }
+    }
+
+    if (!sessionExists) {
+      const cached = devSessionCache.get(sessionId);
+      if (cached) {
+        sessionExists = true;
+        existingSessionUserId = cached.userId;
+      }
+    }
+
+    if (sessionExists) {
+      // Require existingSession.userId === authenticated session.user.id
+      // Reject if userId is null (legacy) or belongs to another learner
+      if (
+        !existingSessionUserId ||
+        existingSessionUserId !== authenticatedUserId
+      ) {
+        throw new ForbiddenError(
+          "Cannot retry, mutate, or access a speaking practice belonging to another user."
+        );
+      }
+    }
+
+    // Verify storageKey ownership if client supplied one (must match user and session namespace)
     if (
       effectiveStorageKey &&
       !isSpeakingAudioStorageKeyOwnedBy(
         effectiveStorageKey,
-        authenticatedUserId
+        authenticatedUserId,
+        sessionId
       )
     ) {
       throw new ForbiddenError(
-        "Cannot evaluate audio with a storage key belonging to another user."
+        "Cannot evaluate audio with a storage key outside the session namespace."
       );
     }
 
@@ -131,17 +172,8 @@ export async function POST(req: NextRequest) {
     // 1b. If not yet loaded from storage, check if this is an existing session retry (resolve server-side)
     if (!isAudioPersisted && sessionId) {
       let existingStorageKey: string | null = null;
-      let existingSessionUserId: string | null = null;
       if (process.env.DATABASE_URL) {
         try {
-          const existingSessionRow = await db
-            .select({ userId: speakingSessions.userId })
-            .from(speakingSessions)
-            .where(eq(speakingSessions.id, sessionId));
-          if (existingSessionRow.length > 0) {
-            existingSessionUserId = existingSessionRow[0].userId;
-          }
-
           const existingResp = await db
             .select({ storageKey: speakingResponses.storageKey })
             .from(speakingResponses)
@@ -155,35 +187,22 @@ export async function POST(req: NextRequest) {
       }
 
       if (!existingStorageKey) {
-        const cached = devSessionCache.get(sessionId);
-        if (cached) {
-          existingSessionUserId = cached.userId;
-        }
         const cachedResp = devResponseCache.get(sessionId);
         if (cachedResp && cachedResp.length > 0 && cachedResp[0].storageKey) {
           existingStorageKey = cachedResp[0].storageKey;
         }
       }
 
-      // Cross-learner ownership check: reject if session belongs to another user
-      if (
-        existingSessionUserId &&
-        existingSessionUserId !== authenticatedUserId
-      ) {
-        throw new ForbiddenError(
-          "Cannot retry or access a speaking practice belonging to another user."
-        );
-      }
-
       if (existingStorageKey) {
         if (
           !isSpeakingAudioStorageKeyOwnedBy(
             existingStorageKey,
-            authenticatedUserId
+            authenticatedUserId,
+            sessionId
           )
         ) {
           throw new ForbiddenError(
-            "Cannot retry evaluation using audio belonging to another user."
+            "Cannot retry evaluation using audio outside the session namespace."
           );
         }
         const audioData = await getSpeakingAudioBuffer(existingStorageKey);
@@ -256,7 +275,8 @@ export async function POST(req: NextRequest) {
       const existingCachedSession = devSessionCache.get(sessionId);
       if (
         existingCachedSession &&
-        existingCachedSession.userId !== authenticatedUserId
+        (!existingCachedSession.userId ||
+          existingCachedSession.userId !== authenticatedUserId)
       ) {
         throw new ForbiddenError(
           "Cannot access speaking practice belonging to another user."
@@ -375,6 +395,7 @@ export async function POST(req: NextRequest) {
                 durationSeconds: effectiveDuration,
                 updatedAt: new Date(),
               },
+              where: eq(speakingSessions.userId, authenticatedUserId),
             });
 
           await db
@@ -467,7 +488,12 @@ export async function POST(req: NextRequest) {
                 evidenceJson: failedEvidence,
                 updatedAt: new Date(),
               })
-              .where(eq(speakingSessions.id, sessionId));
+              .where(
+                and(
+                  eq(speakingSessions.id, sessionId),
+                  eq(speakingSessions.userId, authenticatedUserId)
+                )
+              );
           } catch (updateErr) {
             console.warn(
               "[EvaluateSpeakingAPI] Failed to update error evidence in DB:",
@@ -521,7 +547,12 @@ export async function POST(req: NextRequest) {
               },
               updatedAt: new Date(),
             })
-            .where(eq(speakingSessions.id, sessionId));
+            .where(
+              and(
+                eq(speakingSessions.id, sessionId),
+                eq(speakingSessions.userId, authenticatedUserId)
+              )
+            );
 
           await db
             .update(speakingResponses)

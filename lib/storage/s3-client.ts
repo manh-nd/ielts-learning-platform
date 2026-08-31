@@ -31,14 +31,19 @@ export function buildSpeakingAudioStorageKey(
 }
 
 /**
- * Verifies whether a given storage key belongs to the specified userId.
+ * Verifies whether a given storage key belongs to the specified userId and optionally matching sessionId namespace.
  */
 export function isSpeakingAudioStorageKeyOwnedBy(
   storageKey: string,
-  userId: string
+  userId: string,
+  sessionId?: string
 ): boolean {
   if (!storageKey || !userId) return false;
   const cleanUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  if (sessionId) {
+    const cleanSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
+    return storageKey.startsWith(`speaking/${cleanUserId}/${cleanSessionId}/`);
+  }
   return storageKey.startsWith(`speaking/${cleanUserId}/`);
 }
 
