@@ -497,7 +497,7 @@ export function LiveSpeakingExaminerRoom({
           isNoiseSuppressionActive={isNoiseSuppressionActive}
           inputVolume={inputVolume}
           onConnect={connect}
-          onDisconnect={disconnect}
+          onDisconnect={handleFinishExam}
           onToggleMute={toggleMute}
           onToggleNoiseSuppression={toggleNoiseSuppression}
         />

@@ -982,6 +982,80 @@ export function useGeminiLive(
         }
       });
 
+      // Start recording immediately with user click gesture
+      try {
+        await controller.startRecording((base64PCM, rms) => {
+          rawPcmChunksRef.current.push(base64PCM);
+
+          const currentWs = wsRef.current;
+          if (
+            currentWs &&
+            currentWs.readyState === WebSocket.OPEN &&
+            statusRef.current === "connected" &&
+            !isMutedRef.current
+          ) {
+            const elapsedMs = Date.now() - recordStartTimeRef.current;
+
+            // 1. Warm-up gate: first 3.0s block transmission
+            if (elapsedMs < 3000) {
+              return;
+            }
+
+            // 2. Echo gate: while speaker is playing, require higher RMS threshold
+            if (controller.isPlaying()) {
+              if (rms < 0.03) {
+                return;
+              }
+            }
+
+            const audioPayload = {
+              realtimeInput: {
+                audio: {
+                  mimeType: "audio/pcm;rate=16000",
+                  data: base64PCM,
+                },
+              },
+            };
+            currentWs.send(JSON.stringify(audioPayload));
+          }
+        });
+
+        // Parallel continuous MediaRecorder for Candidate Audio (Source of Truth)
+        const micStream = controller.getMediaStream();
+        if (micStream && typeof MediaRecorder !== "undefined") {
+          try {
+            recordedChunksRef.current = [];
+            const mimeType = getSupportedMediaRecorderMimeType();
+            let recorder: MediaRecorder;
+            try {
+              recorder = mimeType
+                ? new MediaRecorder(micStream, { mimeType })
+                : new MediaRecorder(micStream);
+            } catch {
+              recorder = new MediaRecorder(micStream);
+            }
+            recorder.ondataavailable = (ev) => {
+              if (ev.data && ev.data.size > 0) {
+                recordedChunksRef.current.push(ev.data);
+              }
+            };
+            recorder.start(1000);
+            mediaRecorderRef.current = recorder;
+          } catch (recErr) {
+            console.warn("[useGeminiLive] MediaRecorder start error:", recErr);
+          }
+        }
+      } catch (micErr) {
+        console.error("[useGeminiLive] Failed to start microphone:", micErr);
+        const err = new Error(
+          "Không thể truy cập Microphone. Vui lòng cấp quyền micro."
+        );
+        setError(err);
+        onError?.(err);
+        cleanupAudio();
+        return;
+      }
+
       // 3. Connect WebSocket to Gemini Multimodal Live API
       const effectiveInstruction =
         systemInstruction ||
@@ -1120,65 +1194,6 @@ export function useGeminiLive(
             playCallStartSound();
             try {
               await requestWakeLock();
-
-              // Start audio recording with AudioWorklet
-              await controller.startRecording((base64PCM, rms) => {
-                rawPcmChunksRef.current.push(base64PCM);
-                if (ws.readyState === WebSocket.OPEN && !isMutedRef.current) {
-                  const elapsedMs = Date.now() - recordStartTimeRef.current;
-
-                  // 1. Warm-up gate: first 3.0s block transmission
-                  if (elapsedMs < 3000) {
-                    return;
-                  }
-
-                  // 2. Echo gate: while speaker is playing, require higher RMS threshold
-                  if (controller.isPlaying()) {
-                    if (rms < 0.03) {
-                      return;
-                    }
-                  }
-
-                  const audioPayload = {
-                    realtimeInput: {
-                      audio: {
-                        mimeType: "audio/pcm;rate=16000",
-                        data: base64PCM,
-                      },
-                    },
-                  };
-                  ws.send(JSON.stringify(audioPayload));
-                }
-              });
-
-              // Parallel continuous MediaRecorder for Candidate Audio (Source of Truth)
-              const micStream = controller.getMediaStream();
-              if (micStream && typeof MediaRecorder !== "undefined") {
-                try {
-                  recordedChunksRef.current = [];
-                  const mimeType = getSupportedMediaRecorderMimeType();
-                  let recorder: MediaRecorder;
-                  try {
-                    recorder = mimeType
-                      ? new MediaRecorder(micStream, { mimeType })
-                      : new MediaRecorder(micStream);
-                  } catch {
-                    recorder = new MediaRecorder(micStream);
-                  }
-                  recorder.ondataavailable = (ev) => {
-                    if (ev.data && ev.data.size > 0) {
-                      recordedChunksRef.current.push(ev.data);
-                    }
-                  };
-                  recorder.start(1000);
-                  mediaRecorderRef.current = recorder;
-                } catch (recErr) {
-                  console.warn(
-                    "[useGeminiLive] MediaRecorder start error:",
-                    recErr
-                  );
-                }
-              }
 
               const initialTrigger = {
                 clientContent: {
