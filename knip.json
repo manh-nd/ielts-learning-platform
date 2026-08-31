@@ -1,0 +1,37 @@
+{
+  "$schema": "https://unpkg.com/knip@5/overview/schema.json",
+  "entry": [
+    "app/**/{page,layout,loading,error,not-found,route}.{ts,tsx}",
+    "components/**/index.ts",
+    "lib/**/index.ts",
+    "scripts/**/*.{ts,js}",
+    "playwright*.ts"
+  ],
+  "project": [
+    "app/**/*.{ts,tsx}",
+    "components/**/*.{ts,tsx}",
+    "lib/**/*.{ts,tsx}",
+    "modules/**/*.{ts,tsx}"
+  ],
+  "ignore": ["components/ui/**", ".storybook/mocks/**"],
+  "ignoreDependencies": [
+    "@tailwindcss/*",
+    "tailwindcss",
+    "tw-animate-css",
+    "shadcn",
+    "@tiptap/extension-underline"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "unlisted": "error",
+    "exports": "warn",
+    "types": "off",
+    "duplicates": "warn"
+  },
+  "next": true,
+  "storybook": true,
+  "playwright": true,
+  "vitest": true
+}

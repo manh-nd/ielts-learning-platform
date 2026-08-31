@@ -7,3 +7,4 @@ export * from "./live-session-controls";
 export * from "./live-speaking-cue-card-modal";
 export * from "./live-speaking-result-view";
 export * from "./live-speaking-examiner-room";
+export * from "./result";

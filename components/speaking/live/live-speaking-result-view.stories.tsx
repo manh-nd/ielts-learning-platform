@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { LiveSpeakingResultView } from "./live-speaking-result-view";
 import { fn, expect, userEvent, within } from "storybook/test";
-import { IeltsSpeakingEvaluationResult } from "@/lib/gemini/speaking-schema";
+import {
+  IeltsSpeakingEvaluationResult,
+  PracticeFeedback,
+} from "@/lib/gemini/speaking-schema";
 
 const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
   overallScorecard: {
@@ -72,8 +75,7 @@ const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
             word: "devices",
             expectedIpa: "/dɪˈvaɪsɪz/",
             detectedIssue: "Weak final /ɪz/ syllable ending",
-            recommendation: "Ensure final /ɪz/ suffix is audibly articulated.",
-            timestampSeconds: 15,
+            recommendation: "Articulate the final /ɪz/ sound clearly",
           },
         ],
         tips: ["Practice final consonant clusters /ts/, /dz/, /ks/"],
@@ -91,13 +93,9 @@ const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
         "Occasional minor slip in subject-verb agreement during complex past conditional structures.",
         "Slight tendency to omit final consonant /s/ on plural nouns in fast delivery.",
       ],
-      actionPlan: [
-        "Practice mixed conditional structures with timed drilling.",
-        "Focus on phoneme clarity for final consonant clusters /ts/, /dz/, /ks/.",
-        "Incorporate more C1 transition markers in Part 3 abstract reasoning.",
-      ],
+      actionPlan: ["Practice complex abstract topics with minimal pauses"],
       practiceMonologue:
-        "Technological advancements have fundamentally reshaped how we navigate our professional and academic lives. I heavily rely upon my laptop and smartphone as indispensable assets for in-depth research and seamless communication. While digital tools foster unprecedented efficiency, maintaining digital well-being is vital to ensure our productivity remains sustainable without inducing cognitive overload.",
+        "Technological advancements have fundamentally reshaped how we navigate our professional and academic lives. I heavily rely upon my laptop and smartphone as indispensable assets for in-depth research and seamless communication.",
     },
   },
   partEvaluations: [
@@ -107,76 +105,60 @@ const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
       promptQuestion:
         "What kind of technological devices do you use most frequently every day?",
       candidateTranscript:
-        "I frequently use my smartphone and laptop. They allow me to organize my daily schedule and conduct in-depth research.",
+        "I frequently use my smartphone and laptop to organize my schedule and conduct research.",
+      verifiedTranscript:
+        "I frequently use my smartphone and laptop to organize my schedule and conduct research.",
       partSummary:
-        "Candidate responded directly and expanded with relevant details.",
-      lexicalUpgrades: [
-        {
-          originalExpression: "frequently use",
-          betterAlternative: "heavily rely upon",
-          bandLevel: "Band 8.0+",
-          contextExample:
-            "I heavily rely upon my laptop for both academic research and development.",
-        },
-      ],
-      grammarCorrections: [],
-      pronunciationNotes: [
-        {
-          word: "smartphone",
-          expectedIpa: "/ˈsmɑːrt.foʊn/",
-          detectedIssue: "Clean vowel articulation and correct primary stress.",
-          recommendation: "Maintain natural rhythm when linking.",
-          timestampSeconds: 5,
-        },
-      ],
-    },
-    {
-      partNumber: 2,
-      itemIndex: 0,
-      promptQuestion:
-        "Describe a technological device or software that significantly changed your life.",
-      candidateTranscript:
-        "I would like to talk about modern AI development tools. When I first adopted them, my productivity increased dramatically...",
-      partSummary:
-        "Well-structured individual long turn with clear narrative flow.",
-      lexicalUpgrades: [
-        {
-          originalExpression: "increased dramatically",
-          betterAlternative: "surged exponentially",
-          bandLevel: "Band 8.5+",
-          contextExample:
-            "My coding efficiency surged exponentially after integrating AI copilots.",
-        },
-      ],
-      grammarCorrections: [
-        {
-          originalPhrase: "If I would have known about it earlier",
-          correctedPhrase:
-            "Had I known about it earlier / If I had known about it earlier",
-          ruleViolated: "Third conditional past perfect",
-          explanation:
-            "Use third conditional past perfect in the condition clause.",
-        },
-      ],
+        "Candidate responded with clear examples and fluent delivery.",
       pronunciationNotes: [],
+      lexicalUpgrades: [],
+      grammarCorrections: [],
     },
   ],
   trace: {
-    modelUsed: "gemini-3.7-flash",
+    modelUsed: "gemini-2.5-flash",
     isFallback: false,
     fallbackReason: null,
-    durationMs: 3420,
+    durationMs: 3200,
     tokensUsed: {
-      promptTokens: 1250,
-      candidatesTokens: 640,
-      totalTokens: 1890,
+      promptTokens: 450,
+      candidatesTokens: 850,
+      totalTokens: 1300,
     },
-    keyFingerprint: "key_***mock",
-    timestamp: new Date().toISOString(),
+    keyFingerprint: "fp-test",
+    timestamp: "2026-08-31T00:00:00.000Z",
   },
 };
 
-const meta = {
+const mockPracticeFeedback: PracticeFeedback = {
+  evidenceScope: {
+    mode: "part_1",
+    responseCount: 2,
+  },
+  estimatedPerformance: {
+    fluencyAndCoherence: 7.0,
+    lexicalResource: 7.5,
+    grammaticalRangeAndAccuracy: 6.5,
+    pronunciation: 7.0,
+  },
+  evidenceSufficiency: "sufficient_for_practice_feedback",
+  summary:
+    "Thí sinh trả lời Part 1 tự tin và trôi chảy. Ngữ điệu tự nhiên, từ vựng phong phú theo chủ đề.",
+  strengths: [
+    {
+      criterion: "FC",
+      observation: "Tốc độ nói đều đặn, không ngập ngừng kéo dài.",
+    },
+  ],
+  priorities: [
+    {
+      criterion: "GRA",
+      observation: "Cần bổ sung thêm câu phức với mệnh đề quan hệ.",
+    },
+  ],
+};
+
+const meta: Meta<typeof LiveSpeakingResultView> = {
   title: "Speaking/Live/LiveSpeakingResultView",
   component: LiveSpeakingResultView,
   parameters: {
@@ -187,7 +169,7 @@ const meta = {
     evaluationResult: mockEvaluationResult,
     isLoading: false,
     recordedAudio: {
-      blob: new Blob([], { type: "audio/webm" }),
+      blob: new Blob(["test audio content"], { type: "audio/webm" }),
       url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
       durationSeconds: 165,
       mimeType: "audio/webm",
@@ -197,32 +179,74 @@ const meta = {
         id: "tr-1",
         sender: "examiner",
         text: "Good day. What kind of technological devices do you use most frequently every day?",
-        timestamp: Date.now() - 100000,
+        timestamp: 0,
         isFinal: true,
       },
       {
         id: "tr-2",
         sender: "user",
         text: "I frequently use my smartphone and laptop to organize my schedule and conduct research.",
-        timestamp: Date.now() - 80000,
+        timestamp: 6000,
         isFinal: true,
       },
     ],
+    candidateName: "Thí sinh Nguyễn An",
     onRestartTest: fn(),
     onBackToDashboard: fn(),
     onRetryEvaluation: fn(),
   },
-} satisfies Meta<typeof LiveSpeakingResultView>;
+};
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const EvaluationSuccess: Story = {};
+export const EvaluationSuccess: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // 1. Verify Overall Band Scorecard
+    expect(
+      canvas.getByText("IELTS Speaking Full Mock Test")
+    ).toBeInTheDocument();
+    expect(canvas.getByText(/CEFR: C1/i)).toBeInTheDocument();
+
+    // 2. Verify Audio Player is present
+    expect(
+      canvas.getByText(/File Ghi âm Toàn Bộ Buổi Thi/i)
+    ).toBeInTheDocument();
+    expect(canvas.getByTestId("player-toggle-play-btn")).toBeInTheDocument();
+
+    // 3. Verify Criteria Breakdown
+    expect(canvas.getByText("Fluency & Coherence (FC)")).toBeInTheDocument();
+    expect(canvas.getByText("Lexical Resource (LR)")).toBeInTheDocument();
+
+    // 4. Verify Interactive Transcript
+    expect(canvas.getByText(/Gỡ băng Tương tác Buổi thi/i)).toBeInTheDocument();
+  },
+};
+
+export const Part1PracticeMode: Story = {
+  args: {
+    evaluationResult: null,
+    isPracticeMode: true,
+    practiceFeedback: mockPracticeFeedback,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    expect(canvas.getByText("Luyện tập Speaking Part 1")).toBeInTheDocument();
+    expect(canvas.getByText(/Nhận xét Hướng dẫn Sư phạm/i)).toBeInTheDocument();
+    expect(canvas.getByText("Bản ghi âm Part 1 của bạn")).toBeInTheDocument();
+  },
+};
 
 export const LoadingEvaluation: Story = {
   args: {
     isLoading: true,
     evaluationResult: null,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    expect(canvas.getByText(/Đang phân tích & Chấm điểm/i)).toBeInTheDocument();
   },
 };
 
@@ -233,28 +257,31 @@ export const EvaluationError: Story = {
     error:
       "Không thể kết nối đến máy chủ chấm điểm tự động. Vui lòng thử lại sau.",
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    expect(
+      canvas.getByText(/Không thể tải kết quả chấm điểm/i)
+    ).toBeInTheDocument();
+    expect(canvas.getByTestId("retry-evaluation-btn")).toBeInTheDocument();
+  },
 };
 
-export const InteractiveAudioWaveformTab: Story = {
+export const InteractiveAudioAndTranscriptSeeking: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    // 1. Click Audio tab
-    const audioTabBtn = canvas.getByRole("tab", {
-      name: /Ghi âm & Gỡ băng/i,
-    });
-    await userEvent.click(audioTabBtn);
+    // 1. Click skip forward (+5s) in player
+    const forwardBtn = canvas.getByTestId("player-skip-forward-btn");
+    await userEvent.click(forwardBtn);
+    expect(canvas.getByTestId("player-current-time")).toHaveTextContent(
+      "00:05"
+    );
 
-    // 2. Check recorded audio card & waveform player are present
-    const audioCard = await canvas.findByTestId("recorded-audio-card");
-    await expect(audioCard).toBeInTheDocument();
-    await expect(
-      canvas.getByText(/File Ghi âm Toàn Bộ Buổi Thi/i)
-    ).toBeInTheDocument();
-
-    // 3. Check play button exists
-    const playBtn = canvas.getByTestId("play-full-audio-btn");
-    await expect(playBtn).toBeInTheDocument();
-    await userEvent.click(playBtn);
+    // 2. Click timestamp in transcript to seek (turn 1 timestamp: 00:06)
+    const transcriptSeekBtn = canvas.getByTestId("seek-timestamp-btn-1");
+    await userEvent.click(transcriptSeekBtn);
+    expect(canvas.getByTestId("player-current-time")).toHaveTextContent(
+      "00:06"
+    );
   },
 };

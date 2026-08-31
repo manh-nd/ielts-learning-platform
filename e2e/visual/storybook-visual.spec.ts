@@ -168,4 +168,43 @@ test.describe("Storybook Visual Regression Suite", () => {
       );
     });
   });
+
+  test.describe("7. Live Speaking & Shared Results Suite", () => {
+    test("Full Result View", async ({ page }) => {
+      await loadStory(
+        page,
+        "speaking-live-livespeakingresultview--evaluation-success"
+      );
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "live-speaking-result-full.png"
+      );
+    });
+
+    test("Waveform Audio Player", async ({ page }) => {
+      await loadStory(page, "speaking-live-result-waveformplayer--default");
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "live-waveform-audio-player.png"
+      );
+    });
+
+    test("Criteria Breakdown", async ({ page }) => {
+      await loadStory(
+        page,
+        "speaking-live-result-criteriabreakdown--default-criteria-view"
+      );
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "live-criteria-breakdown.png"
+      );
+    });
+
+    test("Interactive Transcript", async ({ page }) => {
+      await loadStory(
+        page,
+        "speaking-live-result-interactivetranscript--default"
+      );
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "live-interactive-transcript.png"
+      );
+    });
+  });
 });

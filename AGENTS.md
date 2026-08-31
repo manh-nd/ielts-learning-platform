@@ -61,3 +61,28 @@ We follow the Google TypeScript/Java Style Guide rule: **"Treat abbreviations as
 - **camelCase**: `aiProposalScores`, `aiScore`, `audioUrl`, `userId`, `scorecardJson`.
 - **SCREAMING_SNAKE_CASE**: Retain full uppercase with underscores for constants (`IELTS_BAND_DESCRIPTORS`, `IELTS_VERBATIM_STT_PROMPT`).
 - **Prose & UI Text**: Standard uppercase (e.g. "AI", "IELTS", "STT", "CEFR") is allowed in Vietnamese/English natural language prose and UI labels.
+
+### UI/UX Consistency, Spacing & Layout Audit
+
+When creating or modifying frontend components (`components/**/*.tsx` or `app/**/*.tsx`):
+
+- **Read the skill**: Refer to `.agents/skills/ui-audit/SKILL.md` before adjusting layout, cards, or typography.
+- **Card Flush Header Pattern**: If a `<Card>` contains `<CardHeader>` with `border-b` or a colored background (`bg-*`), **`<Card>` MUST explicitly include `py-0 gap-0`** to prevent the default 16px vertical padding from displacing the header.
+- **Strict Spacing Scale**: Use only standard Tailwind tokens (`2`, `3`, `4`, `6`, `8` = 8px, 12px, 16px, 24px, 32px). Never use arbitrary spacing like `p-[13px]`, `m-[7px]`.
+- **Card Grid Alignment**: Use `h-full flex flex-col justify-between` on sibling cards within grid layouts to guarantee aligned bottom borders.
+- **Automated Verification**: Run `bun run audit:ui` before declaring any UI task complete.
+
+### Component Architecture & Reuse-First Policy
+
+To avoid component duplication, dead code, and visual drift, follow the **3-Tier Component Architecture**:
+
+1. **Tier 1: `components/ui/` (Primitives)**: Pure design system tokens & base UI (shadcn / Base UI: Button, Card, Dialog, Badge, Tabs, Tooltip). Free of business logic.
+2. **Tier 2: `components/shared/` (Business Compounds)**: Reusable composite domain blocks across Speaking, Writing, Reading, and Teacher Review (`components/shared/audio/`, `components/shared/assessment/`, `components/shared/transcript/`, `components/shared/feedback/`). Every shared component must have its own Storybook story (`*.stories.tsx`).
+3. **Tier 3: `components/[feature]/` (Domain Views)**: Screen-level flows (`speaking/live/`, `speaking/practice/`, `review/`, `landing/`). Feature views compose Tier 1 & Tier 2 components without recreating them.
+
+**Agent Rules for Component Creation:**
+
+- **Discovery First**: NEVER create a new component under a feature directory without first searching `components/shared/`, `components/ui/`, and existing Storybook stories.
+- **No Duplicate Components**: If an existing component satisfies $\ge 70\%$ of the needed behavior, reuse or extend it via props/variants. Never copy-paste or write duplicate variants.
+- **Promote to Shared**: If authoring a component that can be used across 2 or more features, place it in `components/shared/` and re-export via `components/shared/index.ts`.
+- **Dead Code Hygiene**: Run `bun run audit:deadcode` (Knip) and `bun run audit:ui` before finishing any frontend task.
