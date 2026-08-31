@@ -369,6 +369,14 @@ export const SpeakingEvaluationTraceSchema = z.object({
     .string()
     .nullable()
     .describe("Reason for fallback if triggered"),
+  fallbackModel: z
+    .string()
+    .optional()
+    .describe("Name of fallback model if triggered"),
+  primaryElapsedMs: z
+    .number()
+    .optional()
+    .describe("Elapsed time in ms before primary model timed out or failed"),
   durationMs: z.number().describe("Total execution latency in milliseconds"),
   tokensUsed: z.object({
     promptTokens: z.number(),
@@ -821,4 +829,160 @@ export const speakingEvaluationJsonSchema = {
     },
   },
   required: ["overallScorecard", "partEvaluations"],
+} as const;
+
+/**
+ * ============================================================================
+ * SPEAKING PRACTICE FEEDBACK SCHEMAS (Part 1 Practice MVP - Issue #56)
+ * ============================================================================
+ */
+
+export const PracticeFeedbackPointSchema = z.object({
+  criterion: z
+    .enum(["FC", "LR", "GRA", "PR"])
+    .describe(
+      "The IELTS criterion: FC (Fluency & Coherence), LR (Lexical Resource), GRA (Grammatical Range & Accuracy), PR (Pronunciation)"
+    ),
+  observation: z
+    .string()
+    .describe(
+      "Specific, concrete observation about candidate's spoken performance"
+    ),
+  evidence: z
+    .object({
+      transcriptQuote: z
+        .string()
+        .optional()
+        .describe(
+          "Verbatim excerpt from transcript. Must NOT include commentary or thoughts."
+        ),
+      startMs: z
+        .number()
+        .optional()
+        .describe("Approximate start timestamp in milliseconds in recording"),
+      endMs: z
+        .number()
+        .optional()
+        .describe("Approximate end timestamp in milliseconds in recording"),
+    })
+    .optional(),
+  suggestion: z
+    .string()
+    .optional()
+    .describe("Actionable pedagogical advice or higher-band alternative"),
+});
+export type PracticeFeedbackPoint = z.infer<typeof PracticeFeedbackPointSchema>;
+
+export const PracticeFeedbackSchema = z.object({
+  evidenceScope: z.object({
+    mode: z.literal("part_1"),
+    responseCount: z.number().int().min(1),
+  }),
+  estimatedPerformance: z
+    .object({
+      fluencyAndCoherence: bandScoreSchema.optional(),
+      lexicalResource: bandScoreSchema.optional(),
+      grammaticalRangeAndAccuracy: bandScoreSchema.optional(),
+      pronunciation: bandScoreSchema.optional(),
+    })
+    .optional(),
+  strengths: z.array(PracticeFeedbackPointSchema),
+  priorities: z.array(PracticeFeedbackPointSchema),
+  summary: z
+    .string()
+    .describe(
+      "Formative coaching summary. Must NOT claim official band scores or full test equivalence."
+    ),
+  evidenceSufficiency: z.enum(["sufficient_for_practice_feedback", "limited"]),
+});
+export type PracticeFeedback = z.infer<typeof PracticeFeedbackSchema>;
+
+export const PracticeEvaluationResultSchema = z.object({
+  practiceFeedback: PracticeFeedbackSchema,
+  transcripts: z.object({
+    bestTranscript: z.string(),
+    liveTranscript: z.string().optional(),
+    flashLiteTranscript: z.string().optional(),
+    transcribeTranscript: z.string().optional(),
+    transcribeTimestampTranscript: z.string().optional(),
+  }),
+  trace: SpeakingEvaluationTraceSchema,
+});
+export type PracticeEvaluationResult = z.infer<
+  typeof PracticeEvaluationResultSchema
+>;
+
+export const practiceFeedbackJsonSchema = {
+  type: "object",
+  properties: {
+    evidenceScope: {
+      type: "object",
+      properties: {
+        mode: { type: "string", enum: ["part_1"] },
+        responseCount: { type: "integer" },
+      },
+      required: ["mode", "responseCount"],
+    },
+    estimatedPerformance: {
+      type: "object",
+      properties: {
+        fluencyAndCoherence: { type: "number" },
+        lexicalResource: { type: "number" },
+        grammaticalRangeAndAccuracy: { type: "number" },
+        pronunciation: { type: "number" },
+      },
+    },
+    strengths: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          criterion: { type: "string", enum: ["FC", "LR", "GRA", "PR"] },
+          observation: { type: "string" },
+          evidence: {
+            type: "object",
+            properties: {
+              transcriptQuote: { type: "string" },
+              startMs: { type: "number" },
+              endMs: { type: "number" },
+            },
+          },
+          suggestion: { type: "string" },
+        },
+        required: ["criterion", "observation"],
+      },
+    },
+    priorities: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          criterion: { type: "string", enum: ["FC", "LR", "GRA", "PR"] },
+          observation: { type: "string" },
+          evidence: {
+            type: "object",
+            properties: {
+              transcriptQuote: { type: "string" },
+              startMs: { type: "number" },
+              endMs: { type: "number" },
+            },
+          },
+          suggestion: { type: "string" },
+        },
+        required: ["criterion", "observation"],
+      },
+    },
+    summary: { type: "string" },
+    evidenceSufficiency: {
+      type: "string",
+      enum: ["sufficient_for_practice_feedback", "limited"],
+    },
+  },
+  required: [
+    "evidenceScope",
+    "strengths",
+    "priorities",
+    "summary",
+    "evidenceSufficiency",
+  ],
 } as const;

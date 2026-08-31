@@ -134,11 +134,28 @@ export function buildToolResponse(
 
 export function buildExaminerSystemInstruction(
   candidateName?: string,
-  topic?: LiveSpeakingConfig["topic"]
+  topic?: LiveSpeakingConfig["topic"],
+  targetPart: LiveSpeakingConfig["targetPart"] = "full"
 ): string {
+  const isPart1Only = targetPart === "part1" || targetPart === "part_1";
   let topicSpecifics = "";
+
   if (topic) {
-    topicSpecifics = `
+    if (isPart1Only) {
+      topicSpecifics = `
+EXAMINATION TOPIC & QUESTIONS (PART 1 PRACTICE ONLY):
+Theme: "${topic.title}" (${topic.category})
+
+PART 1: "${topic.part1.theme}"
+Questions (ask strictly ONE at a time, in order):
+${topic.part1.questions.map((q, idx) => `  Question ${idx + 1}: "${q}"`).join("\n")}
+
+CONCLUDING PART 1 PRACTICE:
+After the candidate finishes answering the final Part 1 question (Question ${topic.part1.questions.length}), say: "Thank you very much. That concludes your Part 1 Speaking practice session." and IMMEDIATELY CALL THE TOOL 'end_exam'.
+Do NOT move to Part 2 or Part 3.
+`;
+    } else {
+      topicSpecifics = `
 EXAMINATION TOPIC & QUESTIONS:
 Theme: "${topic.title}" (${topic.category})
 
@@ -160,11 +177,12 @@ Questions (ask strictly ONE at a time):
 ${topic.part3.questions.map((q, idx) => `  Question ${idx + 1}: "${q}"`).join("\n")}
 After Part 3, say "Thank you very much. That concludes your IELTS Speaking examination." and CALL THE TOOL 'end_exam'.
 `;
+    }
   }
 
   return `
 Role: Senior IELTS Speaking Examiner (Dr. Harrison).
-Goal: Conduct a structured, realistic IELTS Speaking examination (Part 1, Part 2, and Part 3).
+Goal: ${isPart1Only ? "Conduct a focused, high-fidelity IELTS Speaking Part 1 practice session." : "Conduct a structured, realistic IELTS Speaking examination (Part 1, Part 2, and Part 3)."}
 ${candidateName ? `The candidate's name is ${candidateName}.` : "Address the candidate formally."}
 
 CRITICAL TURN-TAKING & PACING RULES:
@@ -172,7 +190,8 @@ CRITICAL TURN-TAKING & PACING RULES:
 2. START OF TEST: Start with: "Good day. My name is Dr. Harrison, and I will be your IELTS Examiner today. Could you please tell me your full name?"
 3. STOP TALKING immediately after asking for the candidate's name. Wait for the candidate to respond.
 4. Only AFTER the candidate tells you their name, say "Thank you. Let's begin Part 1." and ask Question 1 of Part 1.
-5. In Part 1 and Part 3: Ask each question individually. Always wait for the candidate's complete answer before asking the next question.
+5. In Part 1: Ask each question individually. Always wait for the candidate's complete answer before asking the next question.
+${isPart1Only ? `6. After candidate finishes Question ${topic?.part1.questions.length || 3}, conclude the session and call 'end_exam'.` : "6. Move through Part 1 -> Part 2 -> Part 3 as specified."}
 
 ${topicSpecifics}
 
@@ -188,6 +207,7 @@ export function useGeminiLive(
   const {
     candidateName,
     topic,
+    targetPart = "full",
     systemInstruction,
     voiceName = "Puck",
     tokenEndpoint = "/api/speaking/live-token",
@@ -879,7 +899,7 @@ export function useGeminiLive(
       // 3. Connect WebSocket to Gemini Multimodal Live API
       const effectiveInstruction =
         systemInstruction ||
-        buildExaminerSystemInstruction(candidateName, topic);
+        buildExaminerSystemInstruction(candidateName, topic, targetPart);
 
       const targetModel = tokenData.model || "gemini-3.1-flash-live-preview";
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=${ephemeralKey}`;
@@ -1197,6 +1217,7 @@ export function useGeminiLive(
     candidateName,
     topic,
     voiceName,
+    targetPart,
     handleToolCall,
     updateTranscriptStream,
     commitCurrentTurn,

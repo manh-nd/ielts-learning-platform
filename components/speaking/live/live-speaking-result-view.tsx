@@ -33,12 +33,19 @@ import {
   SpeakingCriteriaScores,
 } from "@/components/speaking/review/speaking-criteria-scorecard";
 import { AudioWaveformVisualizer } from "@/components/speaking/audio-waveform-visualizer";
-import { IeltsSpeakingEvaluationResult } from "@/lib/gemini/speaking-schema";
+import {
+  IeltsSpeakingEvaluationResult,
+  PracticeFeedback,
+  SpeakingEvaluationTrace,
+} from "@/lib/gemini/speaking-schema";
 import { RecordedAudioData, TranscriptItem } from "./types";
 import { cn } from "@/lib/utils";
 
 export interface LiveSpeakingResultViewProps {
-  evaluationResult: IeltsSpeakingEvaluationResult | null;
+  evaluationResult?: IeltsSpeakingEvaluationResult | null;
+  practiceFeedback?: PracticeFeedback | null;
+  traceMetadata?: SpeakingEvaluationTrace | null;
+  isPracticeMode?: boolean;
   isLoading: boolean;
   error?: string | null;
   recordedAudio: RecordedAudioData | null;
@@ -49,8 +56,18 @@ export interface LiveSpeakingResultViewProps {
   className?: string;
 }
 
+function formatTimestamp(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+}
+
 export function LiveSpeakingResultView({
   evaluationResult,
+  practiceFeedback,
+  traceMetadata,
+  isPracticeMode: _isPracticeMode,
   isLoading,
   error,
   recordedAudio,
@@ -218,7 +235,7 @@ export function LiveSpeakingResultView({
     );
   }
 
-  if (error || !evaluationResult) {
+  if (error || (!evaluationResult && !practiceFeedback)) {
     return (
       <Card
         className={cn(
@@ -264,6 +281,328 @@ export function LiveSpeakingResultView({
     );
   }
 
+  // Render PracticeFeedback View (Part 1 Practice MVP)
+  if (practiceFeedback) {
+    const {
+      estimatedPerformance,
+      strengths,
+      priorities,
+      summary,
+      evidenceSufficiency,
+    } = practiceFeedback;
+
+    return (
+      <div className={cn("w-full max-w-4xl mx-auto space-y-6", className)}>
+        {/* Hidden Audio Player for Interactive Clip Playback */}
+        {recordedAudio && (
+          <audio
+            ref={audioElementRef}
+            src={recordedAudio.url}
+            preload="auto"
+            className="hidden"
+          />
+        )}
+
+        {/* Top Action Bar */}
+        <div className="flex items-center justify-between">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onBackToDashboard}
+            className="gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Bảng điều khiển</span>
+          </Button>
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRestartTest}
+              className="gap-1.5 text-xs font-medium cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Luyện đề khác</span>
+            </Button>
+          </div>
+        </div>
+
+        {/* Practice Feedback Header Banner */}
+        <div className="rounded-xl border bg-gradient-to-r from-indigo-500/10 via-background to-muted/20 p-5 space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-indigo-600 text-white text-xs">
+                Luyện tập Speaking Part 1
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                Formative Practice Feedback
+              </Badge>
+            </div>
+            {traceMetadata && (
+              <span className="text-[11px] font-mono text-muted-foreground">
+                Mô hình: {traceMetadata.modelUsed} ({traceMetadata.durationMs}
+                ms)
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            💡 <strong>Lưu ý:</strong> Đây là nhận xét phân tích cho phần Luyện
+            tập Part 1 nhằm hỗ trợ cải thiện kỹ năng, không phải chứng chỉ hay
+            điểm số thi IELTS chính thức.
+          </p>
+        </div>
+
+        {/* Estimated Criteria Performance if sufficient evidence */}
+        {evidenceSufficiency === "sufficient_for_practice_feedback" &&
+          estimatedPerformance && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card className="p-3 text-center border shadow-xs">
+                <div className="text-[11px] text-muted-foreground font-semibold">
+                  Fluency & Coherence
+                </div>
+                <div className="text-2xl font-black text-indigo-700 dark:text-indigo-400 mt-1">
+                  {estimatedPerformance.fluencyAndCoherence?.toFixed(1) ||
+                    "N/A"}
+                </div>
+              </Card>
+              <Card className="p-3 text-center border shadow-xs">
+                <div className="text-[11px] text-muted-foreground font-semibold">
+                  Lexical Resource
+                </div>
+                <div className="text-2xl font-black text-blue-700 dark:text-blue-400 mt-1">
+                  {estimatedPerformance.lexicalResource?.toFixed(1) || "N/A"}
+                </div>
+              </Card>
+              <Card className="p-3 text-center border shadow-xs">
+                <div className="text-[11px] text-muted-foreground font-semibold">
+                  Grammar Range & Acc.
+                </div>
+                <div className="text-2xl font-black text-purple-700 dark:text-purple-400 mt-1">
+                  {estimatedPerformance.grammaticalRangeAndAccuracy?.toFixed(
+                    1
+                  ) || "N/A"}
+                </div>
+              </Card>
+              <Card className="p-3 text-center border shadow-xs">
+                <div className="text-[11px] text-muted-foreground font-semibold">
+                  Pronunciation
+                </div>
+                <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">
+                  {estimatedPerformance.pronunciation?.toFixed(1) || "N/A"}
+                </div>
+              </Card>
+            </div>
+          )}
+
+        {evidenceSufficiency === "limited" && (
+          <Card className="p-4 border-amber-500/30 bg-amber-500/5 text-xs text-amber-900 dark:text-amber-200">
+            ⚠ <strong>Bằng chứng nói chưa đủ:</strong> Câu trả lời quá ngắn để
+            ước lượng chính xác các tiêu chí. Lần tới bạn hãy trả lời trọn vẹn
+            từ 2-3 câu nhé!
+          </Card>
+        )}
+
+        {/* Summary Card */}
+        <Card className="shadow-xs border overflow-hidden">
+          <CardHeader className="p-4 border-b bg-muted/20 pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+              <FileCheck className="w-4 h-4 text-primary" />
+              <span>Nhận xét Hướng dẫn Sư phạm (Coaching Summary)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 text-xs text-foreground/90 leading-relaxed">
+            {summary}
+          </CardContent>
+        </Card>
+
+        {/* Detailed Points: Strengths & Priorities */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Key Strengths */}
+          <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs overflow-hidden">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>Điểm mạnh ghi nhận ({strengths.length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 space-y-3">
+              {strengths.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">
+                  Chưa ghi nhận điểm mạnh rõ nét do câu trả lời quá ngắn.
+                </p>
+              ) : (
+                strengths.map((pt, idx) => (
+                  <div
+                    key={idx}
+                    className="p-2.5 rounded-lg bg-background/80 border space-y-1.5 text-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-mono font-bold"
+                      >
+                        {pt.criterion}
+                      </Badge>
+                    </div>
+                    <p className="font-medium text-foreground">
+                      {pt.observation}
+                    </p>
+                    {pt.evidence?.transcriptQuote && (
+                      <p className="italic text-[11px] text-muted-foreground border-l-2 border-emerald-500/40 pl-2">
+                        &ldquo;{pt.evidence.transcriptQuote}&rdquo;
+                      </p>
+                    )}
+                    {pt.suggestion && (
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                        💡 {pt.suggestion}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Priority Improvements */}
+          <Card className="border-rose-500/30 bg-rose-500/5 shadow-xs overflow-hidden">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                <span>Ưu tiên cải thiện ({priorities.length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 space-y-3">
+              {priorities.map((pt, idx) => (
+                <div
+                  key={idx}
+                  className="p-2.5 rounded-lg bg-background/80 border space-y-1.5 text-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] font-mono font-bold text-rose-600 border-rose-300"
+                    >
+                      {pt.criterion}
+                    </Badge>
+                  </div>
+                  <p className="font-medium text-foreground">
+                    {pt.observation}
+                  </p>
+                  {pt.evidence?.transcriptQuote && (
+                    <p className="italic text-[11px] text-muted-foreground border-l-2 border-rose-500/40 pl-2">
+                      &ldquo;{pt.evidence.transcriptQuote}&rdquo;
+                    </p>
+                  )}
+                  {pt.suggestion && (
+                    <p className="text-[11px] text-rose-700 dark:text-rose-400 font-medium">
+                      🎯 {pt.suggestion}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Audio Recording & Transcript Player */}
+        {recordedAudio && (
+          <Card className="shadow-xs border overflow-hidden">
+            <CardHeader className="p-4 border-b bg-muted/20 pb-3">
+              <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                <Volume2 className="w-4 h-4 text-primary" />
+                <span>Bản ghi âm giọng bạn & Gỡ băng</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              <div className="p-3 rounded-xl border bg-muted/30 space-y-3">
+                <AudioWaveformVisualizer
+                  isLive={false}
+                  audioDuration={recordedAudio.durationSeconds}
+                  currentTime={fullAudioCurrentTime}
+                  onSeek={handleFullAudioSeek}
+                  barCount={48}
+                  height={60}
+                  className="cursor-pointer rounded-lg bg-background/80 border"
+                />
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={handleFullAudioTogglePlay}
+                    >
+                      {isFullAudioPlaying ? (
+                        <>
+                          <Pause className="w-3.5 h-3.5" />
+                          Tạm dừng
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          Phát ghi âm
+                        </>
+                      )}
+                    </Button>
+                    <Badge variant="outline" className="text-[11px] font-mono">
+                      {formatTimestamp(Math.round(fullAudioCurrentTime * 1000))}{" "}
+                      /{" "}
+                      {formatTimestamp(
+                        Math.round(recordedAudio.durationSeconds * 1000)
+                      )}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {[1, 1.25, 1.5].map((speed) => (
+                      <Button
+                        key={speed}
+                        type="button"
+                        variant={playbackSpeed === speed ? "default" : "ghost"}
+                        size="xs"
+                        className="h-6 px-1.5 text-[11px]"
+                        onClick={() => handleSetPlaybackSpeed(speed)}
+                      >
+                        {speed}x
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-1.5 pt-2">
+                <span className="font-semibold text-xs text-muted-foreground">
+                  Gỡ băng hội thoại trực tiếp:
+                </span>
+                <div className="p-3 rounded-lg bg-muted/30 border space-y-2 max-h-60 overflow-y-auto text-xs">
+                  {transcripts.map((t) => (
+                    <div key={t.id} className="flex gap-2">
+                      <span
+                        className={cn(
+                          "font-semibold shrink-0 text-[11px]",
+                          t.sender === "examiner"
+                            ? "text-indigo-600"
+                            : "text-emerald-600"
+                        )}
+                      >
+                        {t.sender === "examiner" ? "Giám khảo:" : "Bạn:"}
+                      </span>
+                      <span className="text-foreground/90">{t.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  if (!evaluationResult) {
+    return null;
+  }
+
   const { overallScorecard, partEvaluations, evidence, trace } =
     evaluationResult;
   const { criteriaScores, generalFeedback } = overallScorecard;
@@ -287,13 +626,6 @@ export function LiveSpeakingResultView({
     lexicalResource: criteriaScores.lexicalResource,
     grammaticalRangeAndAccuracy: criteriaScores.grammaticalRangeAndAccuracy,
     pronunciation: criteriaScores.pronunciation,
-  };
-
-  const formatTimestamp = (ms: number) => {
-    const totalSec = Math.floor(ms / 1000);
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (

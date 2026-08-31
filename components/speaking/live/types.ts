@@ -84,7 +84,7 @@ export type GeminiLiveVoice = "Puck" | "Charon" | "Kore" | "Fenrir" | "Aoede";
 export interface LiveSpeakingConfig {
   candidateName?: string;
   topic?: SpeakingMockTopic;
-  targetPart?: "part1" | "part2" | "part3" | "full";
+  targetPart?: "part1" | "part2" | "part3" | "full" | "part_1";
   systemInstruction?: string;
   voiceName?: GeminiLiveVoice;
   tokenEndpoint?: string;

@@ -20,7 +20,11 @@ import { LiveSpeakingCueCardModal } from "./live-speaking-cue-card-modal";
 import { LiveSpeakingResultView } from "./live-speaking-result-view";
 import { useGeminiLive } from "./use-gemini-live";
 import { LiveSpeakingConfig, CandidateTurnMarker } from "./types";
-import { IeltsSpeakingEvaluationResult } from "@/lib/gemini/speaking-schema";
+import {
+  IeltsSpeakingEvaluationResult,
+  PracticeFeedback,
+  SpeakingEvaluationTrace,
+} from "@/lib/gemini/speaking-schema";
 
 export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
   title?: string;
@@ -72,11 +76,16 @@ export function LiveSpeakingExaminerRoom({
 
   const [evaluationResult, setEvaluationResult] =
     useState<IeltsSpeakingEvaluationResult | null>(null);
+  const [practiceFeedback, setPracticeFeedback] =
+    useState<PracticeFeedback | null>(null);
+  const [traceMetadata, setTraceMetadata] =
+    useState<SpeakingEvaluationTrace | null>(null);
   const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
   const [evalError, setEvalError] = useState<string | null>(null);
   const [isExamFinished, setIsExamFinished] = useState<boolean>(false);
 
   const isConnected = status === "connected";
+  const isPart1Practice = targetPart === "part1" || targetPart === "part_1";
 
   // Dispatch evaluation request to server
   const triggerEvaluation = useCallback(
@@ -97,6 +106,12 @@ export function LiveSpeakingExaminerRoom({
           sessionId: `ses_live_${Date.now()}`,
           topicTitle: topic?.title || "General IELTS Speaking Mock Test",
           candidateName,
+          practiceMode: isPart1Practice ? "part_1" : undefined,
+          targetPart: isPart1Practice ? "part_1" : "full",
+          questions:
+            isPart1Practice && topic?.part1.questions
+              ? topic.part1.questions
+              : undefined,
           transcripts: transcripts.map((t) => ({
             sender: t.sender,
             text: t.text,
@@ -125,10 +140,15 @@ export function LiveSpeakingExaminerRoom({
           );
         }
 
-        const data = (await res.json()) as {
-          result: IeltsSpeakingEvaluationResult;
-        };
-        setEvaluationResult(data.result);
+        const data = await res.json();
+        if (data.isPractice) {
+          setPracticeFeedback(data.result as PracticeFeedback);
+        } else {
+          setEvaluationResult(data.result as IeltsSpeakingEvaluationResult);
+        }
+        if (data.trace) {
+          setTraceMetadata(data.trace as SpeakingEvaluationTrace);
+        }
       } catch (err: unknown) {
         console.error("[LiveExaminerRoom] Evaluation failed:", err);
         setEvalError(
@@ -138,7 +158,7 @@ export function LiveSpeakingExaminerRoom({
         setIsEvaluating(false);
       }
     },
-    [candidateName, topic, transcripts, turnMarkers]
+    [candidateName, isPart1Practice, topic, transcripts, turnMarkers]
   );
 
   // Finish exam manually or automatically
@@ -231,6 +251,9 @@ export function LiveSpeakingExaminerRoom({
     return (
       <LiveSpeakingResultView
         evaluationResult={evaluationResult}
+        practiceFeedback={practiceFeedback}
+        traceMetadata={traceMetadata}
+        isPracticeMode={isPart1Practice}
         isLoading={isEvaluating}
         error={evalError}
         recordedAudio={recordedAudio}
@@ -239,6 +262,8 @@ export function LiveSpeakingExaminerRoom({
         onRestartTest={() => {
           setIsExamFinished(false);
           setEvaluationResult(null);
+          setPracticeFeedback(null);
+          setTraceMetadata(null);
           onRestart?.();
         }}
         onBackToDashboard={() => {

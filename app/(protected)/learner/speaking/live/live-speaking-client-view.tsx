@@ -42,6 +42,7 @@ export function LiveSpeakingClientView({
   const [selectedTopic, setSelectedTopic] = useState<SpeakingMockTopic>(
     SPEAKING_MOCK_TOPICS[0]
   );
+  const [targetPart, setTargetPart] = useState<"part1" | "full">("part1");
   const [isInRoom, setIsInRoom] = useState<boolean>(false);
 
   const handleRandomTopic = () => {
@@ -65,6 +66,7 @@ export function LiveSpeakingClientView({
         <LiveSpeakingExaminerRoom
           candidateName={candidateName}
           topic={selectedTopic}
+          targetPart={targetPart}
           onBackToDashboard={() => router.push("/learner/dashboard")}
           onRestart={() => setIsInRoom(false)}
         />
@@ -87,30 +89,68 @@ export function LiveSpeakingClientView({
               </Badge>
               <Badge
                 variant="secondary"
-                className="text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
+                className={cn(
+                  "text-xs border",
+                  targetPart === "part1"
+                    ? "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
+                    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
+                )}
               >
-                Full Test (Part 1 - 3)
+                {targetPart === "part1"
+                  ? "Luyện tập Part 1 (~3-5 câu)"
+                  : "Full Test (Part 1 - 3)"}
               </Badge>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Phòng Thi IELTS Speaking Trực Tiếp AI
+              Phòng Luyện Thi IELTS Speaking Trực Tiếp AI
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed">
               Trải nghiệm đàm thoại giọng nói 1-on-1 thời gian thực với Giám
-              khảo AI bản ngữ chuẩn khảo thí. Hệ thống tự động chuyển Part, hiển
-              thị Cue Card đếm ngược 1 phút và xuất Bảng điểm 4 tiêu chí chi
-              tiết sau khi thi.
+              khảo AI bản ngữ chuẩn khảo thí. Hệ thống ghi âm thực, gỡ băng và
+              xuất nhận xét chi tiết sau buổi luyện.
             </p>
           </div>
 
-          <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+          <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
+            {/* Practice Mode Selector Switch */}
+            <div className="flex items-center gap-1 p-1 bg-background/80 rounded-lg border shadow-xs">
+              <Button
+                size="sm"
+                variant={targetPart === "part1" ? "default" : "ghost"}
+                onClick={() => setTargetPart("part1")}
+                className={cn(
+                  "h-8 text-xs font-medium cursor-pointer",
+                  targetPart === "part1" &&
+                    "bg-indigo-600 hover:bg-indigo-700 text-white"
+                )}
+              >
+                Luyện Part 1 (3-5 câu)
+              </Button>
+              <Button
+                size="sm"
+                variant={targetPart === "full" ? "default" : "ghost"}
+                onClick={() => setTargetPart("full")}
+                className={cn(
+                  "h-8 text-xs font-medium cursor-pointer",
+                  targetPart === "full" &&
+                    "bg-indigo-600 hover:bg-indigo-700 text-white"
+                )}
+              >
+                Full Mock Test
+              </Button>
+            </div>
+
             <Button
               size="lg"
               onClick={() => setIsInRoom(true)}
-              className="gap-2 font-semibold shadow-md bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer"
+              className="gap-2 font-semibold shadow-md bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer w-full sm:w-auto"
             >
               <Sparkles className="size-4" />
-              <span>Vào Phòng Thi Ngay</span>
+              <span>
+                {targetPart === "part1"
+                  ? "Bắt đầu Luyện Part 1"
+                  : "Vào Phòng Thi Toàn Diện"}
+              </span>
               <ArrowRight className="size-4" />
             </Button>
           </div>
