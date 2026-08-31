@@ -112,8 +112,7 @@ export function LiveSpeakingExaminerRoom({
       const resolvedStorageKey =
         storageKeyToUse || persistedStorageKey || undefined;
       const resolvedBase64 =
-        audioBase64ToUse ||
-        (!resolvedStorageKey ? persistedAudioBase64 || "" : undefined);
+        audioBase64ToUse || persistedAudioBase64 || undefined;
 
       try {
         const payload = {
@@ -253,6 +252,20 @@ export function LiveSpeakingExaminerRoom({
       }
     }
 
+    if (
+      !finalizedAudio?.blob &&
+      !base64Audio &&
+      !storageKey &&
+      !persistedAudioBase64 &&
+      !persistedStorageKey
+    ) {
+      setEvalError(
+        "Chưa ghi nhận được âm thanh từ microphone. Vui lòng nói vào microphone trước khi nộp bài."
+      );
+      setIsEvaluating(false);
+      return;
+    }
+
     await triggerEvaluation(
       activeSessionId,
       storageKey,
@@ -260,7 +273,14 @@ export function LiveSpeakingExaminerRoom({
       finalizedAudio?.durationSeconds,
       turnMarkers
     );
-  }, [activeSessionId, disconnect, triggerEvaluation, turnMarkers]);
+  }, [
+    activeSessionId,
+    disconnect,
+    persistedAudioBase64,
+    persistedStorageKey,
+    triggerEvaluation,
+    turnMarkers,
+  ]);
 
   // If exam has finished, display the comprehensive Result View
   if (isExamFinished || examStage === "completed") {

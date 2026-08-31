@@ -510,8 +510,12 @@ export function useGeminiLive(
     }
 
     if (wsRef.current) {
+      const ws = wsRef.current;
+      ws.onmessage = null;
+      ws.onerror = null;
+      ws.onclose = null;
       try {
-        wsRef.current.close();
+        ws.close();
       } catch {
         // Ignored
       }
