@@ -907,7 +907,7 @@ export function useGeminiLive(
 
       // Start recording immediately with user click gesture
       try {
-        await startAudioRecording(controller, (base64PCM, rms) => {
+        await startAudioRecording(controller, (base64Pcm, rms) => {
           const currentWs = wsRef.current;
           if (
             currentWs &&
@@ -933,7 +933,7 @@ export function useGeminiLive(
               realtimeInput: {
                 audio: {
                   mimeType: "audio/pcm;rate=16000",
-                  data: base64PCM,
+                  data: base64Pcm,
                 },
               },
             };

@@ -106,6 +106,36 @@ export function pcmBase64ChunksToWavBlob(
   return new Blob([wavBuffer], { type: "audio/wav" });
 }
 
+function buildRecordedAudioData(
+  blob: Blob,
+  mimeType: string,
+  startTimeMs: number
+): RecordedAudioData {
+  let url = "";
+  try {
+    if (
+      typeof window !== "undefined" &&
+      window.URL &&
+      typeof window.URL.createObjectURL === "function"
+    ) {
+      url = window.URL.createObjectURL(blob);
+    }
+  } catch {
+    // Ignored in test / headless environments
+  }
+  const durationSeconds = Math.max(
+    1,
+    Math.round((Date.now() - (startTimeMs || Date.now())) / 1000)
+  );
+
+  return {
+    blob,
+    url,
+    durationSeconds,
+    mimeType,
+  };
+}
+
 export function useLiveAudioRecorder(
   options: UseLiveAudioRecorderOptions = {}
 ): UseLiveAudioRecorderReturn {
@@ -154,9 +184,9 @@ export function useLiveAudioRecorder(
         onMicLevel?.(level);
       });
 
-      await controller.startRecording((base64PCM, rms) => {
-        rawPcmChunksRef.current.push(base64PCM);
-        onPcmChunk?.(base64PCM, rms);
+      await controller.startRecording((base64Pcm, rms) => {
+        rawPcmChunksRef.current.push(base64Pcm);
+        onPcmChunk?.(base64Pcm, rms);
       });
 
       const micStream = controller.getMediaStream();
@@ -217,32 +247,11 @@ export function useLiveAudioRecorder(
       if (recordedChunksRef.current.length > 0) {
         const mimeType = recorder?.mimeType || "audio/webm;codecs=opus";
         const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-        let url = "";
-        try {
-          if (
-            typeof window !== "undefined" &&
-            window.URL &&
-            typeof window.URL.createObjectURL === "function"
-          ) {
-            url = window.URL.createObjectURL(blob);
-          }
-        } catch {
-          // Ignored in test / headless environments
-        }
-        const durationSeconds = Math.max(
-          1,
-          Math.round(
-            (Date.now() - (recordStartTimeRef.current || Date.now())) / 1000
-          )
-        );
-
-        const audioData: RecordedAudioData = {
+        const audioData = buildRecordedAudioData(
           blob,
-          url,
-          durationSeconds,
           mimeType,
-        };
-
+          recordStartTimeRef.current
+        );
         setRecordedAudio(audioData);
         return audioData;
       }
@@ -250,32 +259,11 @@ export function useLiveAudioRecorder(
       // Secondary fallback: assemble WAV Blob from raw PCM chunks if MediaRecorder produced 0 chunks
       if (rawPcmChunksRef.current.length > 0) {
         const blob = pcmBase64ChunksToWavBlob(rawPcmChunksRef.current, 16000);
-        let url = "";
-        try {
-          if (
-            typeof window !== "undefined" &&
-            window.URL &&
-            typeof window.URL.createObjectURL === "function"
-          ) {
-            url = window.URL.createObjectURL(blob);
-          }
-        } catch {
-          // Ignored
-        }
-        const durationSeconds = Math.max(
-          1,
-          Math.round(
-            (Date.now() - (recordStartTimeRef.current || Date.now())) / 1000
-          )
-        );
-
-        const audioData: RecordedAudioData = {
+        const audioData = buildRecordedAudioData(
           blob,
-          url,
-          durationSeconds,
-          mimeType: "audio/wav",
-        };
-
+          "audio/wav",
+          recordStartTimeRef.current
+        );
         setRecordedAudio(audioData);
         return audioData;
       }
