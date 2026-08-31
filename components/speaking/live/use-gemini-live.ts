@@ -417,6 +417,7 @@ export function useGeminiLive(
         // Ignored
       }
     }
+    mediaRecorderRef.current = null;
 
     if (audioControllerRef.current) {
       audioControllerRef.current.close();
@@ -1227,31 +1228,83 @@ export function useGeminiLive(
     startNudgeTimer,
   ]);
 
-  const disconnect = useCallback(() => {
-    updateStatus("disconnecting");
+  const finalizeRecording =
+    useCallback(async (): Promise<RecordedAudioData | null> => {
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") {
+        await new Promise<void>((resolve) => {
+          let isResolved = false;
+          const done = () => {
+            if (!isResolved) {
+              isResolved = true;
+              resolve();
+            }
+          };
 
-    if (recordedChunksRef.current.length > 0) {
-      const mimeType =
-        mediaRecorderRef.current?.mimeType || "audio/webm;codecs=opus";
-      const blob = new Blob(recordedChunksRef.current, { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const durationSeconds = Math.max(
-        1,
-        Math.round((Date.now() - recordStartTimeRef.current) / 1000)
-      );
+          recorder.addEventListener("stop", done, { once: true });
+          recorder.addEventListener("error", done, { once: true });
 
-      setRecordedAudio({
-        blob,
-        url,
-        durationSeconds,
-        mimeType,
-      });
-    }
+          try {
+            recorder.stop();
+          } catch {
+            done();
+          }
+        });
+      }
 
-    cleanupAudio();
-    updateStatus("idle");
-    setSpeakingState({ kind: "ended" });
-  }, [cleanupAudio, updateStatus]);
+      if (recordedChunksRef.current.length > 0) {
+        const mimeType = recorder?.mimeType || "audio/webm;codecs=opus";
+        const blob = new Blob(recordedChunksRef.current, { type: mimeType });
+        let url = "";
+        try {
+          if (
+            typeof window !== "undefined" &&
+            window.URL &&
+            typeof window.URL.createObjectURL === "function"
+          ) {
+            url = window.URL.createObjectURL(blob);
+          }
+        } catch {
+          // Ignored in test / headless environments
+        }
+        const durationSeconds = Math.max(
+          1,
+          Math.round(
+            (Date.now() - (recordStartTimeRef.current || Date.now())) / 1000
+          )
+        );
+
+        const audioData: RecordedAudioData = {
+          blob,
+          url,
+          durationSeconds,
+          mimeType,
+        };
+
+        setRecordedAudio(audioData);
+        return audioData;
+      }
+
+      return null;
+    }, []);
+
+  const disconnect =
+    useCallback(async (): Promise<RecordedAudioData | null> => {
+      updateStatus("disconnecting");
+
+      let audioData: RecordedAudioData | null = null;
+      try {
+        audioData = await finalizeRecording();
+      } catch (err) {
+        console.warn("[useGeminiLive] Error finalizing recording:", err);
+      }
+
+      cleanupAudio();
+      updateStatus("idle");
+      setSpeakingState({ kind: "ended" });
+
+      return audioData;
+    }, [cleanupAudio, finalizeRecording, updateStatus]);
 
   const toggleMute = useCallback(() => {
     setIsMuted((prev) => {

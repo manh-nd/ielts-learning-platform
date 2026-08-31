@@ -188,14 +188,14 @@ export function LiveSpeakingExaminerRoom({
 
   // Finish exam manually or automatically
   const handleFinishExam = useCallback(async () => {
-    disconnect();
+    const finalizedAudio = await disconnect();
     setIsExamFinished(true);
 
     let storageKey = "";
     let base64Audio = "";
 
     // 1. Attempt Presigned S3/Storage Direct Upload
-    if (recordedAudio?.blob) {
+    if (finalizedAudio?.blob) {
       try {
         const uploadUrlRes = await fetch("/api/speaking/upload-url", {
           method: "POST",
@@ -203,7 +203,7 @@ export function LiveSpeakingExaminerRoom({
           body: JSON.stringify({
             sessionId: activeSessionId,
             filename: "candidate.webm",
-            mimeType: recordedAudio.mimeType || "audio/webm;codecs=opus",
+            mimeType: finalizedAudio.mimeType || "audio/webm;codecs=opus",
           }),
         });
 
@@ -217,9 +217,9 @@ export function LiveSpeakingExaminerRoom({
             method: "PUT",
             headers: {
               "Content-Type":
-                recordedAudio.mimeType || "audio/webm;codecs=opus",
+                finalizedAudio.mimeType || "audio/webm;codecs=opus",
             },
-            body: recordedAudio.blob,
+            body: finalizedAudio.blob,
           });
 
           if (putRes.ok) {
@@ -244,7 +244,7 @@ export function LiveSpeakingExaminerRoom({
               const commaIndex = res.indexOf(",");
               resolve(commaIndex !== -1 ? res.slice(commaIndex + 1) : res);
             };
-            reader.readAsDataURL(recordedAudio.blob);
+            reader.readAsDataURL(finalizedAudio.blob);
           });
           setPersistedAudioBase64(base64Audio);
         } catch (readErr) {
@@ -260,16 +260,10 @@ export function LiveSpeakingExaminerRoom({
       activeSessionId,
       storageKey,
       base64Audio,
-      recordedAudio?.durationSeconds,
+      finalizedAudio?.durationSeconds,
       turnMarkers
     );
-  }, [
-    activeSessionId,
-    disconnect,
-    recordedAudio,
-    triggerEvaluation,
-    turnMarkers,
-  ]);
+  }, [activeSessionId, disconnect, triggerEvaluation, turnMarkers]);
 
   // If exam has finished, display the comprehensive Result View
   if (isExamFinished || examStage === "completed") {

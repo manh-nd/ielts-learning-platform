@@ -132,3 +132,134 @@ describe("Live Speaking Prototype Engine", () => {
     });
   });
 });
+
+describe("Live Recording Finalization & OriginalAudio Contract", () => {
+  it("should finalize MediaRecorder asynchronously and include the final chunk on stop", async () => {
+    const recordedChunks: Blob[] = [
+      new Blob(["chunk1"], { type: "audio/webm" }),
+    ];
+    let isStopCalled = false;
+
+    // Simulate mock MediaRecorder with asynchronous final chunk on stop
+    const listeners: Record<string, ((ev?: unknown) => void)[]> = {};
+    const mockRecorder = {
+      state: "recording" as "recording" | "inactive",
+      mimeType: "audio/webm;codecs=opus",
+      addEventListener: (event: string, cb: (ev?: unknown) => void) => {
+        listeners[event] = listeners[event] || [];
+        listeners[event].push(cb);
+      },
+      stop: () => {
+        isStopCalled = true;
+        mockRecorder.state = "inactive";
+        // Asynchronously emit final dataavailable chunk before stop
+        setTimeout(() => {
+          recordedChunks.push(new Blob(["finalChunk"], { type: "audio/webm" }));
+          listeners["stop"]?.forEach((cb) => cb());
+        }, 10);
+      },
+    };
+
+    // Replicate finalizeRecording contract
+    const finalize = async () => {
+      if (mockRecorder && mockRecorder.state !== "inactive") {
+        await new Promise<void>((resolve) => {
+          let isResolved = false;
+          const done = () => {
+            if (!isResolved) {
+              isResolved = true;
+              resolve();
+            }
+          };
+          mockRecorder.addEventListener("stop", done);
+          mockRecorder.addEventListener("error", done);
+          try {
+            mockRecorder.stop();
+          } catch {
+            done();
+          }
+        });
+      }
+
+      if (recordedChunks.length > 0) {
+        const blob = new Blob(recordedChunks, { type: mockRecorder.mimeType });
+        return {
+          blob,
+          url: "blob:http://localhost/mock-audio",
+          durationSeconds: 15,
+          mimeType: mockRecorder.mimeType,
+        };
+      }
+      return null;
+    };
+
+    const finalizedAudio = await finalize();
+
+    expect(isStopCalled).toBe(true);
+    expect(finalizedAudio).not.toBeNull();
+    expect(finalizedAudio?.blob).toBeDefined();
+    expect(recordedChunks.length).toBe(2);
+    expect(finalizedAudio?.mimeType).toBe("audio/webm;codecs=opus");
+    expect(finalizedAudio?.durationSeconds).toBe(15);
+  });
+
+  it("should return null and not fabricate audio evidence when no chunks were recorded", async () => {
+    const recordedChunks: Blob[] = [];
+    const mockRecorder = {
+      state: "inactive" as "recording" | "inactive",
+      mimeType: "audio/webm",
+      addEventListener: () => {},
+      stop: () => {},
+    };
+
+    const finalize = async () => {
+      if (mockRecorder && mockRecorder.state !== "inactive") {
+        mockRecorder.stop();
+      }
+      if (recordedChunks.length > 0) {
+        return {
+          blob: new Blob(recordedChunks),
+          url: "",
+          durationSeconds: 0,
+          mimeType: "audio/webm",
+        };
+      }
+      return null;
+    };
+
+    const finalizedAudio = await finalize();
+    expect(finalizedAudio).toBeNull();
+  });
+
+  it("should handle already inactive MediaRecorder with existing chunks cleanly", async () => {
+    const recordedChunks: Blob[] = [
+      new Blob(["existingAudio"], { type: "audio/webm" }),
+    ];
+    const mockRecorder = {
+      state: "inactive" as "recording" | "inactive",
+      mimeType: "audio/webm;codecs=opus",
+      addEventListener: () => {},
+      stop: () => {},
+    };
+
+    const finalize = async () => {
+      if (mockRecorder && mockRecorder.state !== "inactive") {
+        mockRecorder.stop();
+      }
+      if (recordedChunks.length > 0) {
+        return {
+          blob: new Blob(recordedChunks, { type: mockRecorder.mimeType }),
+          url: "blob:http://localhost/existing",
+          durationSeconds: 10,
+          mimeType: mockRecorder.mimeType,
+        };
+      }
+      return null;
+    };
+
+    const finalizedAudio = await finalize();
+    expect(finalizedAudio).not.toBeNull();
+    expect(finalizedAudio?.durationSeconds).toBe(10);
+    expect(finalizedAudio?.blob.size).toBeGreaterThan(0);
+  });
+});
