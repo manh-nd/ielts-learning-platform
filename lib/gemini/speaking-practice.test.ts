@@ -644,6 +644,36 @@ describe("Part 1 Evaluator Fallback & Cascade Hierarchy", () => {
   });
 });
 
+function createMockAuthHeaders(
+  user: {
+    id: string;
+    role: "learner" | "teacher";
+    name?: string;
+    email?: string;
+  } | null = {
+    id: "user_123",
+    role: "learner",
+    name: "Test Learner",
+    email: "learner@test.com",
+  }
+): Headers {
+  const headers = new Headers();
+  if (user) {
+    const session = {
+      id: `sess_${user.id}`,
+      userId: user.id,
+      token: `token_${user.id}`,
+      expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const payload = JSON.stringify({ user, session });
+    headers.set("cookie", `e2e_mock_session=${encodeURIComponent(payload)}`);
+  }
+  headers.set("content-type", "application/json");
+  return headers;
+}
+
 describe("Audio Persistence & Evaluation Failure Invariants", () => {
   // Test 8: evaluation failure after persisted audio leaves a committed 'completed' Practice whose storageKey resolves to actual audio bytes
   it("Test 8: evaluation failure leaves committed 'completed' Practice whose storageKey resolves to actual audio bytes", async () => {
@@ -669,9 +699,13 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
         "http://localhost:3000/api/speaking/evaluate",
         {
           method: "POST",
+          headers: createMockAuthHeaders({
+            id: "user_123",
+            role: "learner",
+            name: "Test Learner",
+          }),
           body: JSON.stringify({
             sessionId: testSessionId,
-            userId: "user_123",
             candidateName: "Test Learner",
             topicTitle: "Part 1 Practice Test",
             practiceMode: "part_1",
@@ -697,7 +731,14 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
       // 2. Assert Practice remains committed in storage/database as 'completed'
       const getReq = new NextRequest(
         `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
-        { method: "GET" }
+        {
+          method: "GET",
+          headers: createMockAuthHeaders({
+            id: "user_123",
+            role: "learner",
+            name: "Test Learner",
+          }),
+        }
       );
       const getRes = await GET(getReq);
       const getData = await getRes.json();
@@ -706,6 +747,7 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
       expect(getData.success).toBe(true);
       expect(getData.session.id).toBe(testSessionId);
       expect(getData.session.status).toBe("completed");
+      expect(getData.session.userId).toBe("user_123");
       expect(getData.session.scorecardJson).toBeNull();
       expect(getData.session.evidenceJson.evaluationStatus).toBe("failed");
       expect(getData.responses.length).toBeGreaterThan(0);
@@ -738,9 +780,13 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
         "http://localhost:3000/api/speaking/evaluate",
         {
           method: "POST",
+          headers: createMockAuthHeaders({
+            id: "user_fail",
+            role: "learner",
+            name: "Fail Learner",
+          }),
           body: JSON.stringify({
             sessionId: testSessionId,
-            userId: "user_fail",
             candidateName: "Fail Learner",
             topicTitle: "Part 1 Practice Test",
             practiceMode: "part_1",
@@ -761,7 +807,14 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
       // 2. Assert Practice was NOT committed to storage/database (GET returns 404)
       const getReq = new NextRequest(
         `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
-        { method: "GET" }
+        {
+          method: "GET",
+          headers: createMockAuthHeaders({
+            id: "user_fail",
+            role: "learner",
+            name: "Fail Learner",
+          }),
+        }
       );
       const getRes = await GET(getReq);
       expect(getRes.status).toBe(404);
@@ -832,9 +885,13 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
         "http://localhost:3000/api/speaking/evaluate",
         {
           method: "POST",
+          headers: createMockAuthHeaders({
+            id: "user_123",
+            role: "learner",
+            name: "Success Learner",
+          }),
           body: JSON.stringify({
             sessionId: testSessionId,
-            userId: "user_123",
             candidateName: "Success Learner",
             topicTitle: "Part 1 Practice Test",
             practiceMode: "part_1",
@@ -861,13 +918,21 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
       // Verify DB / storage record transitioned to 'evaluated'
       const getReq = new NextRequest(
         `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
-        { method: "GET" }
+        {
+          method: "GET",
+          headers: createMockAuthHeaders({
+            id: "user_123",
+            role: "learner",
+            name: "Success Learner",
+          }),
+        }
       );
       const getRes = await GET(getReq);
       const getData = await getRes.json();
 
       expect(getRes.status).toBe(200);
       expect(getData.session.status).toBe("evaluated");
+      expect(getData.session.userId).toBe("user_123");
       expect(getData.session.scorecardJson).toBeDefined();
     } finally {
       geminiRotator.executeWithRotation = originalExecute;
@@ -941,9 +1006,13 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
         "http://localhost:3000/api/speaking/evaluate",
         {
           method: "POST",
+          headers: createMockAuthHeaders({
+            id: "user_phantom",
+            role: "learner",
+            name: "Phantom User",
+          }),
           body: JSON.stringify({
             sessionId: testSessionId,
-            userId: "user_phantom",
             candidateName: "Phantom User",
             topicTitle: "Phantom Test Topic",
             practiceMode: "part_1",
@@ -1035,9 +1104,13 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
         "http://localhost:3000/api/speaking/evaluate",
         {
           method: "POST",
+          headers: createMockAuthHeaders({
+            id: "user_retry",
+            role: "learner",
+            name: "Retry Candidate",
+          }),
           body: JSON.stringify({
             sessionId: testSessionId,
-            userId: "user_retry",
             candidateName: "Retry Candidate",
             topicTitle: "Hometown Topic",
             practiceMode: "part_1",
@@ -1055,11 +1128,19 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
       // Verify session exists in 'completed' state
       const check1Req = new NextRequest(
         `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
-        { method: "GET" }
+        {
+          method: "GET",
+          headers: createMockAuthHeaders({
+            id: "user_retry",
+            role: "learner",
+            name: "Retry Candidate",
+          }),
+        }
       );
       const check1Res = await GET(check1Req);
       const check1Data = await check1Res.json();
       expect(check1Data.session.status).toBe("completed");
+      expect(check1Data.session.userId).toBe("user_retry");
 
       // STEP 2: Retry evaluation - sends SAME sessionId and NO audioBase64 (server resolves persisted OriginalAudio)
       failEvaluation = false;
@@ -1067,6 +1148,11 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
         "http://localhost:3000/api/speaking/evaluate",
         {
           method: "POST",
+          headers: createMockAuthHeaders({
+            id: "user_retry",
+            role: "learner",
+            name: "Retry Candidate",
+          }),
           body: JSON.stringify({
             sessionId: testSessionId, // SAME sessionId
             practiceMode: "part_1",
@@ -1088,11 +1174,19 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
       // Verify session transitioned to 'evaluated'
       const check2Req = new NextRequest(
         `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
-        { method: "GET" }
+        {
+          method: "GET",
+          headers: createMockAuthHeaders({
+            id: "user_retry",
+            role: "learner",
+            name: "Retry Candidate",
+          }),
+        }
       );
       const check2Res = await GET(check2Req);
       const check2Data = await check2Res.json();
       expect(check2Data.session.status).toBe("evaluated");
+      expect(check2Data.session.userId).toBe("user_retry");
       expect(check2Data.session.scorecardJson).toBeDefined();
 
       // Verify no second Practice session was created
@@ -1100,5 +1194,326 @@ describe("Audio Persistence & Evaluation Failure Invariants", () => {
     } finally {
       geminiRotator.executeWithRotation = originalExecute;
     }
+  });
+
+  // Test 13: Unauthenticated evaluate request is rejected with 401
+  it("Test 13: unauthenticated evaluate request is rejected with 401 Unauthorized", async () => {
+    const { POST, GET } = await import("../../app/api/speaking/evaluate/route");
+    const { NextRequest } = await import("next/server");
+
+    const postReq = new NextRequest(
+      "http://localhost:3000/api/speaking/evaluate",
+      {
+        method: "POST",
+        headers: createMockAuthHeaders(null),
+        body: JSON.stringify({ sessionId: "ses_unauth" }),
+      }
+    );
+    const postRes = await POST(postReq);
+    expect(postRes.status).toBe(401);
+
+    const getReq = new NextRequest(
+      "http://localhost:3000/api/speaking/evaluate?sessionId=ses_unauth",
+      {
+        method: "GET",
+        headers: createMockAuthHeaders(null),
+      }
+    );
+    const getRes = await GET(getReq);
+    expect(getRes.status).toBe(401);
+  });
+
+  // Test 14: Teacher role evaluate request is rejected with 403
+  it("Test 14: teacher evaluate request is rejected with 403 Forbidden", async () => {
+    const { POST, GET } = await import("../../app/api/speaking/evaluate/route");
+    const { NextRequest } = await import("next/server");
+
+    const teacherAuth = {
+      id: "teacher_007",
+      role: "teacher" as const,
+      name: "Teacher Bond",
+      email: "teacher@test.com",
+    };
+
+    const postReq = new NextRequest(
+      "http://localhost:3000/api/speaking/evaluate",
+      {
+        method: "POST",
+        headers: createMockAuthHeaders(teacherAuth),
+        body: JSON.stringify({ sessionId: "ses_teacher" }),
+      }
+    );
+    const postRes = await POST(postReq);
+    expect(postRes.status).toBe(403);
+
+    const getReq = new NextRequest(
+      "http://localhost:3000/api/speaking/evaluate?sessionId=ses_teacher",
+      {
+        method: "GET",
+        headers: createMockAuthHeaders(teacherAuth),
+      }
+    );
+    const getRes = await GET(getReq);
+    expect(getRes.status).toBe(403);
+  });
+
+  // Test 15: Spoofed userId in evaluation request cannot influence persisted owner
+  it("Test 15: spoofed userId in evaluation request cannot influence persisted owner", async () => {
+    const { POST, GET } = await import("../../app/api/speaking/evaluate/route");
+    const { geminiRotator } = await import("./index");
+    const { NextRequest } = await import("next/server");
+
+    const testSessionId = `ses_spoof_${Date.now()}`;
+    const testAudioBase64 = Buffer.from("spoof-test-audio").toString("base64");
+
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      estimatedPerformance: {
+        fluencyAndCoherence: 6.5,
+        lexicalResource: 6.5,
+        grammaticalRangeAndAccuracy: 6.5,
+        pronunciation: 6.5,
+      },
+      strengths: [],
+      priorities: [],
+      summary: "Spoof test feedback.",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(async () => ({
+          text: JSON.stringify(mockFeedback),
+          usageMetadata: {
+            promptTokenCount: 100,
+            candidatesTokenCount: 50,
+            totalTokenCount: 150,
+          },
+        })),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      const postReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          headers: createMockAuthHeaders({
+            id: "real_learner_id",
+            role: "learner",
+            name: "Real Learner",
+          }),
+          body: JSON.stringify({
+            userId: "victim_admin_id", // Client tries to spoof
+            sessionId: testSessionId,
+            practiceMode: "part_1",
+            audioBase64: testAudioBase64,
+            durationSeconds: 30,
+            questions: ["Where are you from?"],
+          }),
+        }
+      );
+
+      const postRes = await POST(postReq);
+      expect(postRes.status).toBe(200);
+
+      // Verify the session owner is real_learner_id, NOT victim_admin_id
+      const getReq = new NextRequest(
+        `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
+        {
+          method: "GET",
+          headers: createMockAuthHeaders({
+            id: "real_learner_id",
+            role: "learner",
+            name: "Real Learner",
+          }),
+        }
+      );
+      const getRes = await GET(getReq);
+      const getData = await getRes.json();
+      expect(getData.session.userId).toBe("real_learner_id");
+      expect(getData.session.userId).not.toBe("victim_admin_id");
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
+
+  // Test 16: Learner A GET of Learner B Practice is denied/not found
+  it("Test 16: Learner A GET of Learner B Practice returns 404 Not Found", async () => {
+    const { POST, GET } = await import("../../app/api/speaking/evaluate/route");
+    const { geminiRotator } = await import("./index");
+    const { NextRequest } = await import("next/server");
+
+    const testSessionId = `ses_cross_get_${Date.now()}`;
+    const testAudioBase64 = Buffer.from("cross-get-audio").toString("base64");
+
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      strengths: [],
+      priorities: [],
+      summary: "Cross GET test.",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(async () => ({
+          text: JSON.stringify(mockFeedback),
+          usageMetadata: {
+            promptTokenCount: 100,
+            candidatesTokenCount: 50,
+            totalTokenCount: 150,
+          },
+        })),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      // Learner B creates and evaluates their session
+      const createReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          headers: createMockAuthHeaders({
+            id: "learner_b",
+            role: "learner",
+            name: "Learner B",
+          }),
+          body: JSON.stringify({
+            sessionId: testSessionId,
+            practiceMode: "part_1",
+            audioBase64: testAudioBase64,
+            durationSeconds: 30,
+            questions: ["Question?"],
+          }),
+        }
+      );
+      await POST(createReq);
+
+      // Learner A tries to GET Learner B's session
+      const attackerGetReq = new NextRequest(
+        `http://localhost:3000/api/speaking/evaluate?sessionId=${testSessionId}`,
+        {
+          method: "GET",
+          headers: createMockAuthHeaders({
+            id: "learner_a", // Attacker
+            role: "learner",
+            name: "Learner A",
+          }),
+        }
+      );
+      const attackerGetRes = await GET(attackerGetReq);
+      expect(attackerGetRes.status).toBe(404);
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
+
+  // Test 17: Learner A retry of Learner B Practice is denied before OriginalAudio is loaded
+  it("Test 17: Learner A retry of Learner B Practice is denied with 403 Forbidden", async () => {
+    const { POST } = await import("../../app/api/speaking/evaluate/route");
+    const { geminiRotator } = await import("./index");
+    const { NextRequest } = await import("next/server");
+
+    const testSessionId = `ses_cross_retry_${Date.now()}`;
+    const testAudioBase64 = Buffer.from("cross-retry-audio").toString("base64");
+
+    // First attempt fails, leaving completed practice for Learner B
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(async () => {
+      throw new Error("503 Overloaded");
+    }) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      const initialReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          headers: createMockAuthHeaders({
+            id: "learner_b",
+            role: "learner",
+            name: "Learner B",
+          }),
+          body: JSON.stringify({
+            sessionId: testSessionId,
+            practiceMode: "part_1",
+            audioBase64: testAudioBase64,
+            durationSeconds: 30,
+            questions: ["Question?"],
+          }),
+        }
+      );
+      await POST(initialReq);
+
+      // Learner A attempts to trigger retry on Learner B's session
+      const attackerRetryReq = new NextRequest(
+        "http://localhost:3000/api/speaking/evaluate",
+        {
+          method: "POST",
+          headers: createMockAuthHeaders({
+            id: "learner_a", // Attacker
+            role: "learner",
+            name: "Learner A",
+          }),
+          body: JSON.stringify({
+            sessionId: testSessionId, // Learner B's session
+            practiceMode: "part_1",
+          }),
+        }
+      );
+      const attackerRetryRes = await POST(attackerRetryReq);
+      expect(attackerRetryRes.status).toBe(403);
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
+
+  // Test 18: Learner A evaluate request with storageKey belonging to Learner B is denied
+  it("Test 18: Learner A evaluate request with storageKey belonging to Learner B is denied with 403", async () => {
+    const { POST } = await import("../../app/api/speaking/evaluate/route");
+    const { NextRequest } = await import("next/server");
+
+    const postReq = new NextRequest(
+      "http://localhost:3000/api/speaking/evaluate",
+      {
+        method: "POST",
+        headers: createMockAuthHeaders({
+          id: "learner_a",
+          role: "learner",
+          name: "Learner A",
+        }),
+        body: JSON.stringify({
+          sessionId: "ses_hijack_123",
+          storageKey: "speaking/learner_b/ses_victim/candidate.webm",
+          practiceMode: "part_1",
+          durationSeconds: 30,
+        }),
+      }
+    );
+
+    const postRes = await POST(postReq);
+    expect(postRes.status).toBe(403);
   });
 });

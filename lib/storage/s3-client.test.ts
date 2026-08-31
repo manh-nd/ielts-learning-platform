@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import {
   buildSpeakingAudioStorageKey,
+  isSpeakingAudioStorageKeyOwnedBy,
   getSpeakingUploadPresignedUrl,
   getSpeakingDownloadPresignedUrl,
   saveDirectAudioDevFallback,
@@ -15,6 +16,15 @@ describe("S3 Storage & Presigned Upload Pipeline (ADR-0004 & ADR-0003)", () => {
       "candidate.webm"
     );
     expect(key).toBe("speaking/usr_123/ses_456/candidate.webm");
+  });
+
+  it("should correctly verify storage key ownership by userId", () => {
+    const ownedKey = "speaking/usr_123/ses_456/candidate.webm";
+    const otherKey = "speaking/usr_999/ses_456/candidate.webm";
+
+    expect(isSpeakingAudioStorageKeyOwnedBy(ownedKey, "usr_123")).toBe(true);
+    expect(isSpeakingAudioStorageKeyOwnedBy(otherKey, "usr_123")).toBe(false);
+    expect(isSpeakingAudioStorageKeyOwnedBy("", "usr_123")).toBe(false);
   });
 
   it("should fallback gracefully to internal direct upload URL when S3 is not configured in dev/test", async () => {

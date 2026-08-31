@@ -31,6 +31,18 @@ export function buildSpeakingAudioStorageKey(
 }
 
 /**
+ * Verifies whether a given storage key belongs to the specified userId.
+ */
+export function isSpeakingAudioStorageKeyOwnedBy(
+  storageKey: string,
+  userId: string
+): boolean {
+  if (!storageKey || !userId) return false;
+  const cleanUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return storageKey.startsWith(`speaking/${cleanUserId}/`);
+}
+
+/**
  * Returns S3Client instance if S3 environment variables are provided
  */
 function getS3Client(): { client: S3Client; bucket: string } | null {

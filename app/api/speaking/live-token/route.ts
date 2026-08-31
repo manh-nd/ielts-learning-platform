@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { geminiRotator } from "@/lib/gemini";
+import { requireRole } from "@/lib/authorization";
+import { toErrorResponse, AppError } from "@/lib/errors";
 
 export const runtime = "nodejs";
 
@@ -16,8 +18,10 @@ export function buildLiveTokenPayload(expireTime: string, uses = 3) {
   };
 }
 
-export async function POST() {
+export async function POST(req?: NextRequest) {
   try {
+    await requireRole("learner", req?.headers);
+
     const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 mins expiry
     const payload = buildLiveTokenPayload(expireTime, 3); // Allow session resumption reconnects
 
@@ -63,6 +67,9 @@ export async function POST() {
 
     return NextResponse.json(tokenData);
   } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return toErrorResponse(error);
+    }
     console.error("[LiveTokenAPI] Error generating ephemeral token:", error);
     return NextResponse.json(
       {
@@ -74,7 +81,7 @@ export async function POST() {
   }
 }
 
-export async function GET() {
-  // Allow GET requests for simple health/handshake
-  return POST();
+export async function GET(req?: NextRequest) {
+  // Allow GET requests for simple health/handshake with auth
+  return POST(req);
 }

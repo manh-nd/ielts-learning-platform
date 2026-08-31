@@ -117,9 +117,6 @@ export function LiveSpeakingExaminerRoom({
 
       try {
         const payload = {
-          userId: candidateName
-            ? candidateName.replace(/\s+/g, "_").toLowerCase()
-            : "learner_candidate",
           sessionId: resolvedSessionId,
           topicTitle: topic?.title || "General IELTS Speaking Mock Test",
           candidateName,
@@ -204,9 +201,6 @@ export function LiveSpeakingExaminerRoom({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            userId: candidateName
-              ? candidateName.replace(/\s+/g, "_").toLowerCase()
-              : "learner_candidate",
             sessionId: activeSessionId,
             filename: "candidate.webm",
             mimeType: recordedAudio.mimeType || "audio/webm;codecs=opus",
@@ -271,7 +265,6 @@ export function LiveSpeakingExaminerRoom({
     );
   }, [
     activeSessionId,
-    candidateName,
     disconnect,
     recordedAudio,
     triggerEvaluation,
