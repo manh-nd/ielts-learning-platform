@@ -143,3 +143,13 @@ _Avoid_: CustomUnderline, TextErrorMarker
 **DensityTier**:
 Layout density classification governing UI padding and information compactness (Compact: 12px for Teacher Review multi-pane cockpit; Standard: 16px; Spacious: 24px for Learner Dashboard).
 _Avoid_: LayoutSpacingMode, CustomPaddingPreset
+
+### Privacy & Data Governance
+
+**FreeTierConsentNotice**:
+An upfront, mandatory consent gate presented to an adult Learner (18+) before recording or starting practice/homework, disclosing that audio and textual transcripts are processed and collected by Google Gemini under experimental Free Tier terms.
+_Avoid_: GenericDisclaimer, TermsCheckbox, HiddenPrivacyNote
+
+**HardDeletePolicy**:
+The immediate and irreversible deletion of a Learner's OriginalAudio on object storage (S3/SeaweedFS) and associated database references upon explicit user request.
+_Avoid_: SoftDeleteArchive, DelayedPurge, Deactivation
