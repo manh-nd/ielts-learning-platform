@@ -42,6 +42,10 @@ _Avoid_: ManualGrade, FinalScore
 The official TeacherAssessment visible to the Learner after the Teacher completes review by choosing “Duyệt”. In the MVP, approval and publication are one business decision rather than separate lifecycle states.
 _Avoid_: PublicGrade, FinalResult, ApprovedAssessment, SpeakingAssessment
 
+**ActiveReviewTimer**:
+The active engagement timer in the Teacher Review cockpit that measures genuine teacher grading duration by automatically pausing when the review tab is hidden or user interaction is idle (> 60s), finalized and committed upon Publish.
+_Avoid_: GradingStopwatch, ReviewDuration, IdleTracker, ManualTimer
+
 ### Assessment & AI Evaluation
 
 **HomeworkEvaluation**:
