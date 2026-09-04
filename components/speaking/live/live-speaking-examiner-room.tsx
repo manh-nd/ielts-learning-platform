@@ -144,6 +144,7 @@ export function LiveSpeakingExaminerRoom({
     useState<SpeakingEvaluationTrace | null>(null);
   const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
   const [evalError, setEvalError] = useState<string | null>(null);
+  const [canRetryEvaluation, setCanRetryEvaluation] = useState<boolean>(false);
   const [isExamFinished, setIsExamFinished] = useState<boolean>(false);
 
   // Consent & Permission States
@@ -178,11 +179,13 @@ export function LiveSpeakingExaminerRoom({
           if (outcome.trace) {
             setTraceMetadata(outcome.trace);
           }
+          setCanRetryEvaluation(false);
           setIsExamFinished(true);
           setIsEvaluating(false);
           break;
         case "evaluation_failed":
           setEvalError(outcome.error);
+          setCanRetryEvaluation(outcome.canRetry);
           setIsExamFinished(true);
           setIsEvaluating(false);
           break;
@@ -444,6 +447,7 @@ export function LiveSpeakingExaminerRoom({
                 pSession.evidenceJson.evaluationError ||
                   "Lần phân tích trước bị gián đoạn. Vui lòng bấm thử phân tích lại."
               );
+              setCanRetryEvaluation(true);
             } else {
               // In-flight evaluation resumption
               setIsEvaluating(true);
@@ -690,6 +694,48 @@ export function LiveSpeakingExaminerRoom({
     uploadAudioWithRetry,
   ]);
 
+  const handleRetryEvaluation = useCallback(async () => {
+    if (isPart1Practice) {
+      setIsEvaluating(true);
+      setEvalError(null);
+      const outcome = await retrySpeakingPracticeEvaluationWorkflow(
+        {
+          sessionId: activeSessionId,
+          candidateName,
+          topicTitle: topic?.title,
+          questions: topic?.part1.questions,
+          part1Question: topic?.part1.questions?.[0],
+          transcripts,
+          turnMarkers,
+          storageKey: persistedStorageKey || undefined,
+          audioBase64: persistedAudioBase64 || undefined,
+          durationSeconds: savedFinalizedAudio?.durationSeconds,
+        },
+        effectiveWorkflowPorts
+      );
+      applyWorkflowOutcome(outcome);
+    } else {
+      triggerEvaluation(
+        activeSessionId,
+        persistedStorageKey || undefined,
+        persistedAudioBase64 || undefined
+      );
+    }
+  }, [
+    isPart1Practice,
+    activeSessionId,
+    candidateName,
+    topic,
+    transcripts,
+    turnMarkers,
+    persistedStorageKey,
+    persistedAudioBase64,
+    savedFinalizedAudio?.durationSeconds,
+    effectiveWorkflowPorts,
+    applyWorkflowOutcome,
+    triggerEvaluation,
+  ]);
+
   useEffect(() => {
     finishExamActionRef.current = handleFinishExam;
   });
@@ -777,6 +823,8 @@ export function LiveSpeakingExaminerRoom({
 
   // If exam has finished, display the comprehensive Result View
   if (isExamFinished) {
+    const isRetryAllowed = isPart1Practice ? canRetryEvaluation : true;
+
     return (
       <LiveSpeakingResultView
         evaluationResult={evaluationResult}
@@ -787,34 +835,7 @@ export function LiveSpeakingExaminerRoom({
         error={evalError}
         recordedAudio={savedFinalizedAudio || recordedAudio}
         transcripts={transcripts}
-        onRetryEvaluation={async () => {
-          if (isPart1Practice) {
-            setIsEvaluating(true);
-            setEvalError(null);
-            const outcome = await retrySpeakingPracticeEvaluationWorkflow(
-              {
-                sessionId: activeSessionId,
-                candidateName,
-                topicTitle: topic?.title,
-                questions: topic?.part1.questions,
-                part1Question: topic?.part1.questions?.[0],
-                transcripts,
-                turnMarkers,
-                storageKey: persistedStorageKey || undefined,
-                audioBase64: persistedAudioBase64 || undefined,
-                durationSeconds: savedFinalizedAudio?.durationSeconds,
-              },
-              effectiveWorkflowPorts
-            );
-            applyWorkflowOutcome(outcome);
-          } else {
-            triggerEvaluation(
-              activeSessionId,
-              persistedStorageKey || undefined,
-              persistedAudioBase64 || undefined
-            );
-          }
-        }}
+        onRetryEvaluation={isRetryAllowed ? handleRetryEvaluation : undefined}
         onRestartTest={() => {
           setIsExamFinished(false);
           setEvaluationResult(null);
@@ -824,6 +845,7 @@ export function LiveSpeakingExaminerRoom({
           setPersistedAudioBase64(null);
           setSavedFinalizedAudio(null);
           setUploadError(null);
+          setCanRetryEvaluation(false);
           const newSessionId = `ses_live_${Date.now()}`;
           dispatchPracticeAgainStarted(newSessionId, {
             previous_session_id: activeSessionId,

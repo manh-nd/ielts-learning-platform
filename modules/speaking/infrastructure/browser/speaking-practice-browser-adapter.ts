@@ -133,7 +133,8 @@ export function createSpeakingPracticeBrowserPorts(): SpeakingPracticeWorkflowPo
           success: false,
           error: errData.error || "EVALUATION_ERROR",
           message: errData.message || `Lỗi khi chấm điểm (${res.status})`,
-          status: String(res.status),
+          status: errData.status,
+          httpStatus: res.status,
         };
       }
 

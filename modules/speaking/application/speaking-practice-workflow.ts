@@ -29,7 +29,7 @@ export type SpeakingPracticeWorkflowOutcome =
   | {
       status: "evaluation_failed";
       sessionId: string;
-      practiceEnded: true;
+      practiceEnded: boolean;
       error: string;
       canRetry: boolean;
     };
@@ -96,6 +96,7 @@ export interface SpeakingPracticeWorkflowPorts {
     error?: string;
     message?: string;
     status?: string;
+    httpStatus?: number;
   }>;
   saveSessionIdentity?: (sessionId: string) => void;
   telemetry?: SpeakingPracticeTelemetryObserver;
@@ -111,6 +112,89 @@ async function safeTelemetryCall(fn?: () => unknown | Promise<unknown>) {
   } catch (err) {
     console.warn("[SpeakingPracticeWorkflow] Telemetry observer error:", err);
   }
+}
+
+/**
+ * Maps semantic server error and status to explicit pure application workflow outcome.
+ * Prevents client-side invention of retry eligibility or practiceEnded state.
+ */
+export function mapEvaluationFailureResponse(
+  sessionId: string,
+  data: {
+    error?: string;
+    message?: string;
+    status?: string;
+    httpStatus?: number;
+  },
+  options: { isRetry?: boolean } = {}
+): SpeakingPracticeWorkflowOutcome {
+  const { error, message, status } = data;
+  const isCommitted = status === "completed" || status === "evaluated";
+
+  if (error === "EVALUATION_FAILED") {
+    // Only treat as ended + retryable if the server has committed the SpeakingPractice (or existing session on retry)
+    const practiceEnded = isCommitted || Boolean(options.isRetry);
+    return {
+      status: "evaluation_failed",
+      sessionId,
+      practiceEnded,
+      error: message || "Không thể hoàn thành chấm điểm AI cho bài thi.",
+      canRetry: practiceEnded,
+    };
+  }
+
+  if (error === "PRACTICE_PERSISTENCE_FAILED") {
+    return {
+      status: "evaluation_failed",
+      sessionId,
+      practiceEnded: false,
+      error: message || "Không thể lưu phiên luyện tập vào cơ sở dữ liệu.",
+      canRetry: false,
+    };
+  }
+
+  if (error === "ORIGINAL_AUDIO_MISSING") {
+    return {
+      status: "evaluation_failed",
+      sessionId,
+      practiceEnded: false,
+      error:
+        message ||
+        "Không tìm thấy hoặc không xác thực được bản ghi âm gốc (OriginalAudio).",
+      canRetry: false,
+    };
+  }
+
+  if (error === "EVALUATION_PENDING") {
+    return {
+      status: "evaluation_failed",
+      sessionId,
+      practiceEnded: isCommitted || Boolean(options.isRetry),
+      error:
+        message ||
+        "Phiên chấm điểm đang được xử lý. Vui lòng đợi kết quả hoàn tất.",
+      canRetry: false,
+    };
+  }
+
+  if (error === "EVALUATION_ALREADY_COMPLETED") {
+    return {
+      status: "evaluation_failed",
+      sessionId,
+      practiceEnded: true,
+      error: message || "Phiên luyện tập đã có kết quả đánh giá hoàn chỉnh.",
+      canRetry: false,
+    };
+  }
+
+  // Any other error (unhandled error code, generic 500, etc.):
+  return {
+    status: "evaluation_failed",
+    sessionId,
+    practiceEnded: false,
+    error: message || error || "Lỗi khi xử lý chấm điểm.",
+    canRetry: false,
+  };
 }
 
 export interface FinishSpeakingPracticeWorkflowInput {
@@ -248,7 +332,7 @@ export async function finishSpeakingPracticeWorkflow(
   try {
     const data = await ports.evaluatePractice(payload);
     if (!data.success) {
-      throw new Error(data.message || data.error || "Lỗi khi chấm điểm.");
+      return mapEvaluationFailureResponse(sessionId, data, { isRetry: false });
     }
 
     const evalDurationMs = Date.now() - evalStartTime;
@@ -270,15 +354,13 @@ export async function finishSpeakingPracticeWorkflow(
       (err as Error)?.message || "Không thể thực hiện chấm điểm tự động.";
     console.error("[SpeakingPracticeWorkflow] Evaluation failed:", err);
 
-    // Canonical Invariant: PracticeEnded != PracticeEvaluated
-    // Audio was durably persisted, so the practice has ended successfully.
-    // Evaluation failure preserves the ended practice and permits retry.
+    // Network failures / generic exceptions: client must NOT assume practice was committed or invent retry
     return {
       status: "evaluation_failed",
       sessionId,
-      practiceEnded: true,
+      practiceEnded: false,
       error: errorMessage,
-      canRetry: true,
+      canRetry: false,
     };
   }
 }
@@ -320,7 +402,7 @@ export async function retrySpeakingPracticeEvaluationWorkflow(
     return {
       status: "evaluation_failed",
       sessionId,
-      practiceEnded: true,
+      practiceEnded: false,
       error: "Không đủ điều kiện thử lại chấm điểm do thiếu bản thu âm gốc.",
       canRetry: false,
     };
@@ -356,7 +438,7 @@ export async function retrySpeakingPracticeEvaluationWorkflow(
   try {
     const data = await ports.evaluatePractice(payload);
     if (!data.success) {
-      throw new Error(data.message || data.error || "Lỗi khi chấm điểm.");
+      return mapEvaluationFailureResponse(sessionId, data, { isRetry: true });
     }
 
     const evalDurationMs = Date.now() - evalStartTime;
@@ -382,9 +464,9 @@ export async function retrySpeakingPracticeEvaluationWorkflow(
     return {
       status: "evaluation_failed",
       sessionId,
-      practiceEnded: true,
+      practiceEnded: false,
       error: errorMessage,
-      canRetry: true,
+      canRetry: false,
     };
   }
 }

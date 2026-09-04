@@ -10,6 +10,7 @@ import type {
   PracticeFeedback,
   SpeakingEvaluationTrace,
 } from "@/lib/gemini/speaking-schema";
+import { createSpeakingPracticeBrowserPorts } from "../infrastructure/browser/speaking-practice-browser-adapter";
 
 const mockFeedback: PracticeFeedback = {
   evidenceScope: {
@@ -124,8 +125,10 @@ describe("SpeakingPractice Workflow Orchestration Application Seam (#81)", () =>
     }));
     const mockEvaluate = mock(async () => ({
       success: false,
-      error: "AI_TIMEOUT",
+      error: "EVALUATION_FAILED",
+      status: "completed",
       message: "504 Gateway Timeout during LLM evaluation",
+      httpStatus: 502,
     }));
 
     const ports: SpeakingPracticeWorkflowPorts = {
@@ -255,8 +258,10 @@ describe("SpeakingPractice Workflow Orchestration Application Seam (#81)", () =>
       if (evaluateCount === 1) {
         return {
           success: false,
-          error: "503_OVERLOADED",
+          error: "EVALUATION_FAILED",
+          status: "completed",
           message: "The model is overloaded. AI evaluation failed.",
+          httpStatus: 502,
         };
       }
       return {
@@ -438,5 +443,208 @@ describe("SpeakingPractice Workflow Orchestration Application Seam (#81)", () =>
       ).toBe(6.5);
     }
     expect(mockEvaluate).toHaveBeenCalledTimes(1);
+  });
+
+  describe("Issue #81 Review Semantics Requirements", () => {
+    it("Review 1: EVALUATION_FAILED after committed practice -> practiceEnded: true, retry allowed only when server status is completed", async () => {
+      // 1a: Server committed practice -> status: 'completed'
+      const portsCommitted: SpeakingPracticeWorkflowPorts = {
+        persistAudio: mock(async () => ({
+          storageKey: "speaking/u1/ses_r1/candidate.webm",
+        })),
+        evaluatePractice: mock(async () => ({
+          success: false,
+          error: "EVALUATION_FAILED",
+          status: "completed",
+          message: "AI model failed to generate evaluation",
+          httpStatus: 502,
+        })),
+      };
+
+      const outcomeCommitted = await finishSpeakingPracticeWorkflow(
+        {
+          sessionId: "ses_r1",
+          audio: createMockAudio(),
+        },
+        portsCommitted
+      );
+
+      expect(outcomeCommitted.status).toBe("evaluation_failed");
+      if (outcomeCommitted.status === "evaluation_failed") {
+        expect(outcomeCommitted.practiceEnded).toBe(true);
+        expect(outcomeCommitted.canRetry).toBe(true);
+        expect(outcomeCommitted.error).toContain("AI model failed");
+      }
+
+      // 1b: Server did NOT commit practice (uncommitted status) -> practiceEnded: false, canRetry: false
+      const portsUncommitted: SpeakingPracticeWorkflowPorts = {
+        persistAudio: mock(async () => ({
+          storageKey: "speaking/u1/ses_r1b/candidate.webm",
+        })),
+        evaluatePractice: mock(async () => ({
+          success: false,
+          error: "EVALUATION_FAILED",
+          // status omitted / uncommitted
+          httpStatus: 500,
+        })),
+      };
+
+      const outcomeUncommitted = await finishSpeakingPracticeWorkflow(
+        {
+          sessionId: "ses_r1b",
+          audio: createMockAudio(),
+        },
+        portsUncommitted
+      );
+
+      expect(outcomeUncommitted.status).toBe("evaluation_failed");
+      if (outcomeUncommitted.status === "evaluation_failed") {
+        expect(outcomeUncommitted.practiceEnded).toBe(false);
+        expect(outcomeUncommitted.canRetry).toBe(false);
+      }
+    });
+
+    it("Review 2: PRACTICE_PERSISTENCE_FAILED -> must NOT become practiceEnded: true", async () => {
+      const ports: SpeakingPracticeWorkflowPorts = {
+        persistAudio: mock(async () => ({
+          storageKey: "speaking/u1/ses_r2/candidate.webm",
+        })),
+        evaluatePractice: mock(async () => ({
+          success: false,
+          error: "PRACTICE_PERSISTENCE_FAILED",
+          message: "Failed to commit completed practice session to database.",
+          httpStatus: 500,
+        })),
+      };
+
+      const outcome = await finishSpeakingPracticeWorkflow(
+        {
+          sessionId: "ses_r2",
+          audio: createMockAudio(),
+        },
+        ports
+      );
+
+      expect(outcome.status).toBe("evaluation_failed");
+      if (outcome.status === "evaluation_failed") {
+        expect(outcome.practiceEnded).toBe(false);
+        expect(outcome.canRetry).toBe(false);
+        expect(outcome.error).toContain("Failed to commit completed practice");
+      }
+    });
+
+    it("Review 3: EVALUATION_PENDING -> retry not exposed (canRetry: false)", async () => {
+      const ports: SpeakingPracticeWorkflowPorts = {
+        persistAudio: mock(async () => ({})),
+        evaluatePractice: mock(async () => ({
+          success: false,
+          error: "EVALUATION_PENDING",
+          message:
+            "An evaluation is already in progress. Please wait for it to complete.",
+          httpStatus: 409,
+        })),
+      };
+
+      const outcome = await retrySpeakingPracticeEvaluationWorkflow(
+        {
+          sessionId: "ses_r3",
+          storageKey: "speaking/u1/ses_r3/candidate.webm",
+        },
+        ports
+      );
+
+      expect(outcome.status).toBe("evaluation_failed");
+      if (outcome.status === "evaluation_failed") {
+        expect(outcome.canRetry).toBe(false);
+        expect(outcome.error).toContain("already in progress");
+      }
+    });
+
+    it("Review 4: EVALUATION_ALREADY_COMPLETED -> retry not exposed (canRetry: false)", async () => {
+      const ports: SpeakingPracticeWorkflowPorts = {
+        persistAudio: mock(async () => ({})),
+        evaluatePractice: mock(async () => ({
+          success: false,
+          error: "EVALUATION_ALREADY_COMPLETED",
+          message:
+            "Practice evaluation is already complete and feedback is available.",
+          httpStatus: 400,
+        })),
+      };
+
+      const outcome = await retrySpeakingPracticeEvaluationWorkflow(
+        {
+          sessionId: "ses_r4",
+          storageKey: "speaking/u1/ses_r4/candidate.webm",
+        },
+        ports
+      );
+
+      expect(outcome.status).toBe("evaluation_failed");
+      if (outcome.status === "evaluation_failed") {
+        expect(outcome.practiceEnded).toBe(true);
+        expect(outcome.canRetry).toBe(false);
+        expect(outcome.error).toContain("already complete");
+      }
+    });
+
+    it("Review 5: Semantic server status survives browser adapter mapping; HTTP status does not overwrite it", async () => {
+      const originalFetch = globalThis.fetch;
+      try {
+        // Mock server returning HTTP 502 with semantic status: "completed"
+        globalThis.fetch = mock(async () => ({
+          ok: false,
+          status: 502,
+          json: async () => ({
+            success: false,
+            error: "EVALUATION_FAILED",
+            message: "AI evaluation failed",
+            status: "completed",
+          }),
+        })) as unknown as typeof fetch;
+
+        const adapter = createSpeakingPracticeBrowserPorts();
+        const res = await adapter.evaluatePractice({
+          sessionId: "ses_adapter_test",
+          practiceMode: "part_1",
+          targetPart: "part_1",
+        });
+
+        expect(res.success).toBe(false);
+        expect(res.error).toBe("EVALUATION_FAILED");
+        // Crucial invariant: Semantic status 'completed' survives; not overwritten with '502'!
+        expect(res.status).toBe("completed");
+        expect(res.httpStatus).toBe(502);
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    it("Review 6: Generic exceptions or network failures do NOT invent retry eligibility", async () => {
+      const ports: SpeakingPracticeWorkflowPorts = {
+        persistAudio: mock(async () => ({
+          storageKey: "speaking/u1/ses_r6/candidate.webm",
+        })),
+        evaluatePractice: mock(async () => {
+          throw new Error("Network connection dropped");
+        }),
+      };
+
+      const outcome = await finishSpeakingPracticeWorkflow(
+        {
+          sessionId: "ses_r6",
+          audio: createMockAudio(),
+        },
+        ports
+      );
+
+      expect(outcome.status).toBe("evaluation_failed");
+      if (outcome.status === "evaluation_failed") {
+        // Client must NOT invent retry eligibility or assume practice ended on network failure!
+        expect(outcome.practiceEnded).toBe(false);
+        expect(outcome.canRetry).toBe(false);
+        expect(outcome.error).toContain("Network connection dropped");
+      }
+    });
   });
 });
