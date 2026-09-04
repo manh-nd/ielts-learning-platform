@@ -158,3 +158,91 @@ export function dispatchPracticeAudioError(
     },
   });
 }
+
+/**
+ * Speaking Homework Specific Event Dispatchers (§7.2)
+ */
+
+export function dispatchHomeworkViewed(
+  assignmentId: string,
+  properties?: Record<string, unknown>
+): Promise<DispatchTelemetryResult> {
+  return dispatchTelemetryEvent({
+    eventName: "homework_viewed",
+    contextType: "homework",
+    contextId: assignmentId,
+    properties,
+  });
+}
+
+export function dispatchHomeworkRecordCompleted(
+  assignmentId: string,
+  promptId: string,
+  durationMs: number,
+  audioBytes: number,
+  properties?: Record<string, unknown>
+): Promise<DispatchTelemetryResult> {
+  return dispatchTelemetryEvent({
+    eventName: "homework_record_completed",
+    contextType: "homework",
+    contextId: assignmentId,
+    durationMs,
+    properties: {
+      prompt_id: promptId,
+      audio_bytes: audioBytes,
+      ...properties,
+    },
+  });
+}
+
+export function dispatchHomeworkSubmitted(
+  assignmentId: string,
+  submissionId: string,
+  attemptNumber: number,
+  properties?: Record<string, unknown>
+): Promise<DispatchTelemetryResult> {
+  return dispatchTelemetryEvent({
+    eventName: "homework_submitted",
+    contextType: "homework",
+    contextId: assignmentId,
+    properties: {
+      submission_id: submissionId,
+      attempt_number: attemptNumber,
+      ...properties,
+    },
+  });
+}
+
+export function dispatchHomeworkResubmitted(
+  assignmentId: string,
+  submissionId: string,
+  attemptNumber: number,
+  properties?: Record<string, unknown>
+): Promise<DispatchTelemetryResult> {
+  return dispatchTelemetryEvent({
+    eventName: "homework_resubmitted",
+    contextType: "homework",
+    contextId: assignmentId,
+    properties: {
+      submission_id: submissionId,
+      attempt_number: attemptNumber,
+      ...properties,
+    },
+  });
+}
+
+export function dispatchHomeworkSubmitConflictRejected(
+  assignmentId: string,
+  attemptNumber: number,
+  properties?: Record<string, unknown>
+): Promise<DispatchTelemetryResult> {
+  return dispatchTelemetryEvent({
+    eventName: "homework_submit_conflict_rejected",
+    contextType: "homework",
+    contextId: assignmentId,
+    properties: {
+      attempt_number: attemptNumber,
+      ...properties,
+    },
+  });
+}

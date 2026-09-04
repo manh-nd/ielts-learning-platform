@@ -97,10 +97,11 @@ export class ValidationError extends AppError {
 export class ConflictError extends AppError {
   constructor(
     message = "Tài nguyên đã tồn tại hoặc xung đột dữ liệu.",
-    details?: unknown
+    details?: unknown,
+    code = "CONFLICT"
   ) {
     super(message, {
-      code: "CONFLICT",
+      code,
       statusCode: 409,
       details,
     });

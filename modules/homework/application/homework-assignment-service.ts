@@ -5,6 +5,7 @@ import {
   updateAssignment,
   deleteAssignment,
 } from "../infrastructure/homework-assignment-repository";
+import { listSubmissionsByAssignmentId } from "../infrastructure/homework-submission-repository";
 import {
   assertTeacherOwnsClassroom,
   getClassroomRoster,
@@ -16,6 +17,7 @@ import type {
   CreateHomeworkAssignmentInput,
   UpdateHomeworkAssignmentInput,
   HomeworkAssignmentStudentRosterItem,
+  HomeworkSubmissionStatus,
 } from "../domain/homework-types";
 import { ValidationError, NotFoundError } from "@/lib/errors";
 
@@ -175,17 +177,33 @@ export async function getTeacherAssignmentDetails(
     assignment.classroomId
   );
 
-  // Map to student roster items (ready for submission linkage in Ticket #75)
+  // Link actual homework submissions for each enrolled student
+  const submissions = await listSubmissionsByAssignmentId(assignmentId);
+  const submissionMap = new Map(submissions.map((s) => [s.learnerId, s]));
+
   const students: HomeworkAssignmentStudentRosterItem[] = rosterMembers.map(
-    (m) => ({
-      learnerId: m.learnerId,
-      learnerName: m.learnerName,
-      learnerEmail: m.learnerEmail,
-      learnerImage: m.learnerImage,
-      submissionStatus: "not_submitted",
-      submittedAt: null,
-      submissionId: null,
-    })
+    (m) => {
+      const sub = submissionMap.get(m.learnerId);
+      let status: HomeworkSubmissionStatus = "not_submitted";
+      if (sub) {
+        if (sub.status === "in_review") {
+          status = "under_review";
+        } else if (sub.status === "published") {
+          status = "published";
+        } else {
+          status = "submitted";
+        }
+      }
+      return {
+        learnerId: m.learnerId,
+        learnerName: m.learnerName,
+        learnerEmail: m.learnerEmail,
+        learnerImage: m.learnerImage,
+        submissionStatus: status,
+        submittedAt: sub ? sub.createdAt : null,
+        submissionId: sub ? sub.id : null,
+      };
+    }
   );
 
   return {

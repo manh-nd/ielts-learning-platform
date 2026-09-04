@@ -60,6 +60,41 @@ export function isSpeakingAudioStorageKeyOwnedBy(
 }
 
 /**
+ * Builds canonical S3 key for homework prompt clip:
+ * homework/{userId}/{assignmentId}/{promptId}/{filename}
+ */
+export function buildHomeworkAudioStorageKey(
+  userId: string,
+  assignmentId: string,
+  promptId: string,
+  filename: string = "response.webm"
+): string {
+  const cleanUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const cleanAssignmentId = assignmentId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const cleanPromptId = promptId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `homework/${cleanUserId}/${cleanAssignmentId}/${cleanPromptId}/${filename}`;
+}
+
+/**
+ * Verifies whether a given homework storage key belongs to the specified userId and assignmentId.
+ */
+export function isHomeworkAudioStorageKeyOwnedBy(
+  storageKey: string,
+  userId: string,
+  assignmentId?: string
+): boolean {
+  if (!storageKey || !userId) return false;
+  const cleanUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  if (assignmentId) {
+    const cleanAssignmentId = assignmentId.replace(/[^a-zA-Z0-9_-]/g, "_");
+    return storageKey.startsWith(
+      `homework/${cleanUserId}/${cleanAssignmentId}/`
+    );
+  }
+  return storageKey.startsWith(`homework/${cleanUserId}/`);
+}
+
+/**
  * Returns S3Client instance if S3 environment variables are provided
  */
 function getS3Client(): { client: S3Client; bucket: string } | null {

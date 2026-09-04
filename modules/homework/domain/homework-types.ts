@@ -55,7 +55,40 @@ export interface UpdateHomeworkAssignmentInput {
 }
 
 export type HomeworkSubmissionStatus =
-  "not_submitted" | "submitted" | "under_review" | "published";
+  "not_submitted" | "submitted" | "in_review" | "under_review" | "published";
+
+export type SubmissionRecordStatus =
+  "pending" | "submitted" | "in_review" | "published";
+
+export interface AudioResponseClip {
+  promptId: string;
+  storageKey: string;
+  durationMs: number;
+  audioBytes: number;
+}
+
+export interface SubmissionAttempt {
+  id: string;
+  submissionId: string;
+  attemptNumber: number;
+  audioResponses: AudioResponseClip[];
+  submittedAt: Date;
+}
+
+export interface HomeworkSubmission {
+  id: string;
+  assignmentId: string;
+  learnerId: string;
+  status: SubmissionRecordStatus;
+  currentAttemptNumber: number;
+  reviewedAttemptNumber: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface SubmitHomeworkInput {
+  audioResponses: AudioResponseClip[];
+}
 
 export interface HomeworkAssignmentStudentRosterItem {
   learnerId: string;
@@ -74,4 +107,15 @@ export interface HomeworkAssignmentDetail {
     name: string;
   };
   students: HomeworkAssignmentStudentRosterItem[];
+}
+
+export interface LearnerHomeworkDetail {
+  assignment: HomeworkAssignment;
+  classroom: {
+    id: string;
+    name: string;
+  };
+  submission: HomeworkSubmission | null;
+  currentAttempt: SubmissionAttempt | null;
+  allAttempts: SubmissionAttempt[];
 }

@@ -64,6 +64,13 @@
       "when": 1788513926293,
       "tag": "0008_classy_morlocks",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788521681357,
+      "tag": "0009_bored_stingray",
+      "breakpoints": true
     }
   ]
 }
