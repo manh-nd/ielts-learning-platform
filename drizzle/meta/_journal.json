@@ -29,6 +29,13 @@
       "when": 1787846749794,
       "tag": "0003_numerous_ego",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788490395676,
+      "tag": "0004_sleepy_vindicator",
+      "breakpoints": true
     }
   ]
 }

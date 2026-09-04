@@ -940,12 +940,24 @@ export function useGeminiLive(
             currentWs.send(JSON.stringify(audioPayload));
           }
         });
-      } catch (micErr) {
+      } catch (micErr: unknown) {
         console.error("[useGeminiLive] Failed to start microphone:", micErr);
+        const errName = (micErr as Error)?.name || "";
+        const errMsg = (micErr as Error)?.message || "";
+        const isDenied =
+          errName === "NotAllowedError" ||
+          errName === "PermissionDeniedError" ||
+          errMsg.toLowerCase().includes("permission") ||
+          errMsg.toLowerCase().includes("denied");
+
         const err = new Error(
-          "Không thể truy cập Microphone. Vui lòng cấp quyền micro."
+          isDenied
+            ? "Quyền microphone bị từ chối. Vui lòng cấp quyền để tiếp tục."
+            : "Không thể truy cập Microphone. Vui lòng kiểm tra thiết bị."
         );
+        Object.assign(err, { isMicDenied: isDenied });
         setError(err);
+        updateStatus(isDenied ? "permission_denied" : "error");
         onError?.(err);
         cleanupAudio();
         return;

@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Sparkles, User, ShieldCheck, CheckCircle2 } from "lucide-react";
+import {
+  Sparkles,
+  User,
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+  RotateCcw,
+  Loader2,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Card,
@@ -18,8 +26,14 @@ import { LiveTranscriptStream } from "./live-transcript-stream";
 import { LiveSessionControls } from "./live-session-controls";
 import { LiveSpeakingCueCardModal } from "./live-speaking-cue-card-modal";
 import { LiveSpeakingResultView } from "./live-speaking-result-view";
+import { FreeTierConsentNoticeModal } from "./free-tier-consent-notice-modal";
+import { MicPermissionDeniedDialog } from "./mic-permission-denied-dialog";
 import { useGeminiLive } from "./use-gemini-live";
-import { LiveSpeakingConfig, CandidateTurnMarker } from "./types";
+import {
+  LiveSpeakingConfig,
+  CandidateTurnMarker,
+  RecordedAudioData,
+} from "./types";
 import {
   IeltsSpeakingEvaluationResult,
   PracticeFeedback,
@@ -30,6 +44,10 @@ export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
   title?: string;
   subtitle?: string;
   className?: string;
+  hasConsent?: boolean;
+  onConsentGranted?: () => void;
+  initialSessionId?: string | null;
+  onSessionChange?: (sessionId: string | null) => void;
   onBackToDashboard?: () => void;
   onRestart?: () => void;
 }
@@ -42,6 +60,10 @@ export function LiveSpeakingExaminerRoom({
   targetPart = "full",
   mockMode = false,
   className,
+  hasConsent = false,
+  onConsentGranted,
+  initialSessionId = null,
+  onSessionChange,
   onBackToDashboard,
   onRestart,
   ...config
@@ -80,7 +102,7 @@ export function LiveSpeakingExaminerRoom({
   });
 
   const [activeSessionId, setActiveSessionId] = useState<string>(
-    () => `ses_live_${Date.now()}`
+    () => initialSessionId || `ses_live_${Date.now()}`
   );
   const [persistedStorageKey, setPersistedStorageKey] = useState<string | null>(
     null
@@ -97,6 +119,154 @@ export function LiveSpeakingExaminerRoom({
   const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
   const [evalError, setEvalError] = useState<string | null>(null);
   const [isExamFinished, setIsExamFinished] = useState<boolean>(false);
+
+  // Consent & Permission States
+  const [hasLocalConsent, setHasLocalConsent] = useState<boolean>(false);
+  const effectiveHasConsent = Boolean(hasConsent || hasLocalConsent);
+  const [showConsentModal, setShowConsentModal] = useState<boolean>(false);
+
+  const [micDialogDismissed, setMicDialogDismissed] = useState<boolean>(false);
+  const isMicDenied = status === "permission_denied";
+  const showMicPermissionDialog = isMicDenied && !micDialogDismissed;
+
+  // Audio Upload Resilience States
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploadingAudio, setIsUploadingAudio] = useState<boolean>(false);
+  const [savedFinalizedAudio, setSavedFinalizedAudio] =
+    useState<RecordedAudioData | null>(null);
+
+  const handleStartConnect = useCallback(async () => {
+    if (!effectiveHasConsent) {
+      setShowConsentModal(true);
+      return;
+    }
+    setMicDialogDismissed(false);
+    await connect();
+  }, [effectiveHasConsent, connect]);
+
+  const handleConsentGranted = useCallback(async () => {
+    setHasLocalConsent(true);
+    setShowConsentModal(false);
+    onConsentGranted?.();
+    setMicDialogDismissed(false);
+    await connect();
+  }, [onConsentGranted, connect]);
+
+  // Session state restoration from URL or sessionStorage
+  useEffect(() => {
+    let isCancelled = false;
+    const sessionToRestore =
+      initialSessionId ||
+      (typeof window !== "undefined"
+        ? sessionStorage.getItem("ielts_active_speaking_session_id")
+        : null);
+
+    if (
+      sessionToRestore &&
+      !isExamFinished &&
+      !evaluationResult &&
+      !practiceFeedback
+    ) {
+      const restoreSession = async () => {
+        try {
+          const res = await fetch(
+            `/api/speaking/evaluate?sessionId=${encodeURIComponent(sessionToRestore)}`
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          if (isCancelled || !data?.success || !data?.session) return;
+
+          const pSession = data.session;
+          const responses = data.responses || [];
+
+          setActiveSessionId(pSession.id);
+          if (responses.length > 0 && responses[0].storageKey) {
+            setPersistedStorageKey(responses[0].storageKey);
+          }
+
+          if (pSession.status === "evaluated" && pSession.scorecardJson) {
+            setPracticeFeedback(pSession.scorecardJson as PracticeFeedback);
+            if (pSession.evidenceJson?.trace) {
+              setTraceMetadata(
+                pSession.evidenceJson.trace as SpeakingEvaluationTrace
+              );
+            }
+            setIsExamFinished(true);
+          } else if (pSession.status === "completed") {
+            setIsExamFinished(true);
+            if (pSession.evidenceJson?.evaluationStatus === "failed") {
+              setEvalError(
+                pSession.evidenceJson.evaluationError ||
+                  "Lần phân tích trước bị gián đoạn. Vui lòng bấm thử phân tích lại."
+              );
+            }
+          }
+        } catch (err) {
+          console.warn("[LiveExaminerRoom] Session restoration error:", err);
+        }
+      };
+
+      restoreSession();
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialSessionId, isExamFinished, evaluationResult, practiceFeedback]);
+
+  // Audio upload with exponential backoff
+  const uploadAudioWithRetry = useCallback(
+    async (
+      sessionId: string,
+      blob: Blob,
+      mimeType: string,
+      maxRetries = 2
+    ): Promise<string> => {
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, attempt === 1 ? 500 : 1500));
+        }
+        try {
+          const uploadUrlRes = await fetch("/api/speaking/upload-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId,
+              filename: "candidate.webm",
+              mimeType,
+            }),
+          });
+          if (!uploadUrlRes.ok) {
+            throw new Error(
+              `Upload URL request failed (${uploadUrlRes.status})`
+            );
+          }
+          const uploadInfo = (await uploadUrlRes.json()) as {
+            uploadUrl: string;
+            storageKey: string;
+          };
+          const putRes = await fetch(uploadInfo.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": mimeType },
+            body: blob,
+          });
+          if (!putRes.ok) {
+            throw new Error(`Storage PUT failed (${putRes.status})`);
+          }
+          return uploadInfo.storageKey;
+        } catch (err) {
+          lastErr = err;
+          console.warn(
+            `[LiveExaminerRoom] Audio upload attempt ${attempt + 1} failed:`,
+            err
+          );
+        }
+      }
+      throw lastErr;
+    },
+    []
+  );
 
   const isConnected = status === "connected";
   const isPart1Practice = targetPart === "part1" || targetPart === "part_1";
@@ -196,13 +366,27 @@ export function LiveSpeakingExaminerRoom({
     setIsEvaluating(true);
     setIsExamFinished(true);
     setEvalError(null);
+    setUploadError(null);
 
     const finalizedAudio = await disconnect();
+    setSavedFinalizedAudio(finalizedAudio);
+
+    // Save session in sessionStorage and update URL for refresh recovery
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(
+        "ielts_active_speaking_session_id",
+        activeSessionId
+      );
+      const url = new URL(window.location.href);
+      url.searchParams.set("sessionId", activeSessionId);
+      window.history.replaceState(null, "", url.toString());
+    }
+    onSessionChange?.(activeSessionId);
 
     let storageKey = "";
     let base64Audio = "";
 
-    // 1. Convert to base64 as guaranteed fallback & attempt Presigned S3 upload
+    // 1. Convert to base64 as guaranteed fallback
     if (finalizedAudio?.blob) {
       try {
         const reader = new FileReader();
@@ -222,43 +406,29 @@ export function LiveSpeakingExaminerRoom({
         );
       }
 
+      // 2. Upload to storage with 2 silent retries and exponential backoff
+      setIsUploadingAudio(true);
       try {
-        const uploadUrlRes = await fetch("/api/speaking/upload-url", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sessionId: activeSessionId,
-            filename: "candidate.webm",
-            mimeType: finalizedAudio.mimeType || "audio/webm;codecs=opus",
-          }),
-        });
-
-        if (uploadUrlRes.ok) {
-          const uploadInfo = (await uploadUrlRes.json()) as {
-            uploadUrl: string;
-            storageKey: string;
-          };
-
-          const putRes = await fetch(uploadInfo.uploadUrl, {
-            method: "PUT",
-            headers: {
-              "Content-Type":
-                finalizedAudio.mimeType || "audio/webm;codecs=opus",
-            },
-            body: finalizedAudio.blob,
-          });
-
-          if (putRes.ok) {
-            storageKey = uploadInfo.storageKey;
-            setPersistedStorageKey(storageKey);
-          }
-        }
+        storageKey = await uploadAudioWithRetry(
+          activeSessionId,
+          finalizedAudio.blob,
+          finalizedAudio.mimeType || "audio/webm;codecs=opus",
+          2
+        );
+        setPersistedStorageKey(storageKey);
       } catch (uploadErr) {
         console.warn(
-          "[LiveExaminerRoom] Direct storage upload failed:",
+          "[LiveExaminerRoom] Direct storage upload failed after retries:",
           uploadErr
         );
+        setIsUploadingAudio(false);
+        setIsEvaluating(false);
+        setUploadError(
+          "Không thể tải tệp âm thanh lên máy chủ do lỗi kết nối mạng. Bản thu âm của bạn vẫn được bảo toàn trong bộ nhớ."
+        );
+        return;
       }
+      setIsUploadingAudio(false);
     }
 
     if (
@@ -286,15 +456,128 @@ export function LiveSpeakingExaminerRoom({
     activeSessionId,
     disconnect,
     isEvaluating,
+    onSessionChange,
     persistedAudioBase64,
     persistedStorageKey,
     triggerEvaluation,
     turnMarkers,
+    uploadAudioWithRetry,
+  ]);
+
+  const handleRetryUpload = useCallback(async () => {
+    if (!savedFinalizedAudio?.blob) return;
+    setIsUploadingAudio(true);
+    setUploadError(null);
+    setIsEvaluating(true);
+    try {
+      const storageKey = await uploadAudioWithRetry(
+        activeSessionId,
+        savedFinalizedAudio.blob,
+        savedFinalizedAudio.mimeType || "audio/webm;codecs=opus",
+        2
+      );
+      setPersistedStorageKey(storageKey);
+      setIsUploadingAudio(false);
+      await triggerEvaluation(
+        activeSessionId,
+        storageKey,
+        persistedAudioBase64 || undefined,
+        savedFinalizedAudio.durationSeconds,
+        turnMarkers
+      );
+    } catch (err) {
+      console.error("[LiveExaminerRoom] Retry upload failed:", err);
+      setIsUploadingAudio(false);
+      setIsEvaluating(false);
+      setUploadError(
+        "Tải lên lại vẫn thất bại do gián đoạn kết nối mạng. Vui lòng kiểm tra đường truyền và thử lại."
+      );
+    }
+  }, [
+    activeSessionId,
+    persistedAudioBase64,
+    savedFinalizedAudio,
+    triggerEvaluation,
+    turnMarkers,
+    uploadAudioWithRetry,
   ]);
 
   useEffect(() => {
     finishExamActionRef.current = handleFinishExam;
   });
+
+  // If upload failed, display the Upload Recovery Card with audio preview & retry button
+  if (uploadError && !isEvaluating) {
+    return (
+      <Card
+        data-testid="upload-failure-recovery-card"
+        className={cn(
+          "w-full max-w-4xl mx-auto p-6 sm:p-8 shadow-md border-rose-500/40 bg-background",
+          className
+        )}
+      >
+        <div className="flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto">
+          <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <div className="space-y-1.5">
+            <h3 className="text-lg font-bold text-foreground">
+              Tải tệp âm thanh thất bại
+            </h3>
+            <p className="text-xs text-rose-600 dark:text-rose-400 leading-relaxed">
+              {uploadError}
+            </p>
+          </div>
+
+          {savedFinalizedAudio?.url && (
+            <div className="w-full bg-muted/40 p-3 rounded-lg border space-y-2">
+              <span className="text-[11px] font-medium text-muted-foreground block">
+                Nghe lại bản thu đã lưu trong bộ nhớ:
+              </span>
+              <audio
+                controls
+                src={savedFinalizedAudio.url}
+                className="w-full h-8"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center gap-3 pt-2">
+            <Button
+              size="sm"
+              onClick={handleRetryUpload}
+              disabled={isUploadingAudio}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-1.5 cursor-pointer text-xs"
+            >
+              {isUploadingAudio ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Đang thử lại...</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Thử tải lên lại</span>
+                </>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setUploadError(null);
+                setIsExamFinished(false);
+              }}
+              disabled={isUploadingAudio}
+              className="cursor-pointer text-xs"
+            >
+              Quay lại
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   // If exam has finished, display the comprehensive Result View
   if (isExamFinished) {
@@ -306,7 +589,7 @@ export function LiveSpeakingExaminerRoom({
         isPracticeMode={isPart1Practice}
         isLoading={isEvaluating}
         error={evalError}
-        recordedAudio={recordedAudio}
+        recordedAudio={savedFinalizedAudio || recordedAudio}
         transcripts={transcripts}
         onRetryEvaluation={() =>
           triggerEvaluation(
@@ -322,10 +605,27 @@ export function LiveSpeakingExaminerRoom({
           setTraceMetadata(null);
           setPersistedStorageKey(null);
           setPersistedAudioBase64(null);
-          setActiveSessionId(`ses_live_${Date.now()}`);
+          setSavedFinalizedAudio(null);
+          setUploadError(null);
+          const newSessionId = `ses_live_${Date.now()}`;
+          setActiveSessionId(newSessionId);
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("ielts_active_speaking_session_id");
+            const url = new URL(window.location.href);
+            url.searchParams.delete("sessionId");
+            window.history.replaceState(null, "", url.pathname);
+          }
+          onSessionChange?.(null);
           onRestart?.();
         }}
         onBackToDashboard={() => {
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("ielts_active_speaking_session_id");
+            const url = new URL(window.location.href);
+            url.searchParams.delete("sessionId");
+            window.history.replaceState(null, "", url.pathname);
+          }
+          onSessionChange?.(null);
           onBackToDashboard?.();
         }}
       />
@@ -510,12 +810,30 @@ export function LiveSpeakingExaminerRoom({
           isMuted={isMuted}
           isNoiseSuppressionActive={isNoiseSuppressionActive}
           inputVolume={inputVolume}
-          onConnect={connect}
+          onConnect={handleStartConnect}
           onDisconnect={handleFinishExam}
           onToggleMute={toggleMute}
           onToggleNoiseSuppression={toggleNoiseSuppression}
+          onRequestPermissionDialog={() => setMicDialogDismissed(false)}
         />
       </CardFooter>
+
+      {/* Free Tier Consent Gate Modal */}
+      <FreeTierConsentNoticeModal
+        open={showConsentModal}
+        onConsent={handleConsentGranted}
+        onCancel={() => setShowConsentModal(false)}
+      />
+
+      {/* Microphone Permission Denied Instructional Dialog */}
+      <MicPermissionDeniedDialog
+        open={showMicPermissionDialog}
+        onRetry={() => {
+          setMicDialogDismissed(false);
+          connect();
+        }}
+        onClose={() => setMicDialogDismissed(true)}
+      />
     </Card>
   );
 }

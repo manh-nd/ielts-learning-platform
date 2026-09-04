@@ -11,6 +11,7 @@ export const user = pgTable("user", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   role: text("role").$type<UserRole>().notNull().default("learner"),
+  consentFreeTierAt: timestamp("consent_free_tier_at"),
 });
 
 export const session = pgTable("session", {

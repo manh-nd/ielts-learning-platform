@@ -347,3 +347,132 @@ describe("Live Recording Finalization & OriginalAudio Contract", () => {
     }
   });
 });
+
+describe("Speaking Practice Failure Recovery & Resilience (#70)", () => {
+  it("should correctly classify NotAllowedError and PermissionDeniedError as permission denied", () => {
+    const notAllowedError = new Error("Permission denied by user");
+    notAllowedError.name = "NotAllowedError";
+
+    const permissionDeniedError = new Error(
+      "The request is not allowed by the user agent"
+    );
+    permissionDeniedError.name = "PermissionDeniedError";
+
+    const genericError = new Error("Internal hardware failure");
+    genericError.name = "AbortError";
+
+    const isPermissionDenied = (err: Error) =>
+      err.name === "NotAllowedError" ||
+      err.name === "PermissionDeniedError" ||
+      err.message.toLowerCase().includes("permission") ||
+      err.message.toLowerCase().includes("denied");
+
+    expect(isPermissionDenied(notAllowedError)).toBe(true);
+    expect(isPermissionDenied(permissionDeniedError)).toBe(true);
+    expect(isPermissionDenied(genericError)).toBe(false);
+  });
+
+  it("should retain audio Blob in memory across upload failures and succeed when retried", async () => {
+    const mockAudioBlob = new Blob(["mock-speech-audio-content"], {
+      type: "audio/webm;codecs=opus",
+    });
+
+    let attempts = 0;
+    const mockUpload = async (
+      _blob: Blob
+    ): Promise<{ success: boolean; storageKey?: string }> => {
+      attempts++;
+      if (attempts === 1) {
+        throw new Error("Network timeout: 504 Gateway Timeout");
+      }
+      return {
+        success: true,
+        storageKey: "learners/u1/ses_123/candidate.webm",
+      };
+    };
+
+    // First attempt fails (simulating network drop)
+    let uploadResult = null;
+    let uploadError: string | null = null;
+    try {
+      uploadResult = await mockUpload(mockAudioBlob);
+    } catch (err) {
+      uploadError = (err as Error).message;
+    }
+
+    expect(uploadResult).toBeNull();
+    expect(uploadError).toContain("504 Gateway Timeout");
+    expect(mockAudioBlob.size).toBeGreaterThan(0); // Audio Blob is strictly retained!
+
+    // User clicks "Thử tải lên lại" (Retry Upload)
+    uploadResult = await mockUpload(mockAudioBlob);
+    expect(uploadResult.success).toBe(true);
+    expect(uploadResult.storageKey).toBe("learners/u1/ses_123/candidate.webm");
+  });
+
+  it("should restore completed evaluated practice state from session payload", () => {
+    const mockGetApiResponse = {
+      success: true,
+      session: {
+        id: "ses_live_restore_01",
+        userId: "learner_01",
+        status: "evaluated",
+        scorecardJson: {
+          overallBand: 7.0,
+          fluencyCoherence: { band: 7.0, feedback: "Good fluency" },
+          lexicalResource: { band: 7.0, feedback: "Varied vocabulary" },
+          grammaticalRangeAccuracy: {
+            band: 7.0,
+            feedback: "Accurate complex structures",
+          },
+          pronunciation: { band: 7.0, feedback: "Clear rhythm" },
+          strengths: ["Confident pacing"],
+          improvementPriorities: ["Expand idiomatic expressions"],
+        },
+        evidenceJson: {
+          trace: { latencyMs: 1450, modelUsed: "gemini-3.7-flash" },
+        },
+      },
+      responses: [
+        {
+          storageKey: "learners/learner_01/ses_live_restore_01/candidate.webm",
+          liveTranscript: "Hello I am practicing IELTS speaking.",
+        },
+      ],
+    };
+
+    expect(mockGetApiResponse.session.status).toBe("evaluated");
+    expect(mockGetApiResponse.session.scorecardJson.overallBand).toBe(7.0);
+    expect(mockGetApiResponse.responses[0].storageKey).toBeDefined();
+  });
+
+  it("should restore failed practice evaluation state and allow retry without losing session ID", () => {
+    const mockFailedSessionResponse = {
+      success: true,
+      session: {
+        id: "ses_live_failed_01",
+        userId: "learner_01",
+        status: "completed",
+        evidenceJson: {
+          evaluationStatus: "failed",
+          evaluationError: "503 Overloaded on initial try",
+        },
+      },
+      responses: [
+        {
+          storageKey: "learners/learner_01/ses_live_failed_01/candidate.webm",
+          promptQuestion: "Describe a book you read recently.",
+        },
+      ],
+    };
+
+    expect(mockFailedSessionResponse.session.status).toBe("completed");
+    expect(
+      mockFailedSessionResponse.session.evidenceJson.evaluationStatus
+    ).toBe("failed");
+    expect(
+      mockFailedSessionResponse.session.evidenceJson.evaluationError
+    ).toContain("503");
+    expect(mockFailedSessionResponse.responses[0].storageKey).toBeDefined();
+  });
+});

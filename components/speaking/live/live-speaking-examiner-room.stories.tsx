@@ -17,6 +17,7 @@ const meta = {
     topic: SPEAKING_MOCK_TOPICS[0],
     targetPart: "full",
     mockMode: true,
+    hasConsent: true,
   },
 } satisfies Meta<typeof LiveSpeakingExaminerRoom>;
 
@@ -27,6 +28,35 @@ export const DefaultMockSimulation: Story = {
   args: {
     mockMode: true,
     topic: SPEAKING_MOCK_TOPICS[0],
+    hasConsent: true,
+  },
+};
+
+export const ConsentGateRequired: Story = {
+  args: {
+    mockMode: true,
+    topic: SPEAKING_MOCK_TOPICS[0],
+    hasConsent: false,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const connectButton = canvas.getByTestId("connect-live-btn");
+    await expect(connectButton).toBeInTheDocument();
+    await userEvent.click(connectButton);
+
+    // Verify modal appeared in document
+    const modalTitle = await within(document.body).findByText(
+      /Xác nhận Điều khoản Thử nghiệm AI/i
+    );
+    await expect(modalTitle).toBeInTheDocument();
+
+    const agreeButton = await within(document.body).findByRole("button", {
+      name: /Tôi đủ 18 tuổi & Đồng ý/i,
+    });
+    await userEvent.click(agreeButton);
+
+    // Verify session started after consent
+    await expect(canvas.getByTestId("live-status-badge")).toBeInTheDocument();
   },
 };
 
@@ -34,6 +64,7 @@ export const LiveSessionInteractiveTest: Story = {
   args: {
     mockMode: true,
     topic: SPEAKING_MOCK_TOPICS[0],
+    hasConsent: true,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

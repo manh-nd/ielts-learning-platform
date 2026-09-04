@@ -33,21 +33,60 @@ import { cn } from "@/lib/utils";
 
 interface LiveSpeakingClientViewProps {
   candidateName: string;
+  userId?: string;
+  initialHasConsent?: boolean;
 }
 
 export function LiveSpeakingClientView({
   candidateName,
+  userId: _userId,
+  initialHasConsent = false,
 }: LiveSpeakingClientViewProps) {
   const router = useRouter();
   const [selectedTopic, setSelectedTopic] = useState<SpeakingMockTopic>(
     SPEAKING_MOCK_TOPICS[0]
   );
   const [targetPart, setTargetPart] = useState<"part1" | "full">("part1");
-  const [isInRoom, setIsInRoom] = useState<boolean>(false);
+  const [hasLocalConsent, setHasLocalConsent] = useState<boolean>(false);
+  const hasConsent = Boolean(initialHasConsent || hasLocalConsent);
+
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      return (
+        urlParams.get("sessionId") ||
+        sessionStorage.getItem("ielts_active_speaking_session_id")
+      );
+    }
+    return null;
+  });
+
+  const [isInRoom, setIsInRoom] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlSessionId = urlParams.get("sessionId");
+      const storedSessionId = sessionStorage.getItem(
+        "ielts_active_speaking_session_id"
+      );
+      return Boolean(urlSessionId || storedSessionId);
+    }
+    return false;
+  });
 
   const handleRandomTopic = () => {
     const random = getRandomMockTopic();
     setSelectedTopic(random);
+  };
+
+  const handleLeaveRoom = () => {
+    setIsInRoom(false);
+    setActiveSessionId(null);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("ielts_active_speaking_session_id");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("sessionId");
+      window.history.replaceState(null, "", url.pathname);
+    }
   };
 
   if (isInRoom) {
@@ -56,7 +95,7 @@ export function LiveSpeakingClientView({
         <Button
           size="sm"
           variant="ghost"
-          onClick={() => setIsInRoom(false)}
+          onClick={handleLeaveRoom}
           className="gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -67,8 +106,15 @@ export function LiveSpeakingClientView({
           candidateName={candidateName}
           topic={selectedTopic}
           targetPart={targetPart}
-          onBackToDashboard={() => router.push("/learner/dashboard")}
-          onRestart={() => setIsInRoom(false)}
+          hasConsent={hasConsent}
+          onConsentGranted={() => setHasLocalConsent(true)}
+          initialSessionId={activeSessionId}
+          onSessionChange={setActiveSessionId}
+          onBackToDashboard={() => {
+            handleLeaveRoom();
+            router.push("/learner/dashboard");
+          }}
+          onRestart={handleLeaveRoom}
         />
       </div>
     );

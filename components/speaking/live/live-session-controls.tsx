@@ -16,6 +16,7 @@ export interface LiveSessionControlsProps {
   onToggleNoiseSuppression?: () => void;
   className?: string;
   connectLabel?: string;
+  onRequestPermissionDialog?: () => void;
 }
 
 export function LiveSessionControls({
@@ -29,7 +30,29 @@ export function LiveSessionControls({
   onToggleNoiseSuppression,
   className,
   connectLabel = "Bắt đầu thi với Giám khảo AI",
+  onRequestPermissionDialog,
 }: LiveSessionControlsProps) {
+  if (status === "permission_denied") {
+    return (
+      <div
+        data-testid="live-session-controls"
+        className={cn("flex items-center justify-center p-2", className)}
+      >
+        <Button
+          type="button"
+          size="lg"
+          variant="destructive"
+          data-testid="connect-live-btn"
+          onClick={onRequestPermissionDialog || onConnect}
+          className="gap-2 font-semibold shadow-md bg-rose-600 hover:bg-rose-700 text-white rounded-full px-6 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          <MicOff className="w-4 h-4" />
+          Cần cấp quyền micro — Bấm để mở hướng dẫn
+        </Button>
+      </div>
+    );
+  }
+
   if (status === "idle" || status === "error") {
     return (
       <div

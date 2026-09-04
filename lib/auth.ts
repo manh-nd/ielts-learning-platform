@@ -42,6 +42,11 @@ export const auth = betterAuth({
         required: true,
         input: false,
       },
+      consentFreeTierAt: {
+        type: "date",
+        required: false,
+        input: false,
+      },
     },
   },
   databaseHooks: {

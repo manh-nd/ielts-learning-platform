@@ -6,6 +6,7 @@ export type LiveSessionStatus =
   | "connecting"
   | "connected"
   | "disconnecting"
+  | "permission_denied"
   | "error";
 
 export type VoiceActivityState = "idle" | "user_speaking" | "ai_speaking";

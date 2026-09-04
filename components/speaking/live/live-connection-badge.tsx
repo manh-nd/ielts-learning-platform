@@ -122,6 +122,22 @@ export function LiveConnectionBadge({
     );
   }
 
+  if (status === "permission_denied") {
+    return (
+      <Badge
+        variant="destructive"
+        data-testid="live-status-badge"
+        className={cn(
+          "gap-1.5 text-xs bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
+          className
+        )}
+      >
+        <AlertCircle className="w-3 h-3" />
+        Micro bị chặn
+      </Badge>
+    );
+  }
+
   if (status === "error") {
     return (
       <Badge
