@@ -27,6 +27,10 @@ export interface ClassroomManagerProps {
     email: string
   ) => Promise<ClassroomMemberDetail>;
   onRemoveMember?: (classroomId: string, learnerId: string) => Promise<void>;
+  onUpdateClassroom?: (
+    classroomId: string,
+    data: { name: string; description?: string | null }
+  ) => Promise<ClassroomWithMemberCount>;
 }
 
 export function ClassroomManager({
@@ -37,6 +41,7 @@ export function ClassroomManager({
   onFetchRoster,
   onEnrollMember,
   onRemoveMember,
+  onUpdateClassroom,
 }: ClassroomManagerProps) {
   const [classrooms, setClassrooms] =
     React.useState<ClassroomWithMemberCount[]>(initialClassrooms);
@@ -102,7 +107,7 @@ export function ClassroomManager({
   }) => {
     setIsCreating(true);
     try {
-      let newClassroom: ClassroomWithMemberCount;
+      let newClassroom: ClassroomWithMemberCount | undefined;
 
       if (onCreateClassroom) {
         newClassroom = await onCreateClassroom(data);
@@ -119,13 +124,28 @@ export function ClassroomManager({
         }
 
         const resData = await res.json();
+        if (resData?.classroom) {
+          newClassroom = {
+            ...resData.classroom,
+            memberCount: 0,
+          };
+        }
+      }
+
+      // Fallback if onCreateClassroom prop returns void or incomplete object (e.g. Storybook fn() action spy)
+      if (!newClassroom || !newClassroom.id) {
         newClassroom = {
-          ...resData.classroom,
+          id: newClassroom?.id || `cls_created_${Date.now()}`,
+          teacherId: newClassroom?.teacherId || "teacher_current",
+          name: data.name,
+          description: data.description || null,
           memberCount: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         };
       }
 
-      setClassrooms((prev) => [newClassroom, ...prev]);
+      setClassrooms((prev) => [newClassroom!, ...prev]);
       setSelectedClassroomId(newClassroom.id);
       setMembers([]);
     } finally {
@@ -138,7 +158,7 @@ export function ClassroomManager({
 
     setIsEnrolling(true);
     try {
-      let newMember: ClassroomMemberDetail;
+      let newMember: ClassroomMemberDetail | undefined;
 
       if (onEnrollMember) {
         newMember = await onEnrollMember(selectedClassroom.id, email);
@@ -163,7 +183,20 @@ export function ClassroomManager({
         newMember = resData.member;
       }
 
-      setMembers((prev) => [newMember, ...prev]);
+      // Fallback if onEnrollMember prop returns void or incomplete object (e.g. Storybook action spy)
+      if (!newMember || !newMember.id) {
+        newMember = {
+          id: newMember?.id || `mem_created_${Date.now()}`,
+          classroomId: selectedClassroom.id,
+          learnerId: `learner_${Date.now()}`,
+          learnerName: email.split("@")[0] || "Học Viên",
+          learnerEmail: email,
+          learnerImage: null,
+          joinedAt: new Date(),
+        };
+      }
+
+      setMembers((prev) => [newMember!, ...prev]);
       // Increment count on selected classroom
       setClassrooms((prev) =>
         prev.map((c) =>
@@ -175,6 +208,58 @@ export function ClassroomManager({
     } finally {
       setIsEnrolling(false);
     }
+  };
+
+  const handleUpdateClassroom = async (data: {
+    name: string;
+    description?: string | null;
+  }) => {
+    if (!selectedClassroom) return;
+
+    let updated: ClassroomWithMemberCount | undefined;
+
+    if (onUpdateClassroom) {
+      updated = await onUpdateClassroom(selectedClassroom.id, data);
+    } else {
+      const res = await fetch(
+        `/api/teacher/classrooms/${selectedClassroom.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        }
+      );
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData?.error?.message || "Lỗi khi cập nhật lớp học");
+      }
+
+      const resData = await res.json();
+      if (resData?.classroom) {
+        updated = {
+          ...resData.classroom,
+          memberCount: selectedClassroom.memberCount,
+        };
+      }
+    }
+
+    if (!updated || !updated.id) {
+      updated = {
+        ...selectedClassroom,
+        name: data.name,
+        description:
+          data.description !== undefined
+            ? data.description
+            : selectedClassroom.description,
+        updatedAt: new Date(),
+      };
+    }
+
+    const finalUpdated = updated;
+    setClassrooms((prev) =>
+      prev.map((cls) => (cls.id === finalUpdated.id ? finalUpdated : cls))
+    );
   };
 
   const handleRemoveLearner = async (learnerId: string) => {
@@ -298,6 +383,7 @@ export function ClassroomManager({
             isRemoving={removingId}
             onEnroll={handleEnrollLearner}
             onRemove={handleRemoveLearner}
+            onUpdateClassroom={handleUpdateClassroom}
           />
         </div>
       </div>

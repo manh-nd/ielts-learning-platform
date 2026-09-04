@@ -26,7 +26,7 @@ export const Default: Story = {
       <SelectTrigger className="w-48">
         <SelectValue placeholder="Select Band Score" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent aria-label="IELTS Band Scores">
         <SelectGroup>
           <SelectLabel>IELTS Band Scores</SelectLabel>
           <SelectItem value="9.0">Band 9.0 (Expert)</SelectItem>
@@ -48,7 +48,7 @@ export const GroupedOptions: Story = {
       <SelectTrigger className="w-56">
         <SelectValue placeholder="Choose prompt type" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent aria-label="Prompt options">
         <SelectGroup>
           <SelectLabel>Writing</SelectLabel>
           <SelectItem value="task_1_academic">Task 1 Academic</SelectItem>
@@ -73,7 +73,7 @@ export const SelectInteractionTest: Story = {
       <SelectTrigger className="w-48" data-testid="select-band-trigger">
         <SelectValue placeholder="Select Band" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent aria-label="Select Band">
         <SelectGroup>
           <SelectItem value="6.5" data-testid="band-6.5">
             Band 6.5

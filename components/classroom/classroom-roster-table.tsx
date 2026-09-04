@@ -17,6 +17,17 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+import { EditClassroomDialog } from "./edit-classroom-dialog";
 import type {
   ClassroomWithMemberCount,
   ClassroomMemberDetail,
@@ -30,6 +41,10 @@ export interface ClassroomRosterTableProps {
   isRemoving?: string | null;
   onEnroll: (email: string) => Promise<void>;
   onRemove?: (learnerId: string) => Promise<void>;
+  onUpdateClassroom?: (data: {
+    name: string;
+    description?: string | null;
+  }) => Promise<void>;
   className?: string;
 }
 
@@ -41,6 +56,7 @@ export function ClassroomRosterTable({
   isRemoving = null,
   onEnroll,
   onRemove,
+  onUpdateClassroom,
   className,
 }: ClassroomRosterTableProps) {
   const [emailInput, setEmailInput] = React.useState("");
@@ -48,6 +64,9 @@ export function ClassroomRosterTable({
   const [successMessage, setSuccessMessage] = React.useState<string | null>(
     null
   );
+  const [memberToRemove, setMemberToRemove] =
+    React.useState<ClassroomMemberDetail | null>(null);
+  const [isUpdatingClassroom, setIsUpdatingClassroom] = React.useState(false);
 
   const handleEnrollSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,15 +92,11 @@ export function ClassroomRosterTable({
     }
   };
 
-  const handleRemoveMember = async (member: ClassroomMemberDetail) => {
-    if (!onRemove) return;
-    const confirm = window.confirm(
-      `Bạn có chắc chắn muốn xóa học viên ${member.learnerName} (${member.learnerEmail}) khỏi lớp học?`
-    );
-    if (!confirm) return;
-
+  const handleConfirmRemove = async () => {
+    if (!memberToRemove || !onRemove) return;
     try {
-      await onRemove(member.learnerId);
+      await onRemove(memberToRemove.learnerId);
+      setMemberToRemove(null);
     } catch (err: unknown) {
       setErrorMessage(
         (err as Error)?.message || "Không thể xóa học viên khỏi lớp học."
@@ -141,6 +156,27 @@ export function ClassroomRosterTable({
               </p>
             )}
           </div>
+
+          {onUpdateClassroom && (
+            <div className="shrink-0">
+              <EditClassroomDialog
+                classroom={classroom}
+                isSubmitting={isUpdatingClassroom}
+                onSubmit={async (data) => {
+                  setIsUpdatingClassroom(true);
+                  try {
+                    await onUpdateClassroom(data);
+                    setSuccessMessage(
+                      "Đã cập nhật thông tin lớp học thành công."
+                    );
+                    setTimeout(() => setSuccessMessage(null), 3000);
+                  } finally {
+                    setIsUpdatingClassroom(false);
+                  }
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Inline Enrollment Toolbar */}
@@ -253,6 +289,8 @@ export function ClassroomRosterTable({
               </thead>
               <tbody className="divide-y divide-border/40">
                 {members.map((member) => {
+                  if (!member) return null;
+
                   const initials = member.learnerName
                     ? member.learnerName
                         .split(" ")
@@ -316,7 +354,7 @@ export function ClassroomRosterTable({
                             variant="ghost"
                             size="icon-sm"
                             disabled={isBeingRemoved}
-                            onClick={() => handleRemoveMember(member)}
+                            onClick={() => setMemberToRemove(member)}
                             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                             title="Xóa khỏi lớp học"
                           >
@@ -339,6 +377,49 @@ export function ClassroomRosterTable({
           </div>
         )}
       </div>
+
+      {/* Shadcn AlertDialog for Member Removal Confirmation */}
+      <AlertDialog
+        open={!!memberToRemove}
+        onOpenChange={(open) => {
+          if (!open) setMemberToRemove(null);
+        }}
+      >
+        <AlertDialogContent data-testid="remove-member-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle data-testid="remove-member-dialog-title">
+              Xóa học viên khỏi lớp học
+            </AlertDialogTitle>
+            <AlertDialogDescription data-testid="remove-member-dialog-description">
+              Bạn có chắc chắn muốn xóa học viên{" "}
+              <strong>{memberToRemove?.learnerName}</strong> (
+              {memberToRemove?.learnerEmail}) khỏi lớp học này? Hành động này sẽ
+              hủy tư cách thành viên nhưng vẫn giữ nguyên tài khoản và lịch sử
+              bài nộp của học viên.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="remove-member-dialog-cancel">
+              Hủy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="remove-member-dialog-confirm"
+              variant="destructive"
+              onClick={handleConfirmRemove}
+              disabled={isRemoving === memberToRemove?.learnerId}
+            >
+              {isRemoving === memberToRemove?.learnerId ? (
+                <>
+                  <Loader2Icon className="size-3.5 animate-spin mr-1.5" />
+                  <span>Đang xóa...</span>
+                </>
+              ) : (
+                <span>Xác nhận xóa</span>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

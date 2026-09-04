@@ -37,6 +37,11 @@ export interface CreateClassroomInput {
   description?: string | null;
 }
 
+export interface UpdateClassroomInput {
+  name?: string;
+  description?: string | null;
+}
+
 export interface AddMemberInput {
   email: string;
 }

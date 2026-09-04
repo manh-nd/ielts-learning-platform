@@ -1,5 +1,6 @@
 import {
   createClassroom,
+  updateClassroom,
   findClassroomById,
   listClassroomsByTeacherId,
   findMember,
@@ -13,6 +14,7 @@ import type {
   ClassroomWithMemberCount,
   ClassroomMemberDetail,
   CreateClassroomInput,
+  UpdateClassroomInput,
 } from "../domain/classroom-types";
 import {
   ValidationError,
@@ -63,6 +65,59 @@ export async function getTeacherClassrooms(
   }
 
   return await listClassroomsByTeacherId(teacherId);
+}
+
+/**
+ * Updates a classroom owned by the specified teacher.
+ * Enforces Single-Teacher ownership invariant (Ticket #53, ADR-0009).
+ */
+export async function updateTeacherClassroom(
+  teacherId: string,
+  classroomId: string,
+  input: UpdateClassroomInput
+): Promise<Classroom> {
+  if (!teacherId) {
+    throw new ValidationError("Thiếu thông tin định danh giáo viên.");
+  }
+  if (!classroomId) {
+    throw new ValidationError("Thiếu thông tin mã lớp học.");
+  }
+
+  // 1. Enforce ownership and existence
+  await assertTeacherOwnsClassroom(teacherId, classroomId);
+
+  // 2. Validate name if provided
+  let validatedName: string | undefined;
+  if (input.name !== undefined) {
+    const trimmed = input.name.trim();
+    if (!trimmed || trimmed.length > 255) {
+      throw new ValidationError(
+        "Tên lớp học không được để trống và không được vượt quá 255 ký tự."
+      );
+    }
+    validatedName = trimmed;
+  }
+
+  // 3. Validate description if provided
+  let validatedDescription: string | null | undefined;
+  if (input.description !== undefined) {
+    if (input.description === null) {
+      validatedDescription = null;
+    } else {
+      const trimmedDesc = input.description.trim();
+      if (trimmedDesc.length > 2000) {
+        throw new ValidationError(
+          "Mô tả lớp học không được vượt quá 2000 ký tự."
+        );
+      }
+      validatedDescription = trimmedDesc || null;
+    }
+  }
+
+  return await updateClassroom(classroomId, {
+    name: validatedName,
+    description: validatedDescription,
+  });
 }
 
 /**

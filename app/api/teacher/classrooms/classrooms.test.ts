@@ -9,6 +9,7 @@ import {
   GET as listMembersRoute,
   DELETE as removeMemberRoute,
 } from "./[id]/members/route";
+import { PATCH as updateClassroomRoute } from "./[id]/route";
 import {
   clearDevClassroomCache,
   registerDevUser,
@@ -440,6 +441,142 @@ describe("Teacher Classroom Management API Endpoints (Issue #73, ADR-0009)", () 
       });
       const data = await getRes.json();
       expect(data.members.length).toBe(0);
+    });
+  });
+
+  describe("PATCH /api/teacher/classrooms/:id", () => {
+    it("should reject unauthenticated requests with 401 Unauthorized", async () => {
+      const req = new NextRequest(
+        "http://localhost:3000/api/teacher/classrooms/cls_123",
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(null),
+          body: JSON.stringify({ name: "Updated Name" }),
+        }
+      );
+      const res = await updateClassroomRoute(req, {
+        params: Promise.resolve({ id: "cls_123" }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it("should reject learner role requests with 403 Forbidden", async () => {
+      const req = new NextRequest(
+        "http://localhost:3000/api/teacher/classrooms/cls_123",
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(learnerUser),
+          body: JSON.stringify({ name: "Updated Name" }),
+        }
+      );
+      const res = await updateClassroomRoute(req, {
+        params: Promise.resolve({ id: "cls_123" }),
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it("should reject Teacher A updating Teacher B's classroom with 403 Forbidden", async () => {
+      const bobClass = await createTeacherClassroom(teacherB.id, {
+        name: "Bob Class",
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/teacher/classrooms/${bobClass.id}`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({ name: "Hijacked by Alice" }),
+        }
+      );
+      const res = await updateClassroomRoute(req, {
+        params: Promise.resolve({ id: bobClass.id }),
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it("should return 404 Not Found when classroom does not exist", async () => {
+      const req = new NextRequest(
+        "http://localhost:3000/api/teacher/classrooms/non_existent_cls",
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({ name: "Updated Name" }),
+        }
+      );
+      const res = await updateClassroomRoute(req, {
+        params: Promise.resolve({ id: "non_existent_cls" }),
+      });
+      expect(res.status).toBe(404);
+    });
+
+    it("should reject empty name with 400 Bad Request", async () => {
+      const aliceClass = await createTeacherClassroom(teacherA.id, {
+        name: "Alice Class",
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/teacher/classrooms/${aliceClass.id}`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({ name: "   " }),
+        }
+      );
+      const res = await updateClassroomRoute(req, {
+        params: Promise.resolve({ id: aliceClass.id }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("should successfully update name and description (200 OK)", async () => {
+      const aliceClass = await createTeacherClassroom(teacherA.id, {
+        name: "Original Name",
+        description: "Original Description",
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/teacher/classrooms/${aliceClass.id}`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({
+            name: "Renamed Class",
+            description: "Updated Description",
+          }),
+        }
+      );
+      const res = await updateClassroomRoute(req, {
+        params: Promise.resolve({ id: aliceClass.id }),
+      });
+      expect(res.status).toBe(200);
+
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.classroom.name).toBe("Renamed Class");
+      expect(data.classroom.description).toBe("Updated Description");
+    });
+
+    it("should allow setting description to null (200 OK)", async () => {
+      const aliceClass = await createTeacherClassroom(teacherA.id, {
+        name: "Alice Class",
+        description: "Will be removed",
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/teacher/classrooms/${aliceClass.id}`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({ description: null }),
+        }
+      );
+      const res = await updateClassroomRoute(req, {
+        params: Promise.resolve({ id: aliceClass.id }),
+      });
+      expect(res.status).toBe(200);
+
+      const data = await res.json();
+      expect(data.classroom.description).toBeNull();
     });
   });
 });

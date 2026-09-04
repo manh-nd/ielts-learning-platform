@@ -55,7 +55,7 @@ const meta: Meta<typeof ClassroomRosterTable> = {
     docs: {
       description: {
         component:
-          "Bảng danh sách học viên trong lớp học, tích hợp thanh công cụ ghi danh học viên bằng email và tính năng xóa khỏi lớp.",
+          "Bảng danh sách học viên trong lớp học, tích hợp thanh công cụ ghi danh học viên bằng email, modal chỉnh sửa thông tin lớp học và xác nhận xóa khỏi lớp bằng shadcn AlertDialog.",
       },
     },
     a11y: { test: "error" },
@@ -66,8 +66,9 @@ const meta: Meta<typeof ClassroomRosterTable> = {
     isLoading: false,
     isEnrolling: false,
     isRemoving: null,
-    onEnroll: fn().mockImplementation(() => Promise.resolve()),
-    onRemove: fn().mockImplementation(() => Promise.resolve()),
+    onEnroll: fn(() => Promise.resolve()),
+    onRemove: fn(() => Promise.resolve()),
+    onUpdateClassroom: fn(() => Promise.resolve()),
   },
 };
 
@@ -104,22 +105,30 @@ export const EnrollInteraction: Story = {
   },
 };
 
-export const RemoveInteraction: Story = {
+export const RemoveInteractionWithAlertDialog: Story = {
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const removeBtn = canvas.getByTestId("remove-member-btn-learner_1");
     await expect(removeBtn).toBeInTheDocument();
 
-    // Mock confirm dialog
-    const originalConfirm = window.confirm;
-    window.confirm = () => true;
+    // Click remove button to trigger shadcn AlertDialog
+    await userEvent.click(removeBtn);
 
-    try {
-      await userEvent.click(removeBtn);
-      await expect(args.onRemove).toHaveBeenCalledTimes(1);
-      await expect(args.onRemove).toHaveBeenCalledWith("learner_1");
-    } finally {
-      window.confirm = originalConfirm;
-    }
+    // Verify AlertDialog opens in document.body
+    const dialogTitle = await within(document.body).findByTestId(
+      "remove-member-dialog-title"
+    );
+    await expect(dialogTitle).toBeInTheDocument();
+
+    const confirmBtn = within(document.body).getByTestId(
+      "remove-member-dialog-confirm"
+    );
+    await expect(confirmBtn).toBeInTheDocument();
+
+    // Confirm removal
+    await userEvent.click(confirmBtn);
+
+    await expect(args.onRemove).toHaveBeenCalledTimes(1);
+    await expect(args.onRemove).toHaveBeenCalledWith("learner_1");
   },
 };

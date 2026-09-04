@@ -10,6 +10,7 @@ import type {
   ClassroomMember,
   ClassroomMemberDetail,
   CreateClassroomInput,
+  UpdateClassroomInput,
 } from "../domain/classroom-types";
 import { eq, and, desc, count, sql } from "drizzle-orm";
 
@@ -147,6 +148,57 @@ export async function createClassroom(
 
   devClassroomCache.set(record.id, record);
   return record;
+}
+
+/**
+ * Updates an existing classroom's name and/or description
+ */
+export async function updateClassroom(
+  classroomId: string,
+  input: UpdateClassroomInput
+): Promise<Classroom> {
+  const existing = await findClassroomById(classroomId);
+  if (!existing) {
+    throw new Error(`Classroom with id "${classroomId}" not found.`);
+  }
+
+  const now = new Date();
+  const updatedName =
+    input.name !== undefined ? input.name.trim() : existing.name;
+  const updatedDesc =
+    input.description !== undefined
+      ? input.description === null
+        ? null
+        : input.description.trim() || null
+      : existing.description;
+
+  const updatedRecord: Classroom = {
+    ...existing,
+    name: updatedName,
+    description: updatedDesc,
+    updatedAt: now,
+  };
+
+  if (process.env.DATABASE_URL) {
+    try {
+      await db
+        .update(classrooms)
+        .set({
+          name: updatedRecord.name,
+          description: updatedRecord.description,
+          updatedAt: updatedRecord.updatedAt,
+        })
+        .where(eq(classrooms.id, classroomId));
+    } catch (err) {
+      console.warn("[ClassroomRepository] updateClassroom DB warning:", err);
+      if (process.env.NODE_ENV === "production") {
+        throw err;
+      }
+    }
+  }
+
+  devClassroomCache.set(classroomId, updatedRecord);
+  return updatedRecord;
 }
 
 /**

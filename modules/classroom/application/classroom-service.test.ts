@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "bun:test";
 import {
   createTeacherClassroom,
   getTeacherClassrooms,
+  updateTeacherClassroom,
   enrollLearnerInClassroom,
   removeLearnerFromClassroom,
   getClassroomRoster,
@@ -89,6 +90,63 @@ describe("Classroom Application Service", () => {
       expect(classrooms.length).toBe(1);
       expect(classrooms[0].id).toBe(c1.id);
       expect(classrooms[0].memberCount).toBe(1);
+    });
+  });
+
+  describe("updateTeacherClassroom", () => {
+    it("should successfully update name and description", async () => {
+      const c = await createTeacherClassroom(teacherId, {
+        name: "Old Name",
+        description: "Old Desc",
+      });
+
+      const updated = await updateTeacherClassroom(teacherId, c.id, {
+        name: "Updated Name",
+        description: "Updated Desc",
+      });
+
+      expect(updated.name).toBe("Updated Name");
+      expect(updated.description).toBe("Updated Desc");
+    });
+
+    it("should allow clearing description with explicit null", async () => {
+      const c = await createTeacherClassroom(teacherId, {
+        name: "Test Class",
+        description: "Initial Desc",
+      });
+
+      const updated = await updateTeacherClassroom(teacherId, c.id, {
+        description: null,
+      });
+
+      expect(updated.name).toBe("Test Class");
+      expect(updated.description).toBeNull();
+    });
+
+    it("should reject empty or whitespace name with ValidationError", async () => {
+      const c = await createTeacherClassroom(teacherId, { name: "Test Class" });
+
+      expect(
+        updateTeacherClassroom(teacherId, c.id, { name: "   " })
+      ).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it("should reject updating non-existent classroom with NotFoundError", async () => {
+      expect(
+        updateTeacherClassroom(teacherId, "non-existent-id", {
+          name: "New Name",
+        })
+      ).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it("should reject teacher updating another teacher's classroom with ForbiddenError", async () => {
+      const c = await createTeacherClassroom(otherTeacherId, {
+        name: "Other Class",
+      });
+
+      expect(
+        updateTeacherClassroom(teacherId, c.id, { name: "Hijacked Name" })
+      ).rejects.toBeInstanceOf(ForbiddenError);
     });
   });
 

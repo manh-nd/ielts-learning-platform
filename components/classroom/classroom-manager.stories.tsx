@@ -57,7 +57,7 @@ const meta: Meta<typeof ClassroomManager> = {
     docs: {
       description: {
         component:
-          "Trang quản lý lớp học và sĩ số của giảng viên, hỗ trợ bố cục Master-Detail gồm danh sách lớp, modal tạo lớp mới và bảng sĩ số học viên.",
+          "Trang quản lý lớp học và sĩ số của giảng viên, hỗ trợ bố cục Master-Detail gồm danh sách lớp, modal tạo lớp mới, modal chỉnh sửa thông tin lớp học và bảng sĩ số học viên tích hợp shadcn AlertDialog.",
       },
     },
     a11y: { test: "error" },
@@ -65,30 +65,41 @@ const meta: Meta<typeof ClassroomManager> = {
   args: {
     initialClassrooms: mockClassrooms,
     initialMembers: mockMembersCls1,
-    onCreateClassroom: fn().mockImplementation((data) =>
+    onCreateClassroom: fn((data: { name: string; description?: string }) =>
       Promise.resolve({
         id: `cls_new_${Date.now()}`,
         teacherId: "teacher_01",
-        name: data.name,
-        description: data.description || null,
+        name: data?.name || "Lớp học mới",
+        description: data?.description || null,
         memberCount: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
     ),
-    onFetchRoster: fn().mockImplementation(() => Promise.resolve([])),
-    onEnrollMember: fn().mockImplementation((classroomId, email) =>
+    onFetchRoster: fn(() => Promise.resolve([])),
+    onEnrollMember: fn((classroomId: string, email: string) =>
       Promise.resolve({
         id: `mem_new_${Date.now()}`,
         classroomId,
         learnerId: `learner_new_${Date.now()}`,
-        learnerName: "Học Viên Mới",
-        learnerEmail: email,
+        learnerName: email ? email.split("@")[0] : "Học Viên Mới",
+        learnerEmail: email || "student@example.com",
         learnerImage: null,
         joinedAt: new Date(),
       })
     ),
-    onRemoveMember: fn().mockImplementation(() => Promise.resolve()),
+    onRemoveMember: fn(() => Promise.resolve()),
+    onUpdateClassroom: fn((classroomId, data) =>
+      Promise.resolve({
+        id: classroomId,
+        teacherId: "teacher_01",
+        name: data.name,
+        description: data.description || null,
+        memberCount: 2,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    ),
   },
 };
 
@@ -105,6 +116,19 @@ export const EmptyClassrooms: Story = {
 };
 
 export const CreateClassroomInteraction: Story = {
+  args: {
+    onCreateClassroom: fn((data: { name: string; description?: string }) =>
+      Promise.resolve({
+        id: "cls_new_evening",
+        teacherId: "teacher_01",
+        name: data.name,
+        description: data.description || null,
+        memberCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    ),
+  },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const createTrigger = canvas.getByTestId("create-classroom-trigger");
@@ -123,10 +147,27 @@ export const CreateClassroomInteraction: Story = {
     await userEvent.click(submitBtn);
 
     await expect(args.onCreateClassroom).toHaveBeenCalledTimes(1);
+    await expect(args.onCreateClassroom).toHaveBeenCalledWith({
+      name: "IELTS Speaking Advanced Evening",
+      description: undefined,
+    });
   },
 };
 
 export const EnrollLearnerInteraction: Story = {
+  args: {
+    onEnrollMember: fn((classroomId: string, email: string) =>
+      Promise.resolve({
+        id: "mem_new_01",
+        classroomId,
+        learnerId: "learner_new_01",
+        learnerName: "Candidate 2026",
+        learnerEmail: email,
+        learnerImage: null,
+        joinedAt: new Date(),
+      })
+    ),
+  },
   play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
     const emailInput = canvas.getByTestId("enroll-learner-email-input");
@@ -140,5 +181,41 @@ export const EnrollLearnerInteraction: Story = {
       "cls_m1",
       "candidate2026@gmail.com"
     );
+  },
+};
+
+export const EditClassroomInteraction: Story = {
+  args: {
+    onUpdateClassroom: fn((classroomId, data) =>
+      Promise.resolve({
+        id: classroomId,
+        teacherId: "teacher_01",
+        name: data.name,
+        description: data.description || null,
+        memberCount: 2,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    ),
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const editTrigger = canvas.getByTestId("edit-classroom-trigger");
+    await expect(editTrigger).toBeInTheDocument();
+
+    await userEvent.click(editTrigger);
+
+    const nameInput = await within(document.body).findByTestId(
+      "edit-classroom-name-input"
+    );
+    const submitBtn = within(document.body).getByTestId(
+      "edit-classroom-submit-button"
+    );
+
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "IELTS Speaking Intensive K24 - Renamed");
+    await userEvent.click(submitBtn);
+
+    await expect(args.onUpdateClassroom).toHaveBeenCalledTimes(1);
   },
 };
