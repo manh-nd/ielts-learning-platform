@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DatePicker, toLocalDatetimeString } from "@/components/ui/date-picker";
 import { PRESET_SPEAKING_PROMPTS } from "./homework-prompt-presets";
 import type {
   CreateHomeworkAssignmentInput,
@@ -41,19 +42,6 @@ export interface HomeworkAssignmentCreationFormProps {
   isSubmitting?: boolean;
   onCancel?: () => void;
   onSubmit: (data: CreateHomeworkAssignmentInput) => Promise<void> | void;
-}
-
-/**
- * Returns datetime string suitable for input type="datetime-local" (YYYY-MM-DDTHH:mm)
- */
-function toLocalDatetimeString(date: Date): string {
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  const year = date.getFullYear();
-  const month = pad(date.getMonth() + 1);
-  const day = pad(date.getDate());
-  const hours = pad(date.getHours());
-  const minutes = pad(date.getMinutes());
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
 export function HomeworkAssignmentCreationForm({
@@ -92,11 +80,6 @@ export function HomeworkAssignmentCreationForm({
         ]
   );
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
-
-  // Minimum selectable date string is right now
-  const minDatetime = React.useMemo(() => {
-    return toLocalDatetimeString(new Date());
-  }, []);
 
   const handleAddPrompt = () => {
     if (prompts.length >= 3) return;
@@ -422,15 +405,17 @@ export function HomeworkAssignmentCreationForm({
         </label>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <Input
+          <DatePicker
             id="assignment-deadline"
             data-testid="assignment-deadline-input"
-            type="datetime-local"
-            min={minDatetime}
             value={deadline}
+            includeTime
+            minDate={new Date()}
             disabled={isSubmitting}
-            onChange={(e) => setDeadline(e.target.value)}
-            className="w-full sm:w-auto sm:min-w-[220px] text-xs"
+            onChange={(_, dateStr) => {
+              if (dateStr) setDeadline(dateStr);
+            }}
+            className="w-full sm:w-auto sm:min-w-[220px]"
           />
 
           <div className="flex items-center gap-1.5 flex-wrap">
