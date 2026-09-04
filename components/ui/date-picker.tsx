@@ -13,7 +13,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function toLocalDatetimeString(date: Date): string {
   const pad = (n: number) => n.toString().padStart(2, "0");
@@ -42,6 +42,20 @@ export interface DatePickerProps {
   id?: string;
   "data-testid"?: string;
 }
+
+const HOURS = Array.from({ length: 24 }, (_, i) =>
+  i.toString().padStart(2, "0")
+);
+
+const MINUTES = Array.from({ length: 60 }, (_, i) =>
+  i.toString().padStart(2, "0")
+);
+
+const QUICK_TIME_PRESETS = [
+  { label: "23:59", hours: 23, minutes: 59 },
+  { label: "18:00", hours: 18, minutes: 0 },
+  { label: "12:00", hours: 12, minutes: 0 },
+];
 
 export function DatePicker({
   value,
@@ -91,6 +105,7 @@ export function DatePicker({
   );
 
   const currentTime = selectedDate ? getTimeString(selectedDate) : internalTime;
+  const [currentHours, currentMinutes] = currentTime.split(":");
 
   const handleDateSelect = (date: Date | undefined) => {
     if (!date) {
@@ -100,7 +115,8 @@ export function DatePicker({
     }
 
     if (includeTime) {
-      const [hours, minutes] = currentTime.split(":").map(Number);
+      const hours = parseInt(currentHours, 10);
+      const minutes = parseInt(currentMinutes, 10);
       const combined = new Date(date);
       combined.setHours(
         isNaN(hours) ? 23 : hours,
@@ -119,18 +135,18 @@ export function DatePicker({
     }
   };
 
-  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = e.target.value;
-    setInternalTime(newTime);
-    if (selectedDate && newTime) {
-      const [hours, minutes] = newTime.split(":").map(Number);
-      if (!isNaN(hours) && !isNaN(minutes)) {
-        const combined = new Date(selectedDate);
-        combined.setHours(hours, minutes, 0, 0);
-        if (!isControlled) setUncontrolledDate(combined);
-        onChange?.(combined, toLocalDatetimeString(combined));
-      }
-    }
+  const handleTimeUpdate = (newHours: string, newMinutes: string) => {
+    const formattedTime = `${newHours}:${newMinutes}`;
+    setInternalTime(formattedTime);
+
+    const baseDate = selectedDate ?? new Date();
+    const h = parseInt(newHours, 10);
+    const m = parseInt(newMinutes, 10);
+    const combined = new Date(baseDate);
+    combined.setHours(isNaN(h) ? 23 : h, isNaN(m) ? 59 : m, 0, 0);
+
+    if (!isControlled) setUncontrolledDate(combined);
+    onChange?.(combined, toLocalDatetimeString(combined));
   };
 
   const formattedDisplay = React.useMemo(() => {
@@ -176,43 +192,124 @@ export function DatePicker({
       </PopoverTrigger>
       <PopoverContent
         aria-label="Chọn ngày và thời gian"
-        className="w-auto p-0 gap-0"
+        className="w-auto p-0 gap-0 overflow-hidden shadow-lg border-border"
         align="start"
       >
-        <Calendar
-          mode="single"
-          selected={selectedDate}
-          onSelect={handleDateSelect}
-          disabled={disabledMatcher}
-          defaultMonth={selectedDate || minDate || new Date()}
-        />
-        {includeTime && (
-          <div className="border-t border-border p-2.5 flex items-center justify-between gap-2 bg-card">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <ClockIcon className="size-3.5 text-muted-foreground shrink-0" />
-              <span>Giờ:</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="time"
-                aria-label="Giờ nộp bài"
-                value={currentTime}
-                onChange={handleTimeChange}
-                className="h-7 w-24 text-xs px-2 py-0"
-                data-testid="date-picker-time-input"
-              />
+        <div className="flex flex-col sm:flex-row">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={handleDateSelect}
+            disabled={disabledMatcher}
+            defaultMonth={selectedDate || minDate || new Date()}
+          />
+
+          {includeTime && (
+            <div className="flex flex-col border-t sm:border-t-0 sm:border-l border-border p-3 w-full sm:w-48 bg-card justify-between gap-2.5">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <ClockIcon className="size-3.5 text-primary shrink-0" />
+                    <span>Giờ nộp bài</span>
+                  </div>
+                  <span className="font-mono text-xs font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                    {currentTime}
+                  </span>
+                </div>
+
+                {/* Quick time preset buttons */}
+                <div className="flex items-center gap-1">
+                  {QUICK_TIME_PRESETS.map((preset) => {
+                    const pad = (n: number) => n.toString().padStart(2, "0");
+                    const isSelected =
+                      currentHours === pad(preset.hours) &&
+                      currentMinutes === pad(preset.minutes);
+                    return (
+                      <Button
+                        key={preset.label}
+                        type="button"
+                        variant={isSelected ? "default" : "outline"}
+                        size="xs"
+                        className="h-6 flex-1 text-[11px] px-1 font-normal"
+                        onClick={() =>
+                          handleTimeUpdate(
+                            pad(preset.hours),
+                            pad(preset.minutes)
+                          )
+                        }
+                      >
+                        {preset.label}
+                      </Button>
+                    );
+                  })}
+                </div>
+
+                {/* Two scrollable columns: Hours & Minutes */}
+                <div className="flex h-44 divide-x divide-border border border-border/70 rounded-md bg-muted/10 overflow-hidden text-center">
+                  {/* Hours column */}
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <div className="text-[10px] font-semibold text-muted-foreground border-b border-border/70 py-1 bg-muted/30">
+                      Giờ
+                    </div>
+                    <ScrollArea className="h-full">
+                      <div className="flex flex-col p-1 gap-0.5">
+                        {HOURS.map((h) => (
+                          <Button
+                            key={h}
+                            type="button"
+                            variant={currentHours === h ? "default" : "ghost"}
+                            size="xs"
+                            className="h-6 w-full text-xs font-normal"
+                            data-testid={`time-hour-${h}`}
+                            onClick={() => handleTimeUpdate(h, currentMinutes)}
+                          >
+                            {h}
+                          </Button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+
+                  {/* Minutes column */}
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <div className="text-[10px] font-semibold text-muted-foreground border-b border-border/70 py-1 bg-muted/30">
+                      Phút
+                    </div>
+                    <ScrollArea className="h-full">
+                      <div className="flex flex-col p-1 gap-0.5">
+                        {MINUTES.map((m) => (
+                          <Button
+                            key={m}
+                            type="button"
+                            variant={currentMinutes === m ? "default" : "ghost"}
+                            size="xs"
+                            className="h-6 w-full text-xs font-normal"
+                            data-testid={`time-minute-${m}`}
+                            onClick={() => handleTimeUpdate(currentHours, m)}
+                          >
+                            {m}
+                          </Button>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                </div>
+              </div>
+
+              {/* Confirm / Close Button */}
               <Button
                 type="button"
                 size="sm"
-                variant="ghost"
+                variant="default"
                 onClick={() => setOpen(false)}
-                className="h-7 text-xs px-2"
+                className="h-7 text-xs w-full mt-1"
+                data-testid="date-picker-confirm-button"
               >
-                Xong
+                Xác nhận
               </Button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );

@@ -326,17 +326,32 @@ export function HomeworkAssignmentCreationForm({
                   >
                     <SelectTrigger
                       data-testid={`prompt-preset-select-${index}`}
-                      className="h-7 max-w-[200px] text-[11px] text-muted-foreground"
+                      className="h-7 text-xs text-muted-foreground font-normal"
+                      aria-label="Chọn đề thi mẫu gợi ý"
                     >
-                      <SparklesIcon className="size-3 text-amber-500 mr-1 shrink-0" />
-                      <span className="truncate">Đề thi mẫu gợi ý</span>
+                      <SparklesIcon className="size-3.5 text-amber-500 mr-1.5 shrink-0" />
+                      <span>Đề thi mẫu gợi ý</span>
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent
+                      className="w-[340px] sm:w-[440px] max-w-[90vw]"
+                      aria-label="Danh sách đề thi mẫu gợi ý"
+                    >
                       {PRESET_SPEAKING_PROMPTS.filter(
                         (p) => p.partNumber === prompt.partNumber
                       ).map((preset) => (
-                        <SelectItem key={preset.id} value={preset.id}>
-                          {preset.category}: {preset.text.slice(0, 38)}...
+                        <SelectItem
+                          key={preset.id}
+                          value={preset.id}
+                          className="py-2 cursor-pointer"
+                        >
+                          <div className="flex flex-col gap-0.5 text-left">
+                            <span className="font-semibold text-xs text-foreground">
+                              {preset.category}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+                              {preset.text}
+                            </span>
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -404,7 +419,7 @@ export function HomeworkAssignmentCreationForm({
           <span>Hạn nộp bài (Submission Deadline) *</span>
         </label>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
           <DatePicker
             id="assignment-deadline"
             data-testid="assignment-deadline-input"
@@ -415,17 +430,20 @@ export function HomeworkAssignmentCreationForm({
             onChange={(_, dateStr) => {
               if (dateStr) setDeadline(dateStr);
             }}
-            className="w-full sm:w-auto sm:min-w-[220px]"
+            className="w-full sm:w-64"
           />
 
           <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] text-muted-foreground mr-1 hidden sm:inline">
+              Gợi ý nhanh:
+            </span>
             <Button
               type="button"
               variant="outline"
               size="sm"
               disabled={isSubmitting}
               onClick={() => handleQuickDeadlineOffset(3)}
-              className="h-8 text-[11px] px-2"
+              className="h-8 text-xs px-2.5"
             >
               +3 ngày
             </Button>
@@ -435,7 +453,7 @@ export function HomeworkAssignmentCreationForm({
               size="sm"
               disabled={isSubmitting}
               onClick={() => handleQuickDeadlineOffset(7)}
-              className="h-8 text-[11px] px-2"
+              className="h-8 text-xs px-2.5"
             >
               +1 tuần
             </Button>
@@ -445,7 +463,7 @@ export function HomeworkAssignmentCreationForm({
               size="sm"
               disabled={isSubmitting}
               onClick={() => handleQuickDeadlineOffset(14)}
-              className="h-8 text-[11px] px-2"
+              className="h-8 text-xs px-2.5"
             >
               +2 tuần
             </Button>

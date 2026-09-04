@@ -82,10 +82,16 @@ export const InteractiveOpenTest: Story = {
     await expect(trigger).toBeInTheDocument();
     await expect(trigger).toHaveTextContent("14:30, 10/09/2026");
 
+    // Open popover
     await userEvent.click(trigger);
-    const timeInput = await within(document.body).findByTestId(
-      "date-picker-time-input"
-    );
-    await expect(timeInput).toBeInTheDocument();
+    const hourBtn = await within(document.body).findByTestId("time-hour-14");
+    await expect(hourBtn).toBeInTheDocument();
+
+    // Click 18:00 preset
+    const preset18Btn = within(document.body).getByRole("button", {
+      name: "18:00",
+    });
+    await userEvent.click(preset18Btn);
+    await expect(trigger).toHaveTextContent("18:00, 10/09/2026");
   },
 };
