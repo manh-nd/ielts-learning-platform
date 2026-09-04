@@ -29,6 +29,10 @@ import {
   getRandomMockTopic,
 } from "@/lib/data/speaking-mock-topics";
 import { LiveSpeakingExaminerRoom } from "@/components/speaking/live";
+import {
+  ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
+  clearActiveSpeakingSession,
+} from "@/components/speaking/live/types";
 import { cn } from "@/lib/utils";
 
 interface LiveSpeakingClientViewProps {
@@ -43,8 +47,8 @@ export function LiveSpeakingClientView({
   initialHasConsent = false,
 }: LiveSpeakingClientViewProps) {
   const router = useRouter();
-  const [selectedTopic, setSelectedTopic] = useState<SpeakingMockTopic>(
-    SPEAKING_MOCK_TOPICS[0]
+  const [selectedTopic, setSelectedTopic] = useState<SpeakingMockTopic>(() =>
+    getRandomMockTopic()
   );
   const [targetPart, setTargetPart] = useState<"part1" | "full">("part1");
   const [hasLocalConsent, setHasLocalConsent] = useState<boolean>(false);
@@ -55,7 +59,7 @@ export function LiveSpeakingClientView({
       const urlParams = new URLSearchParams(window.location.search);
       return (
         urlParams.get("sessionId") ||
-        sessionStorage.getItem("ielts_active_speaking_session_id")
+        sessionStorage.getItem(ACTIVE_SPEAKING_SESSION_STORAGE_KEY)
       );
     }
     return null;
@@ -66,7 +70,7 @@ export function LiveSpeakingClientView({
       const urlParams = new URLSearchParams(window.location.search);
       const urlSessionId = urlParams.get("sessionId");
       const storedSessionId = sessionStorage.getItem(
-        "ielts_active_speaking_session_id"
+        ACTIVE_SPEAKING_SESSION_STORAGE_KEY
       );
       return Boolean(urlSessionId || storedSessionId);
     }
@@ -81,12 +85,7 @@ export function LiveSpeakingClientView({
   const handleLeaveRoom = () => {
     setIsInRoom(false);
     setActiveSessionId(null);
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("ielts_active_speaking_session_id");
-      const url = new URL(window.location.href);
-      url.searchParams.delete("sessionId");
-      window.history.replaceState(null, "", url.pathname);
-    }
+    clearActiveSpeakingSession();
   };
 
   if (isInRoom) {

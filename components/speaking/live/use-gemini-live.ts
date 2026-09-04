@@ -50,6 +50,21 @@ import {
 
 export { getSupportedMediaRecorderMimeType, pcmBase64ChunksToWavBlob };
 
+/**
+ * Determines whether a microphone initialization error represents a permission denial.
+ */
+export function isPermissionDeniedError(err: unknown): boolean {
+  if (!err) return false;
+  const errName = (err as Error)?.name || "";
+  const errMsg = (err as Error)?.message || "";
+  return (
+    errName === "NotAllowedError" ||
+    errName === "PermissionDeniedError" ||
+    errMsg.toLowerCase().includes("permission") ||
+    errMsg.toLowerCase().includes("denied")
+  );
+}
+
 export function parseLiveServerMessage(raw: unknown): ParsedLiveMessage {
   if (typeof raw !== "object" || raw === null) {
     return { type: "unknown" };
@@ -942,13 +957,7 @@ export function useGeminiLive(
         });
       } catch (micErr: unknown) {
         console.error("[useGeminiLive] Failed to start microphone:", micErr);
-        const errName = (micErr as Error)?.name || "";
-        const errMsg = (micErr as Error)?.message || "";
-        const isDenied =
-          errName === "NotAllowedError" ||
-          errName === "PermissionDeniedError" ||
-          errMsg.toLowerCase().includes("permission") ||
-          errMsg.toLowerCase().includes("denied");
+        const isDenied = isPermissionDeniedError(micErr);
 
         const err = new Error(
           isDenied

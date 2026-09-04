@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { fn } from "storybook/test";
+import { fn, expect, userEvent, within } from "storybook/test";
 import { LiveSessionControls } from "./live-session-controls";
 
 const meta = {
@@ -48,5 +48,24 @@ export const Muted: Story = {
     status: "connected",
     isMuted: true,
     inputVolume: 0,
+  },
+};
+
+export const PermissionDenied: Story = {
+  args: {
+    status: "permission_denied",
+    isMuted: false,
+    onRequestPermissionDialog: fn(),
+  },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    const disabledBtn = canvas.getByTestId("connect-live-btn");
+    await expect(disabledBtn).toBeDisabled();
+    await expect(disabledBtn).toHaveTextContent(/Microphone bị từ chối/i);
+
+    const guideBtn = canvas.getByTestId("open-mic-guide-btn");
+    await expect(guideBtn).toBeInTheDocument();
+    await userEvent.click(guideBtn);
+    await expect(args.onRequestPermissionDialog).toHaveBeenCalled();
   },
 };

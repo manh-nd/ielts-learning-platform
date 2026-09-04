@@ -36,19 +36,34 @@ export function LiveSessionControls({
     return (
       <div
         data-testid="live-session-controls"
-        className={cn("flex items-center justify-center p-2", className)}
+        className={cn(
+          "flex flex-col sm:flex-row items-center justify-center gap-3 p-2",
+          className
+        )}
       >
         <Button
           type="button"
           size="lg"
-          variant="destructive"
+          variant="outline"
+          disabled
           data-testid="connect-live-btn"
-          onClick={onRequestPermissionDialog || onConnect}
-          className="gap-2 font-semibold shadow-md bg-rose-600 hover:bg-rose-700 text-white rounded-full px-6 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
+          className="gap-2 font-semibold shadow-sm opacity-60 cursor-not-allowed rounded-full px-6"
         >
-          <MicOff className="w-4 h-4" />
-          Cần cấp quyền micro — Bấm để mở hướng dẫn
+          <MicOff className="w-4 h-4 text-rose-500" />
+          Microphone bị từ chối
         </Button>
+        {onRequestPermissionDialog && (
+          <Button
+            type="button"
+            size="lg"
+            variant="destructive"
+            data-testid="open-mic-guide-btn"
+            onClick={onRequestPermissionDialog}
+            className="gap-2 font-semibold shadow-md bg-rose-600 hover:bg-rose-700 text-white rounded-full px-6 cursor-pointer"
+          >
+            Mở hướng dẫn cấp lại quyền
+          </Button>
+        )}
       </div>
     );
   }

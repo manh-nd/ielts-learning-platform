@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { MicOff, RefreshCw, AlertTriangle, CheckCircle } from "lucide-react";
 
 export interface MicPermissionDeniedDialogProps {
@@ -161,22 +162,22 @@ export function MicPermissionDeniedDialog({
         </Tabs>
 
         {testResult === "still_denied" && (
-          <div className="flex items-center gap-2 text-xs text-rose-800 dark:text-rose-300 bg-rose-500/10 p-2.5 rounded border border-rose-500/20">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>
+          <Alert variant="destructive">
+            <AlertTriangle className="w-4 h-4" />
+            <AlertDescription className="text-xs">
               Microphone vẫn chưa được cấp quyền. Vui lòng kiểm tra lại cài đặt
               trình duyệt.
-            </span>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         {testResult === "success" && (
-          <div className="flex items-center gap-2 text-xs text-emerald-800 dark:text-emerald-300 bg-emerald-500/10 p-2.5 rounded border border-emerald-500/20">
-            <CheckCircle className="w-4 h-4 shrink-0" />
-            <span>
+          <Alert variant="success">
+            <CheckCircle className="w-4 h-4" />
+            <AlertDescription className="text-xs">
               Đã cấp quyền Microphone thành công! Đang mở phòng thi...
-            </span>
-          </div>
+            </AlertDescription>
+          </Alert>
         )}
 
         <DialogFooter className="gap-2 sm:gap-2 pt-1">

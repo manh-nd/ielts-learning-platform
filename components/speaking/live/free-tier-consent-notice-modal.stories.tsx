@@ -30,14 +30,64 @@ export const InteractiveConsent: Story = {
     open: true,
   },
   play: async ({ args }) => {
-    const agreeBtn = await within(document.body).findByRole("button", {
-      name: /Tôi đủ 18 tuổi & Đồng ý/i,
-    });
-    expect(agreeBtn).toBeInTheDocument();
-    await userEvent.click(agreeBtn);
-    await waitFor(() => {
-      expect(args.onConsent).toHaveBeenCalled();
-    });
+    const originalFetch = window.fetch;
+    window.fetch = (async (...args: Parameters<typeof fetch>) => {
+      const [input] = args;
+      if (typeof input === "string" && input.includes("/api/learner/consent")) {
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(...args);
+    }) as unknown as typeof fetch;
+
+    try {
+      const agreeBtn = await within(document.body).findByRole("button", {
+        name: /Tôi đủ 18 tuổi & Đồng ý/i,
+      });
+      expect(agreeBtn).toBeInTheDocument();
+      await userEvent.click(agreeBtn);
+      await waitFor(() => {
+        expect(args.onConsent).toHaveBeenCalled();
+      });
+    } finally {
+      window.fetch = originalFetch;
+    }
+  },
+};
+
+export const ConsentApiError: Story = {
+  args: {
+    open: true,
+  },
+  play: async ({ args }) => {
+    const originalFetch = window.fetch;
+    window.fetch = (async (...args: Parameters<typeof fetch>) => {
+      const [input] = args;
+      if (typeof input === "string" && input.includes("/api/learner/consent")) {
+        return new Response(JSON.stringify({ error: "Lỗi kết nối máy chủ" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(...args);
+    }) as unknown as typeof fetch;
+
+    try {
+      const agreeBtn = await within(document.body).findByRole("button", {
+        name: /Tôi đủ 18 tuổi & Đồng ý/i,
+      });
+      expect(agreeBtn).toBeInTheDocument();
+      await userEvent.click(agreeBtn);
+      await waitFor(async () => {
+        const alert = await within(document.body).findByRole("alert");
+        expect(alert).toBeInTheDocument();
+      });
+      expect(args.onConsent).not.toHaveBeenCalled();
+    } finally {
+      window.fetch = originalFetch;
+    }
   },
 };
 

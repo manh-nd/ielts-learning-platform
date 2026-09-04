@@ -124,3 +124,23 @@ export interface UseGeminiLiveReturn {
   finishPart2PrepEarly: () => void;
   triggerMockStageChange: (stage: ExamStage) => void;
 }
+
+export const ACTIVE_SPEAKING_SESSION_STORAGE_KEY =
+  "ielts_active_speaking_session_id";
+
+/**
+ * Centrally cleans up the active speaking session from sessionStorage and the URL query parameter.
+ */
+export function clearActiveSpeakingSession(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(ACTIVE_SPEAKING_SESSION_STORAGE_KEY);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("sessionId")) {
+      url.searchParams.delete("sessionId");
+      window.history.replaceState(null, "", url.pathname + (url.search || ""));
+    }
+  } catch (err) {
+    console.warn("[clearActiveSpeakingSession] Failed to clear session:", err);
+  }
+}

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
-import { POST, GET, devConsentCache } from "./route";
 import { NextRequest } from "next/server";
+import { POST, GET } from "./route";
+import { devConsentCache } from "@/modules/identity/application/learner-consent";
 
 function createAuthHeaders(
   user?: {

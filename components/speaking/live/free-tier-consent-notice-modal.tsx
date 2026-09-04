@@ -10,7 +10,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ShieldCheck, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 export interface FreeTierConsentNoticeModalProps {
   open: boolean;
@@ -42,10 +43,7 @@ export function FreeTierConsentNoticeModal({
       onConsent();
     } catch (err: unknown) {
       console.error("[FreeTierConsentNotice] Consent error:", err);
-      // Even if network drops temporarily, allow client progress if needed or show error
       setError((err as Error)?.message || "Đã xảy ra lỗi khi lưu đồng thuận.");
-      // If error occurs, still allow user to proceed locally to avoid blocking pilot
-      onConsent();
     } finally {
       setIsSubmitting(false);
     }
@@ -79,7 +77,7 @@ export function FreeTierConsentNoticeModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-2.5 text-xs text-foreground/90 bg-muted/30 p-3.5 rounded-lg border border-border/70">
+        <div className="space-y-3 text-xs text-foreground/90 bg-muted/30 p-4 rounded-lg border border-border/70">
           <div className="flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
             <span>
@@ -117,10 +115,10 @@ export function FreeTierConsentNoticeModal({
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 text-xs text-rose-800 dark:text-rose-300 bg-rose-500/10 p-2.5 rounded border border-rose-500/20">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
+          <Alert variant="destructive">
+            <AlertCircle className="w-4 h-4" />
+            <AlertDescription className="text-xs">{error}</AlertDescription>
+          </Alert>
         )}
 
         <DialogFooter className="gap-2 sm:gap-2 pt-2">

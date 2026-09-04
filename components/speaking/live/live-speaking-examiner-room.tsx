@@ -33,6 +33,8 @@ import {
   LiveSpeakingConfig,
   CandidateTurnMarker,
   RecordedAudioData,
+  ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
+  clearActiveSpeakingSession,
 } from "./types";
 import {
   IeltsSpeakingEvaluationResult,
@@ -180,67 +182,8 @@ export function LiveSpeakingExaminerRoom({
     }
   }, [status, activeSessionId]);
 
-  // Session state restoration from URL or sessionStorage
-  useEffect(() => {
-    let isCancelled = false;
-    const sessionToRestore =
-      initialSessionId ||
-      (typeof window !== "undefined"
-        ? sessionStorage.getItem("ielts_active_speaking_session_id")
-        : null);
-
-    if (
-      sessionToRestore &&
-      !isExamFinished &&
-      !evaluationResult &&
-      !practiceFeedback
-    ) {
-      const restoreSession = async () => {
-        try {
-          const res = await fetch(
-            `/api/speaking/evaluate?sessionId=${encodeURIComponent(sessionToRestore)}`
-          );
-          if (!res.ok) return;
-          const data = await res.json();
-          if (isCancelled || !data?.success || !data?.session) return;
-
-          const pSession = data.session;
-          const responses = data.responses || [];
-
-          setActiveSessionId(pSession.id);
-          if (responses.length > 0 && responses[0].storageKey) {
-            setPersistedStorageKey(responses[0].storageKey);
-          }
-
-          if (pSession.status === "evaluated" && pSession.scorecardJson) {
-            setPracticeFeedback(pSession.scorecardJson as PracticeFeedback);
-            if (pSession.evidenceJson?.trace) {
-              setTraceMetadata(
-                pSession.evidenceJson.trace as SpeakingEvaluationTrace
-              );
-            }
-            setIsExamFinished(true);
-          } else if (pSession.status === "completed") {
-            setIsExamFinished(true);
-            if (pSession.evidenceJson?.evaluationStatus === "failed") {
-              setEvalError(
-                pSession.evidenceJson.evaluationError ||
-                  "Lần phân tích trước bị gián đoạn. Vui lòng bấm thử phân tích lại."
-              );
-            }
-          }
-        } catch (err) {
-          console.warn("[LiveExaminerRoom] Session restoration error:", err);
-        }
-      };
-
-      restoreSession();
-    }
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [initialSessionId, isExamFinished, evaluationResult, practiceFeedback]);
+  const isConnected = status === "connected";
+  const isPart1Practice = targetPart === "part1" || targetPart === "part_1";
 
   // Audio upload with exponential backoff
   const uploadAudioWithRetry = useCallback(
@@ -295,9 +238,6 @@ export function LiveSpeakingExaminerRoom({
     },
     []
   );
-
-  const isConnected = status === "connected";
-  const isPart1Practice = targetPart === "part1" || targetPart === "part_1";
 
   // Dispatch evaluation request to server
   const triggerEvaluation = useCallback(
@@ -404,6 +344,90 @@ export function LiveSpeakingExaminerRoom({
     ]
   );
 
+  // Session state restoration from URL or sessionStorage
+  useEffect(() => {
+    let isCancelled = false;
+    const sessionToRestore =
+      initialSessionId ||
+      (typeof window !== "undefined"
+        ? sessionStorage.getItem(ACTIVE_SPEAKING_SESSION_STORAGE_KEY)
+        : null);
+
+    if (
+      sessionToRestore &&
+      !isExamFinished &&
+      !evaluationResult &&
+      !practiceFeedback
+    ) {
+      const restoreSession = async () => {
+        try {
+          const res = await fetch(
+            `/api/speaking/evaluate?sessionId=${encodeURIComponent(sessionToRestore)}`
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          if (isCancelled || !data?.success || !data?.session) return;
+
+          const pSession = data.session;
+          const responses = data.responses || [];
+
+          setActiveSessionId(pSession.id);
+          if (responses.length > 0 && responses[0].storageKey) {
+            setPersistedStorageKey(responses[0].storageKey);
+          }
+
+          if (pSession.status === "evaluated" && pSession.scorecardJson) {
+            const sc = pSession.scorecardJson as Record<string, unknown>;
+            if (sc.estimatedPerformance || isPart1Practice) {
+              setPracticeFeedback(sc as unknown as PracticeFeedback);
+            } else {
+              setEvaluationResult(
+                sc as unknown as IeltsSpeakingEvaluationResult
+              );
+            }
+            if (pSession.evidenceJson?.trace) {
+              setTraceMetadata(
+                pSession.evidenceJson.trace as SpeakingEvaluationTrace
+              );
+            }
+            setIsExamFinished(true);
+          } else if (pSession.status === "completed") {
+            setIsExamFinished(true);
+            if (pSession.evidenceJson?.evaluationStatus === "failed") {
+              setEvalError(
+                pSession.evidenceJson.evaluationError ||
+                  "Lần phân tích trước bị gián đoạn. Vui lòng bấm thử phân tích lại."
+              );
+            } else {
+              // In-flight evaluation resumption
+              setIsEvaluating(true);
+              triggerEvaluation(
+                pSession.id,
+                responses[0]?.storageKey || undefined,
+                undefined
+              );
+            }
+          }
+        } catch (err) {
+          console.warn("[LiveExaminerRoom] Session restoration error:", err);
+        }
+      };
+
+      restoreSession();
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [
+    initialSessionId,
+    isExamFinished,
+    evaluationResult,
+    practiceFeedback,
+    triggerEvaluation,
+    isPart1Practice,
+  ]);
+
   // Finish exam manually or automatically
   const handleFinishExam = useCallback(async () => {
     if (isEvaluating) return;
@@ -418,7 +442,7 @@ export function LiveSpeakingExaminerRoom({
     // Save session in sessionStorage and update URL for refresh recovery
     if (typeof window !== "undefined") {
       sessionStorage.setItem(
-        "ielts_active_speaking_session_id",
+        ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
         activeSessionId
       );
       const url = new URL(window.location.href);
@@ -627,13 +651,21 @@ export function LiveSpeakingExaminerRoom({
               size="sm"
               variant="outline"
               onClick={() => {
+                const confirmed =
+                  typeof window === "undefined" ||
+                  window.confirm(
+                    "Bản thu âm chưa được tải lên sẽ bị hủy. Bạn có chắc chắn muốn hủy và thu âm lại không?"
+                  );
+                if (!confirmed) return;
                 setUploadError(null);
                 setIsExamFinished(false);
+                setSavedFinalizedAudio(null);
+                clearActiveSpeakingSession();
               }}
               disabled={isUploadingAudio}
-              className="cursor-pointer text-xs"
+              className="cursor-pointer text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20"
             >
-              Quay lại
+              Hủy và thu âm lại
             </Button>
           </div>
         </div>
@@ -674,22 +706,12 @@ export function LiveSpeakingExaminerRoom({
             previous_session_id: activeSessionId,
           });
           setActiveSessionId(newSessionId);
-          if (typeof window !== "undefined") {
-            sessionStorage.removeItem("ielts_active_speaking_session_id");
-            const url = new URL(window.location.href);
-            url.searchParams.delete("sessionId");
-            window.history.replaceState(null, "", url.pathname);
-          }
+          clearActiveSpeakingSession();
           onSessionChange?.(null);
           onRestart?.();
         }}
         onBackToDashboard={() => {
-          if (typeof window !== "undefined") {
-            sessionStorage.removeItem("ielts_active_speaking_session_id");
-            const url = new URL(window.location.href);
-            url.searchParams.delete("sessionId");
-            window.history.replaceState(null, "", url.pathname);
-          }
+          clearActiveSpeakingSession();
           onSessionChange?.(null);
           onBackToDashboard?.();
         }}

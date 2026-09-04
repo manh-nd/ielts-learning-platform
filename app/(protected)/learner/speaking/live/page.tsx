@@ -1,9 +1,6 @@
 import { requireRoleOrRedirect } from "@/lib/authorization";
 import { LiveSpeakingClientView } from "./live-speaking-client-view";
-import { db } from "@/lib/db";
-import { user } from "@/modules/identity/infrastructure/auth-schema";
-import { devConsentCache } from "@/app/api/learner/consent/route";
-import { eq } from "drizzle-orm";
+import { hasLearnerConsent } from "@/modules/identity/application/learner-consent";
 
 export const metadata = {
   title: "Phòng Thi Speaking Trực Tiếp | Chilly IELTS",
@@ -20,22 +17,7 @@ export default async function LearnerLiveSpeakingPage() {
   );
 
   if (!initialHasConsent) {
-    if (devConsentCache.has(session.user.id)) {
-      initialHasConsent = true;
-    } else if (process.env.DATABASE_URL) {
-      try {
-        const rows = await db
-          .select({ consentFreeTierAt: user.consentFreeTierAt })
-          .from(user)
-          .where(eq(user.id, session.user.id))
-          .limit(1);
-        if (rows.length > 0 && rows[0].consentFreeTierAt) {
-          initialHasConsent = true;
-        }
-      } catch {
-        // ignore lookup error
-      }
-    }
+    initialHasConsent = await hasLearnerConsent(session.user.id);
   }
 
   return (

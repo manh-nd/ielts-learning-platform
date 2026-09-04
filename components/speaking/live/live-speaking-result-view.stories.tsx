@@ -233,6 +233,18 @@ export const EvaluationError: Story = {
     error:
       "Không thể kết nối đến máy chủ chấm điểm tự động. Vui lòng thử lại sau.",
   },
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/Không thể tải kết quả chấm điểm/i)
+    ).toBeInTheDocument();
+    const retryBtn = canvas.getByRole("button", {
+      name: /Thử chấm điểm lại/i,
+    });
+    await expect(retryBtn).toBeInTheDocument();
+    await userEvent.click(retryBtn);
+    await expect(args.onRetryEvaluation).toHaveBeenCalled();
+  },
 };
 
 export const InteractiveAudioWaveformTab: Story = {

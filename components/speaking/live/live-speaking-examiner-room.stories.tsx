@@ -50,13 +50,29 @@ export const ConsentGateRequired: Story = {
     );
     await expect(modalTitle).toBeInTheDocument();
 
-    const agreeButton = await within(document.body).findByRole("button", {
-      name: /Tôi đủ 18 tuổi & Đồng ý/i,
-    });
-    await userEvent.click(agreeButton);
+    const originalFetch = window.fetch;
+    window.fetch = (async (...args: Parameters<typeof fetch>) => {
+      const [input] = args;
+      if (typeof input === "string" && input.includes("/api/learner/consent")) {
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return originalFetch(...args);
+    }) as unknown as typeof fetch;
 
-    // Verify session started after consent
-    await expect(canvas.getByTestId("live-status-badge")).toBeInTheDocument();
+    try {
+      const agreeButton = await within(document.body).findByRole("button", {
+        name: /Tôi đủ 18 tuổi & Đồng ý/i,
+      });
+      await userEvent.click(agreeButton);
+
+      // Verify session started after consent
+      await expect(canvas.getByTestId("live-status-badge")).toBeInTheDocument();
+    } finally {
+      window.fetch = originalFetch;
+    }
   },
 };
 
