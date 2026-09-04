@@ -25,6 +25,7 @@ import {
 } from "@/lib/errors";
 import { finishSpeakingPractice } from "@/modules/speaking/application/finish-speaking-practice";
 import { getSpeakingPractice } from "@/modules/speaking/application/get-speaking-practice";
+import { normalizeSpeakingPracticeScope } from "@/modules/speaking/domain";
 import {
   devSessionCache,
   devResponseCache,
@@ -70,11 +71,10 @@ export async function POST(req: NextRequest) {
     effectiveStorageKey = storageKey;
 
     // Check if this is a Part 1 Practice Evaluation
-    const isPart1Practice =
-      body.practiceMode === "part_1" ||
-      body.practiceMode === "part1" ||
-      body.targetPart === "part1" ||
-      body.targetPart === "part_1";
+    const normalizedScope =
+      normalizeSpeakingPracticeScope(body.practiceMode) ||
+      normalizeSpeakingPracticeScope(body.targetPart);
+    const isPart1Practice = normalizedScope !== null;
 
     if (isPart1Practice) {
       const practiceResult = await finishSpeakingPractice({

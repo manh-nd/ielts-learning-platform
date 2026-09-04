@@ -121,4 +121,56 @@ describe("POST /api/speaking/practice/start", () => {
     expect(json.session.userId).toBe("usr_learner_start");
     expect(json.session.userId).not.toBe("spoofed_admin_victim");
   });
+
+  it("should normalize legacy wire targetPart 'part1' to canonical 'part_1'", async () => {
+    const sessionId = `ses_norm_${Date.now()}`;
+    const req = new NextRequest(
+      "http://localhost:3000/api/speaking/practice/start",
+      {
+        method: "POST",
+        headers: createAuthHeaders({
+          id: "usr_learner_start",
+          role: "learner",
+          name: "Learner Bob",
+        }),
+        body: JSON.stringify({
+          sessionId,
+          topicTitle: "Legacy Part 1",
+          targetPart: "part1",
+        }),
+      }
+    );
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.session.targetPart).toBe("part_1");
+  });
+
+  it("should fallback to canonical 'part_1' when invalid or non-practice targetPart is provided", async () => {
+    const sessionId = `ses_fallback_${Date.now()}`;
+    const req = new NextRequest(
+      "http://localhost:3000/api/speaking/practice/start",
+      {
+        method: "POST",
+        headers: createAuthHeaders({
+          id: "usr_learner_start",
+          role: "learner",
+          name: "Learner Bob",
+        }),
+        body: JSON.stringify({
+          sessionId,
+          topicTitle: "Invalid Target Part",
+          targetPart: "full",
+        }),
+      }
+    );
+
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.session.targetPart).toBe("part_1");
+  });
 });

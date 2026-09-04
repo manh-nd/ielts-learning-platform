@@ -12,6 +12,7 @@ import {
   retryPracticeEvaluation,
   executePracticeEvaluation,
 } from "./retry-practice-evaluation";
+import { CANONICAL_SPEAKING_PRACTICE_SCOPE } from "../domain";
 
 export interface FinishSpeakingPracticeInput {
   authenticatedUserId: string;
@@ -143,7 +144,7 @@ export async function finishSpeakingPractice(
       return {
         success: false,
         isPractice: true,
-        practiceMode: "part_1",
+        practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
         sessionId,
         error: "AUDIO_PERSISTENCE_FAILED",
         message:
@@ -158,7 +159,7 @@ export async function finishSpeakingPractice(
     return {
       success: false,
       isPractice: true,
-      practiceMode: "part_1",
+      practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
       sessionId,
       error: "ORIGINAL_AUDIO_MISSING",
       message:
@@ -203,7 +204,7 @@ export async function finishSpeakingPractice(
       candidateName: effectiveCandidateName,
       topicTitle: effectiveTopicTitle,
       durationSeconds: effectiveDuration,
-      targetPart: "part_1",
+      targetPart: CANONICAL_SPEAKING_PRACTICE_SCOPE,
       turnMarkers: effectiveTurnMarkers,
       liveTranscript: userTranscripts,
       storageKey: effectiveStorageKey,
@@ -218,7 +219,7 @@ export async function finishSpeakingPractice(
     return {
       success: false,
       isPractice: true,
-      practiceMode: "part_1",
+      practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
       sessionId,
       error: "PRACTICE_PERSISTENCE_FAILED",
       message: "Failed to commit completed practice session to database.",

@@ -6,6 +6,13 @@ import {
 import { evaluateSpeakingPracticePart1 } from "@/lib/gemini/speaking-evaluator";
 import type { PracticeFeedback } from "@/lib/gemini/speaking-schema";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
+import {
+  CANONICAL_SPEAKING_PRACTICE_SCOPE,
+  SpeakingPracticeScope,
+  SpeakingPracticeStatus,
+  PracticeEvaluationStatus,
+  checkPracticeEvaluationRetryEligibility,
+} from "../domain";
 
 export interface CandidateTurnMarkerInput {
   partNumber: number;
@@ -29,7 +36,7 @@ export interface RetryPracticeEvaluationInput {
 export interface PracticeEvaluationExecutionResult {
   success: boolean;
   isPractice: boolean;
-  practiceMode: "part_1";
+  practiceMode: SpeakingPracticeScope;
   result?: PracticeFeedback;
   transcripts?: unknown;
   trace?: unknown;
@@ -38,6 +45,51 @@ export interface PracticeEvaluationExecutionResult {
   message?: string | null;
   status?: string;
   httpStatus: number;
+}
+
+/**
+ * Maps persistence representation to pure domain statuses at the application boundary.
+ * Legacy persistence 'evaluated' status maps to domain SpeakingPracticeStatus 'completed',
+ * since AI evaluation completion is decoupled from practice completion (PracticeEnded != PracticeEvaluated).
+ */
+export function mapSpeakingPracticePersistenceToDomain(practice: {
+  status: string;
+  scorecardJson?: unknown;
+  evidenceJson?: unknown;
+}): {
+  practiceStatus: SpeakingPracticeStatus;
+  evaluationStatus: PracticeEvaluationStatus;
+} {
+  const evidence = practice.evidenceJson as
+    { evaluationStatus?: string; evaluationError?: string } | undefined;
+
+  let practiceStatus: SpeakingPracticeStatus = "completed";
+  if (practice.status === "in_progress") {
+    practiceStatus = "in_progress";
+  } else if (practice.status === "abandoned") {
+    practiceStatus = "abandoned";
+  } else if (practice.status === "audio_purged") {
+    practiceStatus = "audio_purged";
+  } else {
+    // DB "completed" and legacy DB "evaluated" both map to domain "completed"
+    practiceStatus = "completed";
+  }
+
+  let evaluationStatus: PracticeEvaluationStatus = "pending";
+  if (practice.status === "evaluated" || practice.scorecardJson) {
+    evaluationStatus = "ready";
+  } else if (evidence?.evaluationStatus === "failed") {
+    evaluationStatus = "failed";
+  } else if (evidence?.evaluationStatus === "pending") {
+    evaluationStatus = "pending";
+  } else if (practiceStatus === "completed" && !practice.scorecardJson) {
+    // Practice completed, but no scorecard and not actively pending -> evaluation failed or interrupted
+    evaluationStatus = "failed";
+  } else {
+    evaluationStatus = "pending";
+  }
+
+  return { practiceStatus, evaluationStatus };
 }
 
 export interface ExecuteEvaluationParams {
@@ -115,7 +167,7 @@ export async function executePracticeEvaluation(
     return {
       success: false,
       isPractice: true,
-      practiceMode: "part_1",
+      practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
       error: "EVALUATION_FAILED",
       message: evaluationError,
       sessionId,
@@ -143,7 +195,7 @@ export async function executePracticeEvaluation(
     return {
       success: false,
       isPractice: true,
-      practiceMode: "part_1",
+      practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
       sessionId,
       error: "PRACTICE_PERSISTENCE_FAILED",
       message: "Failed to update evaluated practice feedback in database.",
@@ -154,7 +206,7 @@ export async function executePracticeEvaluation(
   return {
     success: true,
     isPractice: true,
-    practiceMode: "part_1",
+    practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
     result: practiceResult.practiceFeedback,
     transcripts: practiceResult.transcripts,
     trace: practiceResult.trace,
@@ -201,20 +253,8 @@ export async function retryPracticeEvaluation(
   const existingResponse = responses[0];
   const existingStorageKey = existingResponse?.storageKey;
 
-  if (!existingStorageKey) {
-    return {
-      success: false,
-      isPractice: true,
-      practiceMode: "part_1",
-      sessionId,
-      error: "ORIGINAL_AUDIO_MISSING",
-      message:
-        "OriginalAudio evidence is missing or unverified. Cannot evaluate practice.",
-      httpStatus: 400,
-    };
-  }
-
   if (
+    existingStorageKey &&
     !isSpeakingAudioStorageKeyOwnedBy(
       existingStorageKey,
       authenticatedUserId,
@@ -226,19 +266,78 @@ export async function retryPracticeEvaluation(
     );
   }
 
-  const audioData = await getSpeakingAudioBuffer(existingStorageKey);
-  if (!audioData || !audioData.buffer || audioData.buffer.length === 0) {
+  const audioData = existingStorageKey
+    ? await getSpeakingAudioBuffer(existingStorageKey)
+    : null;
+
+  const hasAuthoritativeOriginalAudio = Boolean(
+    existingStorageKey &&
+    audioData &&
+    audioData.buffer &&
+    audioData.buffer.length > 0
+  );
+
+  // 4. Enforce domain retry policy at application boundary
+  const { practiceStatus, evaluationStatus } =
+    mapSpeakingPracticePersistenceToDomain(existingPractice);
+
+  const retryEligibility = checkPracticeEvaluationRetryEligibility({
+    practiceStatus,
+    evaluationStatus,
+    hasAuthoritativeOriginalAudio,
+  });
+
+  if (!retryEligibility.eligible) {
+    if (retryEligibility.reason === "AUDIO_UNAVAILABLE") {
+      return {
+        success: false,
+        isPractice: true,
+        practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+        sessionId,
+        error: "ORIGINAL_AUDIO_MISSING",
+        message:
+          "OriginalAudio evidence is missing or unverified. Cannot evaluate practice.",
+        httpStatus: 400,
+      };
+    }
+    if (retryEligibility.reason === "EVALUATION_PENDING") {
+      return {
+        success: false,
+        isPractice: true,
+        practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+        sessionId,
+        error: "EVALUATION_PENDING",
+        message:
+          "An evaluation is already in progress. Please wait for it to complete.",
+        httpStatus: 409,
+      };
+    }
+    if (retryEligibility.reason === "EVALUATION_ALREADY_READY") {
+      return {
+        success: false,
+        isPractice: true,
+        practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+        sessionId,
+        error: "EVALUATION_ALREADY_COMPLETED",
+        message:
+          "Practice evaluation is already complete and feedback is available.",
+        httpStatus: 400,
+      };
+    }
     return {
       success: false,
       isPractice: true,
-      practiceMode: "part_1",
+      practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
       sessionId,
-      error: "ORIGINAL_AUDIO_MISSING",
+      error: retryEligibility.reason || "RETRY_NOT_PERMITTED",
       message:
-        "OriginalAudio evidence is missing or unverified. Cannot evaluate practice.",
+        "Speaking practice evaluation cannot be retried in its current state.",
       httpStatus: 400,
     };
   }
+
+  // At this point, audioData is guaranteed non-null with valid buffer by the policy
+  const verifiedAudioData = audioData!;
 
   // 4. Resolve fallback metadata from existing evidence
   const existingEvidence = existingPractice.evidenceJson as
@@ -272,8 +371,8 @@ export async function retryPracticeEvaluation(
     authenticatedUserId,
     topicTitle: effectiveTopicTitle,
     questions: effectiveQuestions,
-    audioBuffer: audioData.buffer,
-    mimeType: audioData.mimeType,
+    audioBuffer: verifiedAudioData.buffer,
+    mimeType: verifiedAudioData.mimeType,
     durationSeconds: effectiveDuration,
     liveTranscript: userTranscripts,
     turnMarkers: effectiveTurnMarkers,

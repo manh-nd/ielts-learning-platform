@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
 import { toErrorResponse, AppError } from "@/lib/errors";
 import { speakingPracticeRepository } from "@/modules/speaking/infrastructure/speaking-practice-repository";
+import {
+  normalizeSpeakingPracticeScope,
+  CANONICAL_SPEAKING_PRACTICE_SCOPE,
+} from "@/modules/speaking/domain";
 
 export const runtime = "nodejs";
 
@@ -12,8 +16,10 @@ export async function POST(req: NextRequest) {
     const {
       sessionId = `ses_${crypto.randomUUID()}`,
       topicTitle = "IELTS Speaking Examination",
-      targetPart = "part_1",
     } = body;
+    const targetPart =
+      normalizeSpeakingPracticeScope(body.targetPart) ||
+      CANONICAL_SPEAKING_PRACTICE_SCOPE;
 
     const record = await speakingPracticeRepository.createInProgress({
       sessionId,

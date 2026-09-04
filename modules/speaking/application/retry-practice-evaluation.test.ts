@@ -146,4 +146,133 @@ describe("retryPracticeEvaluation Use Case", () => {
       geminiRotator.executeWithRotation = originalExecute;
     }
   });
+
+  it("should deny retry when authoritative OriginalAudio is missing", async () => {
+    const sessionId = "ses_retry_no_audio";
+    const now = new Date();
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId: "user_valid",
+      candidateName: "Valid User",
+      topicTitle: "Hobbies",
+      status: "completed",
+      targetPart: "part_1",
+      durationSeconds: 40,
+      overallBand: null,
+      scorecardJson: null,
+      evidenceJson: { evaluationStatus: "failed" },
+      createdAt: now,
+      updatedAt: now,
+    });
+    // No response record in devResponseCache -> audio is missing
+
+    const res = await retryPracticeEvaluation({
+      authenticatedUserId: "user_valid",
+      sessionId,
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.httpStatus).toBe(400);
+    expect(res.error).toBe("ORIGINAL_AUDIO_MISSING");
+  });
+
+  it("should deny retry when evaluation is already completed/ready", async () => {
+    const sessionId = "ses_retry_already_ready";
+    const storageKey = `speaking/user_valid/${sessionId}/candidate.webm`;
+    await persistSpeakingAudioBuffer(storageKey, Buffer.from("audio"));
+
+    const now = new Date();
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId: "user_valid",
+      candidateName: "Valid User",
+      topicTitle: "Hobbies",
+      status: "evaluated",
+      targetPart: "part_1",
+      durationSeconds: 40,
+      overallBand: 7.0,
+      scorecardJson: { summary: "Existing feedback" },
+      evidenceJson: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    devResponseCache.set(sessionId, [
+      {
+        id: `resp_${sessionId}_p1_0`,
+        sessionId,
+        partNumber: 1,
+        itemIndex: 0,
+        promptQuestion: "Hobbies",
+        storageKey,
+        audioUrl: `/api/speaking/upload-direct?key=${encodeURIComponent(storageKey)}`,
+        mimeType: "audio/webm",
+        startMs: 0,
+        endMs: 40000,
+        durationSeconds: 40,
+        liveTranscript: "I like football.",
+        verifiedTranscript: null,
+        createdAt: now,
+      },
+    ]);
+
+    const res = await retryPracticeEvaluation({
+      authenticatedUserId: "user_valid",
+      sessionId,
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.httpStatus).toBe(400);
+    expect(res.error).toBe("EVALUATION_ALREADY_COMPLETED");
+  });
+
+  it("should deny retry when evaluation is explicitly marked pending", async () => {
+    const sessionId = "ses_retry_pending";
+    const storageKey = `speaking/user_valid/${sessionId}/candidate.webm`;
+    await persistSpeakingAudioBuffer(storageKey, Buffer.from("audio"));
+
+    const now = new Date();
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId: "user_valid",
+      candidateName: "Valid User",
+      topicTitle: "Hobbies",
+      status: "completed",
+      targetPart: "part_1",
+      durationSeconds: 40,
+      overallBand: null,
+      scorecardJson: null,
+      evidenceJson: { evaluationStatus: "pending" },
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    devResponseCache.set(sessionId, [
+      {
+        id: `resp_${sessionId}_p1_0`,
+        sessionId,
+        partNumber: 1,
+        itemIndex: 0,
+        promptQuestion: "Hobbies",
+        storageKey,
+        audioUrl: `/api/speaking/upload-direct?key=${encodeURIComponent(storageKey)}`,
+        mimeType: "audio/webm",
+        startMs: 0,
+        endMs: 40000,
+        durationSeconds: 40,
+        liveTranscript: "I like football.",
+        verifiedTranscript: null,
+        createdAt: now,
+      },
+    ]);
+
+    const res = await retryPracticeEvaluation({
+      authenticatedUserId: "user_valid",
+      sessionId,
+    });
+
+    expect(res.success).toBe(false);
+    expect(res.httpStatus).toBe(409);
+    expect(res.error).toBe("EVALUATION_PENDING");
+  });
 });
