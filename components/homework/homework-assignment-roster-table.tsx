@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   UsersIcon,
   SearchIcon,
@@ -11,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
   HomeworkAssignmentStudentRosterItem,
@@ -49,6 +51,7 @@ export function HomeworkAssignmentRosterTable({
             <span>Đã duyệt</span>
           </Badge>
         );
+      case "in_review":
       case "under_review":
         return (
           <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 gap-1 text-[11px]">
@@ -133,6 +136,7 @@ export function HomeworkAssignmentRosterTable({
                   <th className="py-2 px-3">Học viên</th>
                   <th className="py-2 px-3">Trạng thái nộp bài</th>
                   <th className="py-2 px-3">Thời gian nộp</th>
+                  <th className="py-2 px-3 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
@@ -178,6 +182,37 @@ export function HomeworkAssignmentRosterTable({
                             year: "numeric",
                           }).format(new Date(student.submittedAt))
                         : "Chưa có lượt nộp"}
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      {student.submissionId ? (
+                        <Link
+                          href={`/teacher/submissions/${student.submissionId}`}
+                          className={cn(
+                            buttonVariants({
+                              variant:
+                                student.submissionStatus === "published"
+                                  ? "outline"
+                                  : "default",
+                              size: "sm",
+                            }),
+                            "h-7 text-[11px] px-2.5 gap-1 inline-flex items-center"
+                          )}
+                        >
+                          <FileEditIcon className="size-3" />
+                          <span>
+                            {student.submissionStatus === "published"
+                              ? "Xem bài chấm"
+                              : student.submissionStatus === "in_review" ||
+                                  student.submissionStatus === "under_review"
+                                ? "Tiếp tục chấm"
+                                : "Chấm bài"}
+                          </span>
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground text-[11px]">
+                          —
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}

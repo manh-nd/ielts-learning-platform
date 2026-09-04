@@ -71,6 +71,13 @@
       "when": 1788521681357,
       "tag": "0009_bored_stingray",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788527922338,
+      "tag": "0010_orange_boomer",
+      "breakpoints": true
     }
   ]
 }
