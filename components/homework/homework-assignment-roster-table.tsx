@@ -94,9 +94,9 @@ export function HomeworkAssignmentRosterTable({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2">
           <UsersIcon className="size-4 text-primary" />
-          <h4 className="text-xs font-semibold text-foreground">
+          <h3 className="text-xs font-semibold text-foreground">
             Sĩ số bài nộp ({students.length} học viên)
-          </h4>
+          </h3>
         </div>
 
         <div className="relative w-full sm:w-56">

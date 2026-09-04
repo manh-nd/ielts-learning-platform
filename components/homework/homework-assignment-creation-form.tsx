@@ -275,7 +275,7 @@ export function HomeworkAssignmentCreationForm({
 
       {/* Prompts Builder (1 to 3 prompts) */}
       <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+        <div className="flex items-center justify-between border-b border-border/50 pb-2 gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <MicIcon className="size-4 text-primary" />
             <h3 className="text-xs font-semibold text-foreground">
@@ -293,7 +293,7 @@ export function HomeworkAssignmentCreationForm({
             data-testid="add-prompt-button"
             disabled={prompts.length >= 3 || isSubmitting}
             onClick={handleAddPrompt}
-            className="h-7 text-xs gap-1"
+            className="h-7 text-xs gap-1 shrink-0"
           >
             <PlusIcon className="size-3" />
             <span>Thêm câu hỏi</span>
@@ -307,9 +307,9 @@ export function HomeworkAssignmentCreationForm({
               data-testid={`prompt-item-${index}`}
               className="rounded-lg border border-border/70 bg-card/60 p-3 flex flex-col gap-3 shadow-xs"
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold shrink-0">
                     {index + 1}
                   </span>
 
@@ -345,8 +345,8 @@ export function HomeworkAssignmentCreationForm({
                       data-testid={`prompt-preset-select-${index}`}
                       className="h-7 max-w-[200px] text-[11px] text-muted-foreground"
                     >
-                      <SparklesIcon className="size-3 text-amber-500 mr-1" />
-                      <span>Đề thi mẫu gợi ý</span>
+                      <SparklesIcon className="size-3 text-amber-500 mr-1 shrink-0" />
+                      <span className="truncate">Đề thi mẫu gợi ý</span>
                     </SelectTrigger>
                     <SelectContent>
                       {PRESET_SPEAKING_PROMPTS.filter(
@@ -368,7 +368,7 @@ export function HomeworkAssignmentCreationForm({
                   data-testid={`remove-prompt-button-${index}`}
                   disabled={prompts.length <= 1 || isSubmitting}
                   onClick={() => handleRemovePrompt(index)}
-                  className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  className="size-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                   title={
                     prompts.length <= 1
                       ? "Bài tập phải có ít nhất 1 câu hỏi"
@@ -430,10 +430,10 @@ export function HomeworkAssignmentCreationForm({
             value={deadline}
             disabled={isSubmitting}
             onChange={(e) => setDeadline(e.target.value)}
-            className="w-full sm:w-60 text-xs"
+            className="w-full sm:w-auto sm:min-w-[220px] text-xs"
           />
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <Button
               type="button"
               variant="outline"
@@ -473,7 +473,7 @@ export function HomeworkAssignmentCreationForm({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center justify-end gap-2 border-t border-border/50 pt-4">
+      <div className="flex items-center justify-end gap-2 border-t border-border/50 pt-4 flex-wrap">
         {onCancel && (
           <Button
             type="button"

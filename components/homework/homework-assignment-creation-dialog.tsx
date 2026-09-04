@@ -67,7 +67,7 @@ export function HomeworkAssignmentCreationDialog({
         />
       )}
 
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base font-bold">
             <BookOpenIcon className="size-5 text-primary" />
@@ -80,13 +80,11 @@ export function HomeworkAssignmentCreationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-2">
-          <HomeworkAssignmentCreationForm
-            isSubmitting={isSubmitting}
-            onCancel={() => handleOpenChange(false)}
-            onSubmit={handleSubmit}
-          />
-        </div>
+        <HomeworkAssignmentCreationForm
+          isSubmitting={isSubmitting}
+          onCancel={() => handleOpenChange(false)}
+          onSubmit={handleSubmit}
+        />
       </DialogContent>
     </Dialog>
   );
