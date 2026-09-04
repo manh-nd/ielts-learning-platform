@@ -83,6 +83,7 @@ export const ROLE_ALLOWED_EVENTS: Record<
     "practice_feedback_ready",
     "practice_again_started",
     "practice_audio_error",
+    "practice_purged",
     "homework_viewed",
     "homework_record_completed",
     "homework_submitted",

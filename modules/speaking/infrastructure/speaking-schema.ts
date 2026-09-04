@@ -9,7 +9,7 @@ import {
 import { user } from "@/modules/identity/infrastructure/auth-schema";
 
 export type SpeakingSessionStatus =
-  "in_progress" | "completed" | "evaluated" | "abandoned";
+  "in_progress" | "completed" | "evaluated" | "abandoned" | "audio_purged";
 export type SpeakingAnnotationCategory =
   "pronunciation" | "grammar" | "lexical" | "fluency" | "general";
 

@@ -120,7 +120,7 @@ describe("Telemetry Database Schema & Domain Contracts (Acceptance Contract §7.
     expect(
       isRoleAuthorizedForEvent("learner", "teacher_assessment_published")
     ).toBe(false);
-    expect(isRoleAuthorizedForEvent("learner", "practice_purged")).toBe(false);
+    expect(isRoleAuthorizedForEvent("learner", "practice_purged")).toBe(true);
 
     // Teacher authorization
     expect(

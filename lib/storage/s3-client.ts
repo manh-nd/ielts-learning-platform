@@ -2,6 +2,8 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
+  ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -208,12 +210,20 @@ export async function getDirectAudioDevFallback(
 }
 
 let simulatedPersistenceFailure = false;
+let simulatedDeletionFailure = false;
 
 /**
  * Test helper to simulate storage persistence failures
  */
 export function setSimulatedPersistenceFailure(shouldFail: boolean): void {
   simulatedPersistenceFailure = shouldFail;
+}
+
+/**
+ * Test helper to simulate storage deletion failures
+ */
+export function setSimulatedDeletionFailure(shouldFail: boolean): void {
+  simulatedDeletionFailure = shouldFail;
 }
 
 /**
@@ -249,4 +259,102 @@ export async function persistSpeakingAudioBuffer(
   // Fallback to dev cache
   await saveDirectAudioDevFallback(storageKey, data, mimeType);
   return { success: true, storageKey };
+}
+
+/**
+ * Idempotently deletes a single audio object from S3 or dev fallback cache.
+ */
+export async function deleteSpeakingAudioObject(
+  storageKey: string
+): Promise<boolean> {
+  if (!storageKey) return false;
+
+  if (simulatedDeletionFailure) {
+    throw new Error(
+      `[S3Client] Simulated storage deletion failure for key "${storageKey}"`
+    );
+  }
+
+  // 1. Delete from in-memory dev cache
+  directAudioDevCache.delete(storageKey);
+
+  // 2. Delete from S3 if configured
+  const s3 = getS3Client();
+  if (s3) {
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: s3.bucket,
+        Key: storageKey,
+      });
+      await s3.client.send(command);
+    } catch (err) {
+      console.error(`[S3Client] Error deleting ${storageKey} from S3:`, err);
+      throw err;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Idempotently deletes all audio objects belonging to a specific user and session prefix.
+ */
+export async function deleteSpeakingAudioSession(
+  userId: string,
+  sessionId: string
+): Promise<number> {
+  if (!userId || !sessionId) return 0;
+
+  if (simulatedDeletionFailure) {
+    throw new Error(
+      `[S3Client] Simulated storage deletion failure for session "${sessionId}"`
+    );
+  }
+
+  const cleanUserId = userId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const cleanSessionId = sessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const sessionPrefix = `speaking/${cleanUserId}/${cleanSessionId}/`;
+
+  let deletedCount = 0;
+
+  // 1. Delete from dev cache
+  for (const key of Array.from(directAudioDevCache.keys())) {
+    if (key.startsWith(sessionPrefix)) {
+      directAudioDevCache.delete(key);
+      deletedCount++;
+    }
+  }
+
+  // 2. Delete from S3 if configured
+  const s3 = getS3Client();
+  if (s3) {
+    try {
+      const listCommand = new ListObjectsV2Command({
+        Bucket: s3.bucket,
+        Prefix: sessionPrefix,
+      });
+      const listed = await s3.client.send(listCommand);
+      if (listed.Contents && listed.Contents.length > 0) {
+        for (const item of listed.Contents) {
+          if (item.Key) {
+            await s3.client.send(
+              new DeleteObjectCommand({
+                Bucket: s3.bucket,
+                Key: item.Key,
+              })
+            );
+            deletedCount++;
+          }
+        }
+      }
+    } catch (err) {
+      console.error(
+        `[S3Client] Error deleting session audio under ${sessionPrefix}:`,
+        err
+      );
+      throw err;
+    }
+  }
+
+  return deletedCount;
 }

@@ -19,6 +19,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "db:seed": "bun run scripts/seed-users.ts",
+    "purge:audio": "bun run scripts/purge-expired-audio.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

@@ -6,6 +6,9 @@ import {
   getSpeakingDownloadPresignedUrl,
   saveDirectAudioDevFallback,
   getDirectAudioDevFallback,
+  deleteSpeakingAudioObject,
+  deleteSpeakingAudioSession,
+  setSimulatedDeletionFailure,
 } from "./s3-client";
 
 describe("S3 Storage & Presigned Upload Pipeline (ADR-0004 & ADR-0003)", () => {
@@ -75,5 +78,59 @@ describe("S3 Storage & Presigned Upload Pipeline (ADR-0004 & ADR-0003)", () => {
     expect(retrieved).not.toBeNull();
     expect(retrieved?.data.toString()).toBe("test-audio-content");
     expect(retrieved?.mimeType).toBe("audio/webm");
+  });
+
+  it("should idempotently delete single audio object from dev cache", async () => {
+    const key = "speaking/dev/delete_test/audio.webm";
+    await saveDirectAudioDevFallback(
+      key,
+      Buffer.from("to-delete"),
+      "audio/webm"
+    );
+    expect(await getDirectAudioDevFallback(key)).not.toBeNull();
+
+    const deleteResult = await deleteSpeakingAudioObject(key);
+    expect(deleteResult).toBe(true);
+    expect(await getDirectAudioDevFallback(key)).toBeNull();
+
+    // Idempotency: deleting non-existent key returns true
+    const secondDelete = await deleteSpeakingAudioObject(key);
+    expect(secondDelete).toBe(true);
+  });
+
+  it("should delete all audio objects for a session prefix while preserving others", async () => {
+    const key1 = "speaking/usr_a/ses_target/clip1.webm";
+    const key2 = "speaking/usr_a/ses_target/clip2.webm";
+    const keyOther = "speaking/usr_a/ses_other/clip1.webm";
+
+    await saveDirectAudioDevFallback(key1, Buffer.from("c1"), "audio/webm");
+    await saveDirectAudioDevFallback(key2, Buffer.from("c2"), "audio/webm");
+    await saveDirectAudioDevFallback(keyOther, Buffer.from("co"), "audio/webm");
+
+    const deletedCount = await deleteSpeakingAudioSession(
+      "usr_a",
+      "ses_target"
+    );
+    expect(deletedCount).toBe(2);
+
+    expect(await getDirectAudioDevFallback(key1)).toBeNull();
+    expect(await getDirectAudioDevFallback(key2)).toBeNull();
+    expect(await getDirectAudioDevFallback(keyOther)).not.toBeNull();
+  });
+
+  it("should propagate errors when storage deletion encounters failures", async () => {
+    setSimulatedDeletionFailure(true);
+
+    try {
+      expect(
+        deleteSpeakingAudioObject("speaking/usr_fail/ses_1/clip.webm")
+      ).rejects.toThrow("Simulated storage deletion failure");
+
+      expect(deleteSpeakingAudioSession("usr_fail", "ses_1")).rejects.toThrow(
+        "Simulated storage deletion failure"
+      );
+    } finally {
+      setSimulatedDeletionFailure(false);
+    }
   });
 });
