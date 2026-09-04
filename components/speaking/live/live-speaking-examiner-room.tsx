@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   Sparkles,
   User,
@@ -49,6 +49,15 @@ import {
   dispatchPracticeAgainStarted,
   dispatchPracticeAudioError,
 } from "@/lib/telemetry/telemetry-client";
+import { normalizeSpeakingPracticeScope } from "@/modules/speaking/domain";
+import {
+  finishSpeakingPracticeWorkflow,
+  retrySpeakingPracticeEvaluationWorkflow,
+  retrySpeakingAudioUploadWorkflow,
+  type SpeakingPracticeWorkflowOutcome,
+  type SpeakingPracticeWorkflowPorts,
+} from "@/modules/speaking/application/speaking-practice-workflow";
+import { createSpeakingPracticeBrowserPorts } from "@/modules/speaking/infrastructure/browser/speaking-practice-browser-adapter";
 
 export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
   title?: string;
@@ -60,6 +69,7 @@ export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
   onSessionChange?: (sessionId: string | null) => void;
   onBackToDashboard?: () => void;
   onRestart?: () => void;
+  workflowPorts?: SpeakingPracticeWorkflowPorts;
 }
 
 export function LiveSpeakingExaminerRoom({
@@ -76,9 +86,15 @@ export function LiveSpeakingExaminerRoom({
   onSessionChange,
   onBackToDashboard,
   onRestart,
+  workflowPorts,
   ...config
 }: LiveSpeakingExaminerRoomProps) {
   const finishExamActionRef = useRef<() => void>(() => {});
+  const defaultWorkflowPorts = useMemo(
+    () => createSpeakingPracticeBrowserPorts(),
+    []
+  );
+  const effectiveWorkflowPorts = workflowPorts || defaultWorkflowPorts;
 
   const {
     status,
@@ -145,6 +161,36 @@ export function LiveSpeakingExaminerRoom({
   const [savedFinalizedAudio, setSavedFinalizedAudio] =
     useState<RecordedAudioData | null>(null);
 
+  const applyWorkflowOutcome = useCallback(
+    (outcome: SpeakingPracticeWorkflowOutcome) => {
+      switch (outcome.status) {
+        case "audio_missing":
+          setEvalError(outcome.error);
+          setIsEvaluating(false);
+          break;
+        case "audio_persistence_failed":
+          setUploadError(outcome.error);
+          setIsUploadingAudio(false);
+          setIsEvaluating(false);
+          break;
+        case "feedback_ready":
+          setPracticeFeedback(outcome.feedback);
+          if (outcome.trace) {
+            setTraceMetadata(outcome.trace);
+          }
+          setIsExamFinished(true);
+          setIsEvaluating(false);
+          break;
+        case "evaluation_failed":
+          setEvalError(outcome.error);
+          setIsExamFinished(true);
+          setIsEvaluating(false);
+          break;
+      }
+    },
+    []
+  );
+
   const handleStartConnect = useCallback(async () => {
     if (!effectiveHasConsent) {
       setShowConsentModal(true);
@@ -183,7 +229,7 @@ export function LiveSpeakingExaminerRoom({
   }, [status, activeSessionId]);
 
   const isConnected = status === "connected";
-  const isPart1Practice = targetPart === "part1" || targetPart === "part_1";
+  const isPart1Practice = normalizeSpeakingPracticeScope(targetPart) !== null;
 
   // Audio upload with exponential backoff
   const uploadAudioWithRetry = useCallback(
@@ -439,7 +485,31 @@ export function LiveSpeakingExaminerRoom({
     const finalizedAudio = await disconnect();
     setSavedFinalizedAudio(finalizedAudio);
 
-    // Save session in sessionStorage and update URL for refresh recovery
+    onSessionChange?.(activeSessionId);
+
+    // Speaking Practice Flow: delegate finish & evaluation orchestration to application seam (#81)
+    if (isPart1Practice) {
+      const outcome = await finishSpeakingPracticeWorkflow(
+        {
+          sessionId: activeSessionId,
+          candidateName,
+          topicTitle: topic?.title,
+          questions: topic?.part1.questions,
+          part1Question: topic?.part1.questions?.[0],
+          transcripts,
+          turnMarkers,
+          audio: finalizedAudio,
+          durationSeconds: finalizedAudio?.durationSeconds,
+          persistedStorageKey: persistedStorageKey || undefined,
+          persistedAudioBase64: persistedAudioBase64 || undefined,
+        },
+        effectiveWorkflowPorts
+      );
+      applyWorkflowOutcome(outcome);
+      return;
+    }
+
+    // Full Mock Examination Flow (Untouched)
     if (typeof window !== "undefined") {
       sessionStorage.setItem(
         ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
@@ -449,7 +519,6 @@ export function LiveSpeakingExaminerRoom({
       url.searchParams.set("sessionId", activeSessionId);
       window.history.replaceState(null, "", url.toString());
     }
-    onSessionChange?.(activeSessionId);
 
     let storageKey = "";
     let base64Audio = "";
@@ -540,11 +609,17 @@ export function LiveSpeakingExaminerRoom({
     );
   }, [
     activeSessionId,
+    applyWorkflowOutcome,
+    candidateName,
     disconnect,
+    effectiveWorkflowPorts,
     isEvaluating,
+    isPart1Practice,
     onSessionChange,
     persistedAudioBase64,
     persistedStorageKey,
+    topic,
+    transcripts,
     triggerEvaluation,
     turnMarkers,
     uploadAudioWithRetry,
@@ -555,6 +630,27 @@ export function LiveSpeakingExaminerRoom({
     setIsUploadingAudio(true);
     setUploadError(null);
     setIsEvaluating(true);
+
+    if (isPart1Practice) {
+      const outcome = await retrySpeakingAudioUploadWorkflow(
+        {
+          sessionId: activeSessionId,
+          audio: savedFinalizedAudio,
+          candidateName,
+          topicTitle: topic?.title,
+          questions: topic?.part1.questions,
+          part1Question: topic?.part1.questions?.[0],
+          transcripts,
+          turnMarkers,
+          audioBase64: persistedAudioBase64 || undefined,
+        },
+        effectiveWorkflowPorts
+      );
+      applyWorkflowOutcome(outcome);
+      return;
+    }
+
+    // Full Mock retry upload flow (Untouched)
     try {
       const storageKey = await uploadAudioWithRetry(
         activeSessionId,
@@ -581,8 +677,14 @@ export function LiveSpeakingExaminerRoom({
     }
   }, [
     activeSessionId,
+    applyWorkflowOutcome,
+    candidateName,
+    effectiveWorkflowPorts,
+    isPart1Practice,
     persistedAudioBase64,
     savedFinalizedAudio,
+    topic,
+    transcripts,
     triggerEvaluation,
     turnMarkers,
     uploadAudioWithRetry,
@@ -685,13 +787,34 @@ export function LiveSpeakingExaminerRoom({
         error={evalError}
         recordedAudio={savedFinalizedAudio || recordedAudio}
         transcripts={transcripts}
-        onRetryEvaluation={() =>
-          triggerEvaluation(
-            activeSessionId,
-            persistedStorageKey || undefined,
-            persistedAudioBase64 || undefined
-          )
-        }
+        onRetryEvaluation={async () => {
+          if (isPart1Practice) {
+            setIsEvaluating(true);
+            setEvalError(null);
+            const outcome = await retrySpeakingPracticeEvaluationWorkflow(
+              {
+                sessionId: activeSessionId,
+                candidateName,
+                topicTitle: topic?.title,
+                questions: topic?.part1.questions,
+                part1Question: topic?.part1.questions?.[0],
+                transcripts,
+                turnMarkers,
+                storageKey: persistedStorageKey || undefined,
+                audioBase64: persistedAudioBase64 || undefined,
+                durationSeconds: savedFinalizedAudio?.durationSeconds,
+              },
+              effectiveWorkflowPorts
+            );
+            applyWorkflowOutcome(outcome);
+          } else {
+            triggerEvaluation(
+              activeSessionId,
+              persistedStorageKey || undefined,
+              persistedAudioBase64 || undefined
+            );
+          }
+        }}
         onRestartTest={() => {
           setIsExamFinished(false);
           setEvaluationResult(null);
