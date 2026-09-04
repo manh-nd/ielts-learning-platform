@@ -2,10 +2,10 @@
 
 ## Nền Tảng Chấm Chữa IELTS Speaking & Writing Bằng AI & Giáo Viên Kiểm Duyệt
 
-**Phiên bản:** 3.0 — Master Specification (Chuẩn hoá từ Yêu cầu gốc của Stakeholder, Domain Invariants & ADRs 0001–0008)  
+**Phiên bản:** 3.0 — Product Context & Requirements Baseline (Chuẩn hoá từ Yêu cầu gốc của Stakeholder, Domain Invariants & ADRs 0001–0008)  
 **Ngày khởi tạo:** 20/08/2026 | **Ngày chuẩn hoá:** 28/08/2026  
-**Trạng thái:** Nguồn Sự Thật Duy Nhất (Single Source of Truth)  
-**Mục tiêu tài liệu:** Cung cấp đầy đủ ngữ cảnh gốc của Stakeholder, quy tắc miền bất biến, kiến trúc kỹ thuật và tiêu chuẩn giao diện để AI Coding Agent và Kỹ sư triển khai hệ thống mà không tự suy diễn.
+**Trạng thái:** Ngữ cảnh sản phẩm & lịch sử (Product/Historical Context — có thể bị thay thế bởi các ADR đã được chấp thuận trong `docs/adr/` và `CONTEXT.md` theo quy tắc thứ tự ưu tiên tài liệu)  
+**Mục tiêu tài liệu:** Cung cấp đầy đủ ngữ cảnh gốc của Stakeholder, bối cảnh sản phẩm ban đầu và luồng nghiệp vụ tổng thể. Khi có sự khác biệt hoặc mâu thuẫn, các quyết định kiến trúc trong ADR đã được chấp thuận (`docs/adr/`) và ngôn ngữ miền chuẩn trong `CONTEXT.md` luôn là nguồn sự thật có mức ưu tiên cao hơn.
 
 ---
 

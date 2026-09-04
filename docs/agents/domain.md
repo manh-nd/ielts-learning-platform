@@ -16,8 +16,8 @@ When requirements, documentation, or code comments conflict, resolve ambiguity i
 
 1. **Latest accepted ADR** (`docs/adr/`): System architecture, aggregate boundaries, and data governance decisions (e.g. ADR-0009, ADR-0010).
 2. **`CONTEXT.md`**: Ubiquitous language definitions, core aggregates, entity ownership, and naming rules.
-3. **Current implementation contracts & tests**: Passing automated tests and type definitions.
-4. **`PRD.md`**: Initial product vision and baseline context. PRD statements superseded by newer ADRs or `CONTEXT.md` yield to them.
+3. **Current implementation contracts & tests**: Authoritative for **current runtime behavior and backwards-compatibility contracts only**. Passing tests and existing code do **NOT** redefine canonical domain truth or justify architectural violations when they conflict with an accepted ADR or `CONTEXT.md`.
+4. **`PRD.md`**: Initial product vision, background, and feature context only. Yields whenever it conflicts with an accepted ADR, `CONTEXT.md`, or canonical domain rules.
 
 See `AGENTS.md` for architecture and UI/domain boundary rules (UI must not own domain logic).
 

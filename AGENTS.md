@@ -26,25 +26,31 @@ When requirements, documentation, or code comments conflict, resolve ambiguity u
 
 1. **Latest Accepted ADR** (`docs/adr/`): Authoritative for system architecture, aggregate boundaries, and data governance decisions (e.g. ADR-0009, ADR-0010).
 2. **`CONTEXT.md`**: Ubiquitous language definitions, core aggregates, entity ownership, and naming conventions.
-3. **Current Implementation Contracts & Tests**: Passing automated unit/integration tests and type definitions.
-4. **`PRD.md`**: Initial product vision and feature context only when not superseded by an accepted ADR or `CONTEXT.md`.
+3. **Current Implementation Contracts & Tests**: Authoritative for **current runtime behavior and backwards-compatibility contracts only**. Passing tests and existing code do **NOT** redefine canonical domain truth or justify architectural violations when they conflict with an accepted ADR or `CONTEXT.md` (existing code may contain legacy pilot debt actively targeted for refactoring).
+4. **`PRD.md`**: Initial product vision, background, and feature context only. Yields whenever it conflicts with an accepted ADR, `CONTEXT.md`, or canonical domain rules.
 
 ### Architecture & Domain Boundaries (UI Must NOT Own Domain Logic)
 
 UI renders state and emits user intent. Domain invariants, lifecycle decisions, and evaluation policies must NEVER live in React components, Next.js pages, or HTTP route handlers.
 
-Strict unidirectional dependency flow:
+Unambiguous dependency direction (inward towards domain, zero outward dependencies from domain):
 
 ```text
-app / components
-    ↓ render presentation state + emit user intent
-application
-    ↓ use cases / orchestration / workflows
-domain
-    ↓ pure business rules / invariants / lifecycle policies
-infrastructure
-    ↓ persistence (Drizzle) / Gemini / storage (S3/SeaweedFS) / external adapters
+UI (app / components)
+       │
+       ▼ renders presentation state + emits user intent
+Application (modules/*/application) ───► Domain (modules/*/domain) [PURE CORE]
+       ▲                                      ▲
+       │ implements outbound ports            │ defines domain contracts
+       │                                      │
+Infrastructure adapters (modules/*/infrastructure, lib/*)
+(persistence / Drizzle, Gemini, storage / S3 / SeaweedFS, external services)
 ```
+
+- **UI depends on Application**: renders presentation state and forwards user intent.
+- **Application depends on Domain**: orchestrates use cases, invokes pure domain policies, and coordinates external adapters.
+- **Infrastructure depends inward on Application and Domain**: implements ports, persistence, and external services.
+- **Domain is pure and depends on NOTHING**: zero imports of React, Next.js, browser APIs, Drizzle, Gemini SDK, AWS/S3 SDK, telemetry, or `fetch`. **Domain must never depend on Infrastructure.**
 
 #### Layer Responsibilities
 
@@ -59,7 +65,10 @@ infrastructure
   - Orchestrates domain entities and infrastructure adapters to execute application use cases.
 - **Domain (`modules/*/domain/`)**:
   - Pure, framework-agnostic models, invariants, and policy predicates.
-  - **Strict rule**: Zero imports of React, Next.js, browser APIs, Drizzle, Gemini SDK, AWS/S3 SDK, telemetry, or `fetch`.
+  - **Strict rule**: Zero imports of React, Next.js, browser APIs, Drizzle, Gemini SDK, AWS/S3 SDK, telemetry, or `fetch`. Domain never depends on Infrastructure.
+- **Infrastructure (`modules/*/infrastructure/`, `lib/`)**:
+  - Implements persistence, storage, AI SDK communication, and external integrations.
+  - Depends inward on Application and Domain interfaces; must never leak technical ORM or storage mechanics into UI components.
 
 ### Canonical Domain Vocabulary & Invariants
 
