@@ -10,6 +10,17 @@ How the engineering skills should consume this repo's domain documentation when 
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
+## Source of truth precedence
+
+When requirements, documentation, or code comments conflict, resolve ambiguity in this order:
+
+1. **Latest accepted ADR** (`docs/adr/`): System architecture, aggregate boundaries, and data governance decisions (e.g. ADR-0009, ADR-0010).
+2. **`CONTEXT.md`**: Ubiquitous language definitions, core aggregates, entity ownership, and naming rules.
+3. **Current implementation contracts & tests**: Passing automated tests and type definitions.
+4. **`PRD.md`**: Initial product vision and baseline context. PRD statements superseded by newer ADRs or `CONTEXT.md` yield to them.
+
+See `AGENTS.md` for architecture and UI/domain boundary rules (UI must not own domain logic).
+
 ## File structure
 
 Single-context repo (most repos):

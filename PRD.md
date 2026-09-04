@@ -50,9 +50,7 @@ Teacher chooses 1 of 3 review paths:
   ├─ 2. Correct AI Proposal (Sửa điểm / Ghi chú ngữ âm / Thêm nhận xét)
   └─ 3. Grade Manually (Chấm hoàn toàn thủ công nếu AI fail hoặc muốn tự chấm)
         ↓
-Teacher executes ApproveAssessment (State = Approved, kết quả sẵn sàng)
-        ↓
-Teacher executes PublishAssessment (State = Published)
+Teacher executes Atomic Publish ("Duyệt & Công bố", ADR-0009: Publish = Finalize TeacherAssessment + MakeOfficial PublishedAssessment)
         ↓
 Learner receives PublishedAssessment & System records clean EvaluationFeedback delta
 ```
@@ -120,8 +118,8 @@ ASSESSMENT-01: Teacher may accept an AI proposal without fake/unnecessary modifi
 ASSESSMENT-02: Teacher may grade completely manually without an AI proposal.
 ASSESSMENT-03: Original AI Assessment Proposal must be preserved intact after Teacher modifications.
 
-PUBLICATION-01: ApproveAssessment and PublishAssessment are two distinct business commands.
-PUBLICATION-02: Approved Homework results remain invisible to Learner until explicitly Published.
+PUBLICATION-01 [SUPERSEDED by ADR-0009]: In MVP, approval and publication are unified into a single atomic action ("Duyệt & Công bố", Publish = Finalize TeacherAssessment + MakeOfficial PublishedAssessment).
+PUBLICATION-02 [SUPERSEDED by ADR-0009]: There is no intermediate "Approved" state stored or visible separately; publishing atomically creates PublishedAssessment and transitions HomeworkSubmission to terminal.
 
 MOCKTEST-01: Mock Test assessments publish automatically to the Learner upon AI completion.
 PROMPT-01: Only Active Mock Test Prompts may be selected for a new Mock Test.
@@ -343,10 +341,9 @@ Then File âm thanh được tải lên SeaweedFS an toàn
 And Bản ghi SubmissionAttempt mới được tạo
 And AI tự động thực hiện 2-stage STT & chấm 4 tiêu chí
 And Giáo viên mở Teacher Review Workspace
-And Giáo viên nghe âm thanh theo timestamp, sửa điểm và bấm "Duyệt"
-Then Trạng thái bài chấm chuyển thành Approved
-When Giáo viên bấm "Công bố" (Publish)
-Then Trạng thái chuyển thành Published
+And Giáo viên nghe âm thanh theo timestamp, sửa điểm và hoàn thiện TeacherReviewDraft
+When Giáo viên bấm "Duyệt & Công bố" (Atomic Publish theo ADR-0009)
+Then Bản ghi PublishedAssessment chính thức được tạo và trạng thái HomeworkSubmission chuyển thành Published
 And Học viên nhìn thấy bảng điểm chính thức kèm nhận xét chi tiết
 And Bản ghi EvaluationFeedback được lưu lại vào cơ sở dữ liệu.
 ```

@@ -53,7 +53,7 @@ The aggregate root managing the asynchronous AI evaluation lifecycle for a speci
 _Avoid_: HomeworkAssessment, EvaluationJob, GradingRun
 
 **PracticeEvaluation**:
-The aggregate root managing the asynchronous AI evaluation lifecycle for a SpeakingPractice session, tracking EvaluationRuns and producing PracticeFeedback.
+The aggregate root managing the asynchronous AI evaluation lifecycle for a SpeakingPractice session, tracking EvaluationRuns and producing PracticeFeedback. Decoupled from practice completion: PracticeEvaluation failure preserves the validity of an ended SpeakingPractice.
 _Avoid_: PracticeAssessment, ScoringJob
 
 **AiAssessmentProposal**:
@@ -93,7 +93,7 @@ _Avoid_: DeletedPrompt, DisabledQuestion
 ### Practice
 
 **SpeakingPractice**:
-The aggregate root representing a Learner-initiated speaking activity that returns immediate, explicitly unofficial AI feedback (PracticeFeedback) without Teacher review. It is distinct from an exam-condition MockTest and never produces a PublishedAssessment.
+The aggregate root representing a Learner-initiated speaking activity that returns immediate, explicitly unofficial AI feedback (PracticeFeedback) without Teacher review. It is distinct from an exam-condition MockTest and never produces a PublishedAssessment. PracticeEnded != PracticeEvaluated: a practice session ends when recording completes; subsequent AI evaluation failure never invalidates an ended SpeakingPractice, and retry evaluation reuses the authoritative OriginalAudio.
 _Avoid_: SpeakingSession, SpeakingMockTest, FullSpeakingExam
 
 **MockTest**:
