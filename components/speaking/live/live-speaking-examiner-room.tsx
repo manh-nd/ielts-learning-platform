@@ -39,6 +39,14 @@ import {
   PracticeFeedback,
   SpeakingEvaluationTrace,
 } from "@/lib/gemini/speaking-schema";
+import {
+  dispatchPracticeStarted,
+  dispatchPracticeAudioRecorded,
+  dispatchPracticeSubmittedForFeedback,
+  dispatchPracticeFeedbackReady,
+  dispatchPracticeAgainStarted,
+  dispatchPracticeAudioError,
+} from "@/lib/telemetry/telemetry-client";
 
 export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
   title?: string;
@@ -141,16 +149,36 @@ export function LiveSpeakingExaminerRoom({
       return;
     }
     setMicDialogDismissed(false);
+    dispatchPracticeStarted(activeSessionId, {
+      topic_title: topic?.title,
+      target_part: targetPart,
+    });
     await connect();
-  }, [effectiveHasConsent, connect]);
+  }, [effectiveHasConsent, connect, activeSessionId, topic?.title, targetPart]);
 
   const handleConsentGranted = useCallback(async () => {
     setHasLocalConsent(true);
     setShowConsentModal(false);
     onConsentGranted?.();
     setMicDialogDismissed(false);
+    dispatchPracticeStarted(activeSessionId, {
+      topic_title: topic?.title,
+      target_part: targetPart,
+      consent_granted: true,
+    });
     await connect();
-  }, [onConsentGranted, connect]);
+  }, [onConsentGranted, connect, activeSessionId, topic?.title, targetPart]);
+
+  // Telemetry: Mic permission denied tracking
+  useEffect(() => {
+    if (status === "permission_denied") {
+      dispatchPracticeAudioError(
+        activeSessionId,
+        "PERMISSION_DENIED",
+        "Microphone access was denied by learner or browser"
+      );
+    }
+  }, [status, activeSessionId]);
 
   // Session state restoration from URL or sessionStorage
   useEffect(() => {
@@ -290,6 +318,11 @@ export function LiveSpeakingExaminerRoom({
         audioBase64ToUse || persistedAudioBase64 || undefined;
 
       try {
+        dispatchPracticeSubmittedForFeedback(resolvedSessionId, {
+          target_part: isPart1Practice ? "part_1" : "full",
+        });
+        const evalStartTime = Date.now();
+
         const payload = {
           sessionId: resolvedSessionId,
           topicTitle: topic?.title || "General IELTS Speaking Mock Test",
@@ -330,6 +363,17 @@ export function LiveSpeakingExaminerRoom({
         }
 
         const data = await res.json();
+        const evalDurationMs = Date.now() - evalStartTime;
+        const overallBand = data.isPractice
+          ? undefined
+          : (data.result as IeltsSpeakingEvaluationResult)?.overallScorecard
+              ?.overallBand;
+
+        dispatchPracticeFeedbackReady(resolvedSessionId, evalDurationMs, {
+          is_practice: Boolean(data.isPractice),
+          ...(overallBand !== undefined ? { overall_band: overallBand } : {}),
+        });
+
         if (data.isPractice) {
           setPracticeFeedback(data.result as PracticeFeedback);
         } else {
@@ -340,6 +384,11 @@ export function LiveSpeakingExaminerRoom({
         }
       } catch (err: unknown) {
         console.error("[LiveExaminerRoom] Evaluation failed:", err);
+        dispatchPracticeAudioError(
+          resolvedSessionId,
+          "EVALUATION_FAILED",
+          (err as Error)?.message || "Evaluation request failed"
+        );
         setEvalError(
           (err as Error)?.message || "Không thể thực hiện chấm điểm tự động."
         );
@@ -388,6 +437,16 @@ export function LiveSpeakingExaminerRoom({
 
     // 1. Convert to base64 as guaranteed fallback
     if (finalizedAudio?.blob) {
+      dispatchPracticeAudioRecorded(
+        activeSessionId,
+        Math.round((finalizedAudio.durationSeconds || 0) * 1000),
+        finalizedAudio.blob.size,
+        {
+          mime_type: finalizedAudio.mimeType || "audio/webm;codecs=opus",
+          turn_count: turnMarkers.length,
+        }
+      );
+
       try {
         const reader = new FileReader();
         base64Audio = await new Promise<string>((resolve) => {
@@ -421,6 +480,12 @@ export function LiveSpeakingExaminerRoom({
           "[LiveExaminerRoom] Direct storage upload failed after retries:",
           uploadErr
         );
+        dispatchPracticeAudioError(
+          activeSessionId,
+          "UPLOAD_FAILED",
+          (uploadErr as Error)?.message ||
+            "Direct storage upload failed after retries"
+        );
         setIsUploadingAudio(false);
         setIsEvaluating(false);
         setUploadError(
@@ -438,6 +503,11 @@ export function LiveSpeakingExaminerRoom({
       !persistedAudioBase64 &&
       !persistedStorageKey
     ) {
+      dispatchPracticeAudioError(
+        activeSessionId,
+        "EMPTY_AUDIO_RECORDING",
+        "Chưa ghi nhận được âm thanh từ microphone."
+      );
       setEvalError(
         "Chưa ghi nhận được âm thanh từ microphone. Vui lòng nói vào microphone trước khi nộp bài."
       );
@@ -608,6 +678,9 @@ export function LiveSpeakingExaminerRoom({
           setSavedFinalizedAudio(null);
           setUploadError(null);
           const newSessionId = `ses_live_${Date.now()}`;
+          dispatchPracticeAgainStarted(newSessionId, {
+            previous_session_id: activeSessionId,
+          });
           setActiveSessionId(newSessionId);
           if (typeof window !== "undefined") {
             sessionStorage.removeItem("ielts_active_speaking_session_id");

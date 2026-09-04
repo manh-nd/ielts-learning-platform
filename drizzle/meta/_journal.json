@@ -36,6 +36,13 @@
       "when": 1788490395676,
       "tag": "0004_sleepy_vindicator",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788491360391,
+      "tag": "0005_spooky_spitfire",
+      "breakpoints": true
     }
   ]
 }

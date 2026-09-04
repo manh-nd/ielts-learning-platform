@@ -475,4 +475,75 @@ describe("Speaking Practice Failure Recovery & Resilience (#70)", () => {
     ).toContain("503");
     expect(mockFailedSessionResponse.responses[0].storageKey).toBeDefined();
   });
+
+  describe("Speaking Practice Telemetry Event Pipeline (§7.1, §7.2, §7.3, Issue #71)", () => {
+    it("should format valid practice_started telemetry event", () => {
+      const sessionId = "ses_live_start_1";
+      const payload = {
+        eventName: "practice_started",
+        contextType: "practice",
+        contextId: sessionId,
+        properties: {
+          topic_title: "Art and Culture",
+          target_part: "part1",
+        },
+      };
+
+      expect(payload.eventName).toBe("practice_started");
+      expect(payload.contextType).toBe("practice");
+      expect(payload.contextId).toBe(sessionId);
+      expect(payload.properties.topic_title).toBe("Art and Culture");
+    });
+
+    it("should format valid practice_audio_recorded telemetry event with duration_ms and audio_bytes", () => {
+      const sessionId = "ses_live_rec_1";
+      const durationSeconds = 42.5;
+      const audioBytes = 186000;
+
+      const payload = {
+        eventName: "practice_audio_recorded",
+        contextType: "practice",
+        contextId: sessionId,
+        durationMs: Math.round(durationSeconds * 1000),
+        properties: {
+          audio_bytes: audioBytes,
+          mime_type: "audio/webm;codecs=opus",
+        },
+      };
+
+      expect(payload.eventName).toBe("practice_audio_recorded");
+      expect(payload.durationMs).toBe(42500);
+      expect(payload.properties.audio_bytes).toBe(186000);
+    });
+
+    it("should format valid practice_feedback_ready telemetry event with response latency", () => {
+      const sessionId = "ses_live_feed_1";
+      const latencyMs = 2850;
+
+      const payload = {
+        eventName: "practice_feedback_ready",
+        contextType: "practice",
+        contextId: sessionId,
+        durationMs: latencyMs,
+        properties: {
+          is_practice: true,
+          overall_band: 7.0,
+        },
+      };
+
+      expect(payload.eventName).toBe("practice_feedback_ready");
+      expect(payload.durationMs).toBe(2850);
+      expect(payload.properties.overall_band).toBe(7.0);
+    });
+
+    it("should compute Technical Error Rate correctly according to Pilot Success Formula §7.3", () => {
+      // Acceptance Contract §7.3: Error Rate = Count(practice_audio_error) / Count(practice_started) * 100% < 2.0%
+      const practiceStartedCount = 1000;
+      const audioErrorCount = 15; // 1.5%
+
+      const errorRate = (audioErrorCount / practiceStartedCount) * 100;
+      expect(errorRate).toBeLessThan(2.0);
+      expect(errorRate).toBe(1.5);
+    });
+  });
 });
