@@ -43,6 +43,13 @@
       "when": 1788491360391,
       "tag": "0005_spooky_spitfire",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788492185702,
+      "tag": "0006_worthless_zarda",
+      "breakpoints": true
     }
   ]
 }

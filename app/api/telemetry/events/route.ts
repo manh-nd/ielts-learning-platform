@@ -9,6 +9,7 @@ import {
 import {
   isValidTelemetryEventName,
   isValidTelemetryContextType,
+  isRoleAuthorizedForEvent,
   TelemetryUserRole,
 } from "@/modules/telemetry/domain/telemetry-types";
 import { recordTelemetryEvent } from "@/modules/telemetry/infrastructure/telemetry-repository";
@@ -55,6 +56,13 @@ export async function POST(req: NextRequest) {
     if (!isValidTelemetryContextType(contextType)) {
       throw new ValidationError(
         `Invalid contextType '${String(contextType)}': Must be 'practice', 'homework', or 'system'.`
+      );
+    }
+
+    // Role-to-event authorization check
+    if (!isRoleAuthorizedForEvent(authenticatedUserRole, eventName)) {
+      throw new ForbiddenError(
+        `Role '${authenticatedUserRole}' is not authorized to emit event '${eventName}'.`
       );
     }
 

@@ -72,6 +72,40 @@ export function isValidTelemetryUserRole(
   );
 }
 
+export const ROLE_ALLOWED_EVENTS: Record<
+  TelemetryUserRole,
+  readonly TelemetryEventName[]
+> = {
+  learner: [
+    "practice_started",
+    "practice_audio_recorded",
+    "practice_submitted_for_feedback",
+    "practice_feedback_ready",
+    "practice_again_started",
+    "practice_audio_error",
+    "homework_viewed",
+    "homework_record_completed",
+    "homework_submitted",
+    "homework_resubmitted",
+  ],
+  teacher: [
+    "homework_viewed",
+    "teacher_review_opened",
+    "teacher_ai_proposal_accepted",
+    "teacher_ai_proposal_rejected",
+    "teacher_assessment_published",
+  ],
+  system: [...TELEMETRY_EVENT_NAMES],
+} as const;
+
+export function isRoleAuthorizedForEvent(
+  role: TelemetryUserRole,
+  eventName: TelemetryEventName
+): boolean {
+  const allowed = ROLE_ALLOWED_EVENTS[role];
+  return Boolean(allowed && allowed.includes(eventName));
+}
+
 export interface TelemetryEventInput {
   userId?: string;
   userRole?: TelemetryUserRole;

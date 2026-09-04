@@ -204,4 +204,80 @@ describe("Telemetry Events API Endpoint (POST /api/telemetry/events)", () => {
     expect(eventNames).toContain("practice_started");
     expect(eventNames).toContain("practice_feedback_ready");
   });
+
+  it("should reject learner attempting to emit teacher-only event with 403 Forbidden", async () => {
+    const req = new NextRequest("http://localhost:3000/api/telemetry/events", {
+      method: "POST",
+      headers: createAuthHeaders({
+        id: "learner_02",
+        role: "learner",
+      }),
+      body: JSON.stringify({
+        eventName: "teacher_assessment_published",
+        contextType: "homework",
+        contextId: "hw_sub_123",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+    const data = await res.json();
+    expect(data.error.code).toBe("FORBIDDEN");
+    expect(data.error.message).toContain("Role 'learner' is not authorized");
+  });
+
+  it("should reject teacher attempting to emit practice-only event with 403 Forbidden", async () => {
+    const req = new NextRequest("http://localhost:3000/api/telemetry/events", {
+      method: "POST",
+      headers: createAuthHeaders({
+        id: "teacher_01",
+        role: "teacher",
+      }),
+      body: JSON.stringify({
+        eventName: "practice_started",
+        contextType: "practice",
+        contextId: "ses_practice_001",
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(403);
+    const data = await res.json();
+    expect(data.error.code).toBe("FORBIDDEN");
+    expect(data.error.message).toContain("Role 'teacher' is not authorized");
+  });
+
+  it("should allow teacher emitting teacher_assessment_published event", async () => {
+    const teacherId = "teacher_auth_valid";
+    const req = new NextRequest("http://localhost:3000/api/telemetry/events", {
+      method: "POST",
+      headers: createAuthHeaders({
+        id: teacherId,
+        role: "teacher",
+      }),
+      body: JSON.stringify({
+        eventName: "teacher_assessment_published",
+        contextType: "homework",
+        contextId: "hw_sub_456",
+        durationMs: 12000,
+        properties: {
+          band_score: 7.0,
+        },
+      }),
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.eventName).toBe("teacher_assessment_published");
+
+    const events = await queryTelemetryEvents({
+      userId: teacherId,
+      contextId: "hw_sub_456",
+    });
+    expect(events.length).toBe(1);
+    expect(events[0].userRole).toBe("teacher");
+    expect(events[0].eventName).toBe("teacher_assessment_published");
+  });
 });

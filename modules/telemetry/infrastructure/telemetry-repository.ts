@@ -3,6 +3,8 @@ import { telemetryEvents } from "./telemetry-schema";
 import type {
   TelemetryEventInput,
   TelemetryEventRecord,
+  TelemetryEventName,
+  TelemetryContextType,
 } from "../domain/telemetry-types";
 import { eq, and, desc } from "drizzle-orm";
 
@@ -67,13 +69,17 @@ export async function recordTelemetryEvent(
   return record;
 }
 
-export async function queryTelemetryEvents(filter: {
+export interface TelemetryQueryFilter {
   userId?: string;
-  eventName?: string;
-  contextType?: string;
+  eventName?: TelemetryEventName;
+  contextType?: TelemetryContextType;
   contextId?: string;
   limit?: number;
-}): Promise<TelemetryEventRecord[]> {
+}
+
+export async function queryTelemetryEvents(
+  filter: TelemetryQueryFilter
+): Promise<TelemetryEventRecord[]> {
   const limit = filter.limit ?? 50;
 
   if (process.env.DATABASE_URL) {
@@ -86,12 +92,7 @@ export async function queryTelemetryEvents(filter: {
         conditions.push(eq(telemetryEvents.eventName, filter.eventName));
       }
       if (filter.contextType) {
-        conditions.push(
-          eq(
-            telemetryEvents.contextType,
-            filter.contextType as "practice" | "homework" | "system"
-          )
-        );
+        conditions.push(eq(telemetryEvents.contextType, filter.contextType));
       }
       if (filter.contextId) {
         conditions.push(eq(telemetryEvents.contextId, filter.contextId));
@@ -108,19 +109,17 @@ export async function queryTelemetryEvents(filter: {
           ? await query.where(and(...conditions))
           : await query;
 
-      if (rows.length > 0) {
-        return rows.map((r) => ({
-          id: r.id,
-          userId: r.userId,
-          userRole: r.userRole,
-          eventName: r.eventName as TelemetryEventRecord["eventName"],
-          contextType: r.contextType,
-          contextId: r.contextId,
-          durationMs: r.durationMs,
-          properties: (r.properties as Record<string, unknown>) || {},
-          createdAt: r.createdAt,
-        }));
-      }
+      return rows.map((r) => ({
+        id: r.id,
+        userId: r.userId,
+        userRole: r.userRole,
+        eventName: r.eventName as TelemetryEventRecord["eventName"],
+        contextType: r.contextType,
+        contextId: r.contextId,
+        durationMs: r.durationMs,
+        properties: (r.properties as Record<string, unknown>) || {},
+        createdAt: r.createdAt,
+      }));
     } catch (err) {
       console.warn("[TelemetryRepository] Database query warning:", err);
     }

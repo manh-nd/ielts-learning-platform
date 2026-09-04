@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { telemetryEvents } from "./telemetry-schema";
 import { getTableColumns } from "drizzle-orm";
 import {
@@ -8,7 +8,13 @@ import {
   isValidTelemetryEventName,
   isValidTelemetryContextType,
   isValidTelemetryUserRole,
+  isRoleAuthorizedForEvent,
 } from "../domain/telemetry-types";
+import {
+  recordTelemetryEvent,
+  queryTelemetryEvents,
+  clearDevTelemetryCache,
+} from "./telemetry-repository";
 
 describe("Telemetry Database Schema & Domain Contracts (Acceptance Contract §7.1, §7.2)", () => {
   it("should define telemetry_events table with expected columns and types", () => {
@@ -100,5 +106,91 @@ describe("Telemetry Database Schema & Domain Contracts (Acceptance Contract §7.
     expect(isValidTelemetryUserRole("teacher")).toBe(true);
     expect(isValidTelemetryUserRole("system")).toBe(true);
     expect(isValidTelemetryUserRole("admin")).toBe(false);
+  });
+
+  it("should enforce RBAC authorization matrix for learner, teacher, and system", () => {
+    // Learner authorization
+    expect(isRoleAuthorizedForEvent("learner", "practice_started")).toBe(true);
+    expect(isRoleAuthorizedForEvent("learner", "practice_audio_error")).toBe(
+      true
+    );
+    expect(isRoleAuthorizedForEvent("learner", "homework_submitted")).toBe(
+      true
+    );
+    expect(
+      isRoleAuthorizedForEvent("learner", "teacher_assessment_published")
+    ).toBe(false);
+    expect(isRoleAuthorizedForEvent("learner", "practice_purged")).toBe(false);
+
+    // Teacher authorization
+    expect(
+      isRoleAuthorizedForEvent("teacher", "teacher_assessment_published")
+    ).toBe(true);
+    expect(
+      isRoleAuthorizedForEvent("teacher", "teacher_ai_proposal_accepted")
+    ).toBe(true);
+    expect(isRoleAuthorizedForEvent("teacher", "homework_viewed")).toBe(true);
+    expect(isRoleAuthorizedForEvent("teacher", "practice_started")).toBe(false);
+    expect(isRoleAuthorizedForEvent("teacher", "practice_audio_error")).toBe(
+      false
+    );
+    expect(isRoleAuthorizedForEvent("teacher", "practice_purged")).toBe(false);
+
+    // System authorization (can emit all events)
+    for (const event of TELEMETRY_EVENT_NAMES) {
+      expect(isRoleAuthorizedForEvent("system", event)).toBe(true);
+    }
+  });
+
+  describe("Telemetry Repository & Cache Fallback", () => {
+    beforeEach(() => {
+      clearDevTelemetryCache();
+    });
+
+    it("should store and query telemetry events with accurate filters", async () => {
+      await recordTelemetryEvent({
+        userId: "user_repo_test_1",
+        userRole: "learner",
+        eventName: "practice_started",
+        contextType: "practice",
+        contextId: "ses_repo_1",
+      });
+
+      await recordTelemetryEvent({
+        userId: "user_repo_test_1",
+        userRole: "learner",
+        eventName: "practice_feedback_ready",
+        contextType: "practice",
+        contextId: "ses_repo_1",
+        durationMs: 3100,
+      });
+
+      await recordTelemetryEvent({
+        userId: "user_repo_test_2",
+        userRole: "teacher",
+        eventName: "teacher_assessment_published",
+        contextType: "homework",
+        contextId: "hw_repo_2",
+      });
+
+      // Query by user
+      const user1Events = await queryTelemetryEvents({
+        userId: "user_repo_test_1",
+      });
+      expect(user1Events.length).toBe(2);
+
+      // Query by eventName
+      const startedEvents = await queryTelemetryEvents({
+        eventName: "practice_started",
+      });
+      expect(startedEvents.length).toBe(1);
+      expect(startedEvents[0].userId).toBe("user_repo_test_1");
+
+      // Query with non-matching filter returns empty array [] without error
+      const nonExistent = await queryTelemetryEvents({
+        userId: "non_existent_user",
+      });
+      expect(nonExistent).toEqual([]);
+    });
   });
 });

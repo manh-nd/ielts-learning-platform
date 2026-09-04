@@ -1,0 +1,2 @@
+ALTER TABLE "telemetry_events" ADD CONSTRAINT "check_telemetry_user_role" CHECK ("telemetry_events"."user_role" IN ('learner', 'teacher', 'system'));--> statement-breakpoint
+ALTER TABLE "telemetry_events" ADD CONSTRAINT "check_telemetry_context_type" CHECK ("telemetry_events"."context_type" IN ('practice', 'homework', 'system'));

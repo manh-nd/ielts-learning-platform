@@ -7,7 +7,9 @@ import {
   timestamp,
   index,
   uuid,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { user } from "@/modules/identity/infrastructure/auth-schema";
 import type {
   TelemetryUserRole,
@@ -48,6 +50,14 @@ export const telemetryEvents = pgTable(
       table.createdAt
     ),
     index("idx_telemetry_context").on(table.contextType, table.contextId),
+    check(
+      "check_telemetry_user_role",
+      sql`${table.userRole} IN ('learner', 'teacher', 'system')`
+    ),
+    check(
+      "check_telemetry_context_type",
+      sql`${table.contextType} IN ('practice', 'homework', 'system')`
+    ),
   ]
 );
 

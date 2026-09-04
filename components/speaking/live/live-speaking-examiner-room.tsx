@@ -384,11 +384,6 @@ export function LiveSpeakingExaminerRoom({
         }
       } catch (err: unknown) {
         console.error("[LiveExaminerRoom] Evaluation failed:", err);
-        dispatchPracticeAudioError(
-          resolvedSessionId,
-          "EVALUATION_FAILED",
-          (err as Error)?.message || "Evaluation request failed"
-        );
         setEvalError(
           (err as Error)?.message || "Không thể thực hiện chấm điểm tự động."
         );
@@ -479,12 +474,6 @@ export function LiveSpeakingExaminerRoom({
         console.warn(
           "[LiveExaminerRoom] Direct storage upload failed after retries:",
           uploadErr
-        );
-        dispatchPracticeAudioError(
-          activeSessionId,
-          "UPLOAD_FAILED",
-          (uploadErr as Error)?.message ||
-            "Direct storage upload failed after retries"
         );
         setIsUploadingAudio(false);
         setIsEvaluating(false);

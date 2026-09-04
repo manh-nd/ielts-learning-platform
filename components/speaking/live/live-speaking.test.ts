@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect, afterEach } from "bun:test";
 import {
   buildExaminerSystemInstruction,
   parseLiveServerMessage,
@@ -11,6 +11,12 @@ import {
   getMockTopicById,
   getRandomMockTopic,
 } from "@/lib/data/speaking-mock-topics";
+import {
+  dispatchPracticeStarted,
+  dispatchPracticeAudioRecorded,
+  dispatchPracticeFeedbackReady,
+  dispatchPracticeAudioError,
+} from "@/lib/telemetry/telemetry-client";
 
 describe("Live Speaking Prototype Engine", () => {
   it("should provide valid IELTS Speaking mock topics with 3 parts", () => {
@@ -477,73 +483,158 @@ describe("Speaking Practice Failure Recovery & Resilience (#70)", () => {
   });
 
   describe("Speaking Practice Telemetry Event Pipeline (§7.1, §7.2, §7.3, Issue #71)", () => {
-    it("should format valid practice_started telemetry event", () => {
-      const sessionId = "ses_live_start_1";
-      const payload = {
-        eventName: "practice_started",
-        contextType: "practice",
-        contextId: sessionId,
-        properties: {
-          topic_title: "Art and Culture",
-          target_part: "part1",
-        },
-      };
+    const originalFetch = globalThis.fetch;
 
-      expect(payload.eventName).toBe("practice_started");
-      expect(payload.contextType).toBe("practice");
-      expect(payload.contextId).toBe(sessionId);
-      expect(payload.properties.topic_title).toBe("Art and Culture");
+    afterEach(() => {
+      globalThis.fetch = originalFetch;
     });
 
-    it("should format valid practice_audio_recorded telemetry event with duration_ms and audio_bytes", () => {
-      const sessionId = "ses_live_rec_1";
-      const durationSeconds = 42.5;
-      const audioBytes = 186000;
+    it("should dispatch practice_started telemetry event with topic and target_part", async () => {
+      let capturedPayload: Record<string, unknown> = {};
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        capturedPayload = JSON.parse(init?.body as string);
+        return new Response(
+          JSON.stringify({ success: true, eventId: "evt_1" }),
+          {
+            status: 201,
+          }
+        );
+      }) as unknown as typeof fetch;
 
-      const payload = {
-        eventName: "practice_audio_recorded",
-        contextType: "practice",
-        contextId: sessionId,
-        durationMs: Math.round(durationSeconds * 1000),
-        properties: {
-          audio_bytes: audioBytes,
+      const res = await dispatchPracticeStarted("ses_live_start_1", {
+        topic_title: "Art and Culture",
+        target_part: "part1",
+        consent_granted: true,
+      });
+
+      expect(res.success).toBe(true);
+      expect(capturedPayload.eventName).toBe("practice_started");
+      expect(capturedPayload.contextType).toBe("practice");
+      expect(capturedPayload.contextId).toBe("ses_live_start_1");
+      expect(
+        (capturedPayload.properties as Record<string, unknown>).topic_title
+      ).toBe("Art and Culture");
+      expect(
+        (capturedPayload.properties as Record<string, unknown>).target_part
+      ).toBe("part1");
+    });
+
+    it("should dispatch practice_audio_recorded telemetry event with duration_ms and audio_bytes", async () => {
+      let capturedPayload: Record<string, unknown> = {};
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        capturedPayload = JSON.parse(init?.body as string);
+        return new Response(
+          JSON.stringify({ success: true, eventId: "evt_2" }),
+          {
+            status: 201,
+          }
+        );
+      }) as unknown as typeof fetch;
+
+      const res = await dispatchPracticeAudioRecorded(
+        "ses_live_rec_1",
+        42500,
+        186000,
+        {
           mime_type: "audio/webm;codecs=opus",
-        },
-      };
+          turn_count: 3,
+        }
+      );
 
-      expect(payload.eventName).toBe("practice_audio_recorded");
-      expect(payload.durationMs).toBe(42500);
-      expect(payload.properties.audio_bytes).toBe(186000);
+      expect(res.success).toBe(true);
+      expect(capturedPayload.eventName).toBe("practice_audio_recorded");
+      expect(capturedPayload.durationMs).toBe(42500);
+      expect(
+        (capturedPayload.properties as Record<string, unknown>).audio_bytes
+      ).toBe(186000);
     });
 
-    it("should format valid practice_feedback_ready telemetry event with response latency", () => {
-      const sessionId = "ses_live_feed_1";
-      const latencyMs = 2850;
+    it("should dispatch practice_feedback_ready telemetry event with response latency", async () => {
+      let capturedPayload: Record<string, unknown> = {};
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        capturedPayload = JSON.parse(init?.body as string);
+        return new Response(
+          JSON.stringify({ success: true, eventId: "evt_3" }),
+          {
+            status: 201,
+          }
+        );
+      }) as unknown as typeof fetch;
 
-      const payload = {
-        eventName: "practice_feedback_ready",
-        contextType: "practice",
-        contextId: sessionId,
-        durationMs: latencyMs,
-        properties: {
-          is_practice: true,
-          overall_band: 7.0,
-        },
-      };
+      const res = await dispatchPracticeFeedbackReady("ses_live_feed_1", 2850, {
+        is_practice: true,
+        overall_band: 7.0,
+      });
 
-      expect(payload.eventName).toBe("practice_feedback_ready");
-      expect(payload.durationMs).toBe(2850);
-      expect(payload.properties.overall_band).toBe(7.0);
+      expect(res.success).toBe(true);
+      expect(capturedPayload.eventName).toBe("practice_feedback_ready");
+      expect(capturedPayload.durationMs).toBe(2850);
+      expect(
+        (capturedPayload.properties as Record<string, unknown>).overall_band
+      ).toBe(7.0);
     });
 
-    it("should compute Technical Error Rate correctly according to Pilot Success Formula §7.3", () => {
-      // Acceptance Contract §7.3: Error Rate = Count(practice_audio_error) / Count(practice_started) * 100% < 2.0%
-      const practiceStartedCount = 1000;
-      const audioErrorCount = 15; // 1.5%
+    it("should isolate practice_audio_error to mic hardware errors (§7.2) and compute Technical Error Rate correctly (§7.3)", async () => {
+      const dispatchedEvents: Array<{
+        eventName: string;
+        contextId?: string | null;
+        properties?: Record<string, unknown>;
+      }> = [];
 
-      const errorRate = (audioErrorCount / practiceStartedCount) * 100;
-      expect(errorRate).toBeLessThan(2.0);
-      expect(errorRate).toBe(1.5);
+      globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+        const body = JSON.parse(init?.body as string);
+        dispatchedEvents.push(body);
+        return new Response(JSON.stringify({ success: true }), { status: 201 });
+      }) as unknown as typeof fetch;
+
+      // 1. Dispatch valid hardware mic errors
+      await dispatchPracticeAudioError(
+        "ses_hw_1",
+        "PERMISSION_DENIED",
+        "Microphone access denied"
+      );
+      await dispatchPracticeAudioError(
+        "ses_hw_2",
+        "EMPTY_AUDIO_RECORDING",
+        "No audio recorded"
+      );
+
+      expect(dispatchedEvents.length).toBe(2);
+      expect(dispatchedEvents[0].eventName).toBe("practice_audio_error");
+      expect(dispatchedEvents[0].properties?.error_code).toBe(
+        "PERMISSION_DENIED"
+      );
+      expect(dispatchedEvents[1].eventName).toBe("practice_audio_error");
+      expect(dispatchedEvents[1].properties?.error_code).toBe(
+        "EMPTY_AUDIO_RECORDING"
+      );
+
+      // 2. Acceptance Contract §7.3 Verification:
+      // Technical Error Rate = Count(practice_audio_error) / Count(practice_started) * 100% < 2.0%
+      // Suppose in a batch of 200 started practice sessions:
+      // - 2 true audio capture errors occurred (1 permission denied, 1 empty audio)
+      // - 5 downstream LLM evaluation timeouts occurred (ADR-0009: captured in session evidenceJson, NOT audio error)
+      // - 3 transient network storage upload failures occurred (retried with exponential backoff, NOT audio error)
+      const practiceStartedTotal = 200;
+      const trueAudioErrorTotal = dispatchedEvents.length; // 2
+      const downstreamEvalFailures = 5;
+      const storageUploadFailures = 3;
+
+      // Strict Technical Error Rate computation per §7.3
+      const technicalErrorRate =
+        (trueAudioErrorTotal / practiceStartedTotal) * 100;
+      expect(technicalErrorRate).toBe(1.0);
+      expect(technicalErrorRate).toBeLessThan(2.0);
+
+      // Verify that if eval/storage errors were improperly mixed into practice_audio_error,
+      // it would falsely violate the < 2.0% SLO:
+      const contaminatedErrorRate =
+        ((trueAudioErrorTotal +
+          downstreamEvalFailures +
+          storageUploadFailures) /
+          practiceStartedTotal) *
+        100;
+      expect(contaminatedErrorRate).toBe(5.0); // 5.0% would erroneously fail the pilot criteria!
     });
   });
 });
