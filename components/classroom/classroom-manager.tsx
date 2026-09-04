@@ -530,7 +530,7 @@ export function ClassroomManager({
               />
             </div>
           ) : (
-            <div className="flex flex-col gap-2.5 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
+            <div className="flex flex-col gap-3 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
               {classrooms.map((cls) => (
                 <ClassroomCard
                   key={cls.id}

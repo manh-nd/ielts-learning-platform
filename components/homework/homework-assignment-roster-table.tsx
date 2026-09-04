@@ -91,7 +91,7 @@ export function HomeworkAssignmentRosterTable({
       className={cn("flex flex-col gap-3", className)}
     >
       {/* Search Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2">
           <UsersIcon className="size-4 text-primary" />
           <h4 className="text-xs font-semibold text-foreground">
@@ -130,9 +130,9 @@ export function HomeworkAssignmentRosterTable({
             <table className="w-full text-left text-xs">
               <thead className="bg-muted/50 border-b border-border/60 text-muted-foreground text-[11px] font-semibold uppercase">
                 <tr>
-                  <th className="py-2.5 px-3">Học viên</th>
-                  <th className="py-2.5 px-3">Trạng thái nộp bài</th>
-                  <th className="py-2.5 px-3">Thời gian nộp</th>
+                  <th className="py-2 px-3">Học viên</th>
+                  <th className="py-2 px-3">Trạng thái nộp bài</th>
+                  <th className="py-2 px-3">Thời gian nộp</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
@@ -142,8 +142,8 @@ export function HomeworkAssignmentRosterTable({
                     data-testid={`student-row-${student.learnerId}`}
                     className="hover:bg-muted/30 transition-colors"
                   >
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2.5">
+                    <td className="py-2 px-3">
+                      <div className="flex items-center gap-3">
                         <Avatar className="size-7">
                           {student.learnerImage && (
                             <AvatarImage
@@ -165,10 +165,10 @@ export function HomeworkAssignmentRosterTable({
                         </div>
                       </div>
                     </td>
-                    <td className="py-2.5 px-3">
+                    <td className="py-2 px-3">
                       {renderStatusBadge(student.submissionStatus)}
                     </td>
-                    <td className="py-2.5 px-3 text-muted-foreground text-[11px]">
+                    <td className="py-2 px-3 text-muted-foreground text-[11px]">
                       {student.submittedAt
                         ? new Intl.DateTimeFormat("vi-VN", {
                             hour: "2-digit",

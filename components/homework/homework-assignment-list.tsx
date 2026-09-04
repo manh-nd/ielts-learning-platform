@@ -185,7 +185,7 @@ export function HomeworkAssignmentList({
       ) : filteredAssignments.length === 0 ? (
         <div
           data-testid="empty-assignments-card"
-          className="rounded-xl border border-dashed border-border/80 p-8 text-center flex flex-col items-center justify-center gap-2.5 bg-card"
+          className="rounded-xl border border-dashed border-border/80 p-8 text-center flex flex-col items-center justify-center gap-3 bg-card"
         >
           <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
             <BookOpenIcon className="size-5" />

@@ -82,12 +82,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
           subPrompts?: string[];
         }>,
         submissionDeadline: submissionDeadline as string | Date,
-        status:
-          status === "published"
-            ? "published"
-            : status === "draft"
-              ? "draft"
-              : undefined,
+        status: status === "draft" ? "draft" : "published",
       }
     );
 

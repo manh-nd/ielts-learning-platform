@@ -3,7 +3,7 @@
  * Canonical ubiquitous language:
  * - HomeworkAssignment: Teacher-owned assignment bound to a Classroom with 1-3 discrete Prompts.
  * - HomeworkPromptItem: A discrete question/prompt item for IELTS Speaking Part 1, 2, or 3.
- * - SubmissionDeadline: The instant after which new submissions are marked late (soft deadline).
+ * - SubmissionDeadline: The final instant when a Learner may submit or resubmit Homework. No SubmissionAttempt is accepted after it passes.
  */
 
 export type HomeworkAssignmentStatus = "draft" | "published" | "archived";

@@ -130,8 +130,8 @@ export async function createTeacherHomeworkAssignment(
   // 5. Validate submission deadline (must be in future)
   const deadline = parseAndValidateDeadline(input.submissionDeadline, true);
 
-  // 6. Status
-  const status = input.status === "published" ? "published" : "draft";
+  // 6. Status: defaults to published unless explicitly specified as draft
+  const status = input.status === "draft" ? "draft" : "published";
 
   return await createAssignment({
     classroomId,

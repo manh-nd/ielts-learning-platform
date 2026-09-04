@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  MicIcon,
-  CalendarIcon,
-  CheckCircle2Icon,
-  ClockIcon,
-  ArchiveIcon,
-} from "lucide-react";
+import { MicIcon, CalendarIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { HomeworkAssignmentStatusBadge } from "./homework-assignment-status-badge";
 import { HomeworkAssignmentRosterTable } from "./homework-assignment-roster-table";
 import type {
   HomeworkAssignment,
@@ -54,30 +49,7 @@ export function HomeworkAssignmentDetailDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
-            {assignment.status === "published" && (
-              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1 text-[11px]">
-                <CheckCircle2Icon className="size-3" />
-                <span>Đã giao</span>
-              </Badge>
-            )}
-            {assignment.status === "draft" && (
-              <Badge
-                variant="secondary"
-                className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 gap-1 text-[11px]"
-              >
-                <ClockIcon className="size-3" />
-                <span>Bản nháp</span>
-              </Badge>
-            )}
-            {assignment.status === "archived" && (
-              <Badge
-                variant="outline"
-                className="text-muted-foreground gap-1 text-[11px]"
-              >
-                <ArchiveIcon className="size-3" />
-                <span>Đã lưu trữ</span>
-              </Badge>
-            )}
+            <HomeworkAssignmentStatusBadge status={assignment.status} />
 
             <span className="text-xs text-muted-foreground">
               {classroomName ? `Lớp: ${classroomName}` : ""}
@@ -94,7 +66,7 @@ export function HomeworkAssignmentDetailDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-5 py-2">
+        <div className="flex flex-col gap-4 py-2">
           {/* Instructions */}
           {assignment.instructions && (
             <div className="rounded-lg bg-muted/40 p-3 text-xs flex flex-col gap-1">
@@ -108,7 +80,7 @@ export function HomeworkAssignmentDetailDialog({
           )}
 
           {/* Prompts list */}
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-3">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
               <MicIcon className="size-3.5 text-primary" />
               <span>Nội dung đề bài ({assignment.prompts.length} câu hỏi)</span>

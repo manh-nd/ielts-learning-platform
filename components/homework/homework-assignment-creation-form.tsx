@@ -23,15 +23,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PRESET_SPEAKING_PROMPTS } from "./homework-prompt-presets";
-import type { CreateHomeworkAssignmentInput } from "@/modules/homework/domain/homework-types";
+import type {
+  CreateHomeworkAssignmentInput,
+  HomeworkPromptItem,
+} from "@/modules/homework/domain/homework-types";
 
-export interface FormPromptItem {
-  promptId: string;
-  text: string;
-  partNumber: 1 | 2 | 3;
-  subPrompts?: string[];
-}
+export type FormPromptItem = HomeworkPromptItem;
 
 export interface HomeworkAssignmentCreationFormProps {
   initialTitle?: string;
@@ -224,16 +223,13 @@ export function HomeworkAssignmentCreationForm({
         e.preventDefault();
         void validateAndSubmit("published");
       }}
-      className={cn("flex flex-col gap-5", className)}
+      className={cn("flex flex-col gap-4", className)}
     >
       {errorMessage && (
-        <div
-          role="alert"
-          className="flex items-center gap-2 rounded-lg border border-rose-300 dark:border-rose-800 bg-rose-100 dark:bg-rose-950/60 p-3 text-xs text-rose-900 dark:text-rose-200 font-medium"
-        >
-          <AlertCircleIcon className="size-4 shrink-0 text-rose-700 dark:text-rose-300" />
-          <span>{errorMessage}</span>
-        </div>
+        <Alert variant="destructive">
+          <AlertCircleIcon className="size-4" />
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
       )}
 
       {/* Assignment Title */}
@@ -309,7 +305,7 @@ export function HomeworkAssignmentCreationForm({
             <div
               key={prompt.promptId}
               data-testid={`prompt-item-${index}`}
-              className="rounded-lg border border-border/70 bg-card/60 p-3.5 flex flex-col gap-3 shadow-xs"
+              className="rounded-lg border border-border/70 bg-card/60 p-3 flex flex-col gap-3 shadow-xs"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -471,13 +467,13 @@ export function HomeworkAssignmentCreationForm({
           </div>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          MVP áp dụng cơ chế hạn nộp mềm (Soft Deadline): học viên nộp sau mốc
-          này sẽ được ghi nhận bài nộp kèm cờ muộn hạn (Late).
+          Thời hạn nộp bài chính thức: Sau mốc thời gian này, học viên không thể
+          nộp hoặc làm lại bài tập (trừ khi giáo viên chủ động gia hạn hạn nộp).
         </p>
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center justify-end gap-2.5 border-t border-border/50 pt-4">
+      <div className="flex items-center justify-end gap-2 border-t border-border/50 pt-4">
         {onCancel && (
           <Button
             type="button"

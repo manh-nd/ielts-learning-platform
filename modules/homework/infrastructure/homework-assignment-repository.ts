@@ -130,6 +130,42 @@ export async function findAssignmentById(
 }
 
 /**
+ * Helper to map DB rows to domain entities and merge with in-memory cache.
+ */
+function mapDbRowsAndMergeCache(
+  rows: (typeof homeworkAssignments.$inferSelect)[],
+  cached: HomeworkAssignment[]
+): HomeworkAssignment[] {
+  const fromDb = rows.map((row) => ({
+    id: row.id,
+    classroomId: row.classroomId,
+    teacherId: row.teacherId,
+    title: row.title,
+    instructions: row.instructions,
+    prompts: row.prompts as HomeworkPromptItem[],
+    submissionDeadline: new Date(row.submissionDeadline),
+    status: row.status as HomeworkAssignmentStatus,
+    createdAt: new Date(row.createdAt),
+    updatedAt: new Date(row.updatedAt),
+  }));
+
+  const map = new Map<string, HomeworkAssignment>();
+  for (const item of fromDb) {
+    map.set(item.id, item);
+    devHomeworkAssignmentCache.set(item.id, item);
+  }
+  for (const item of cached) {
+    if (!map.has(item.id)) {
+      map.set(item.id, item);
+    }
+  }
+
+  return Array.from(map.values()).sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  );
+}
+
+/**
  * Lists all homework assignments for a specific classroom, sorted by newest first.
  */
 export async function listAssignmentsByClassroomId(
@@ -147,34 +183,7 @@ export async function listAssignmentsByClassroomId(
         .where(eq(homeworkAssignments.classroomId, classroomId))
         .orderBy(desc(homeworkAssignments.createdAt));
 
-      const fromDb = rows.map((row) => ({
-        id: row.id,
-        classroomId: row.classroomId,
-        teacherId: row.teacherId,
-        title: row.title,
-        instructions: row.instructions,
-        prompts: row.prompts as HomeworkPromptItem[],
-        submissionDeadline: new Date(row.submissionDeadline),
-        status: row.status as HomeworkAssignmentStatus,
-        createdAt: new Date(row.createdAt),
-        updatedAt: new Date(row.updatedAt),
-      }));
-
-      // Merge and update cache
-      const map = new Map<string, HomeworkAssignment>();
-      for (const item of fromDb) {
-        map.set(item.id, item);
-        devHomeworkAssignmentCache.set(item.id, item);
-      }
-      for (const item of cached) {
-        if (!map.has(item.id)) {
-          map.set(item.id, item);
-        }
-      }
-
-      return Array.from(map.values()).sort(
-        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-      );
+      return mapDbRowsAndMergeCache(rows, cached);
     } catch (err) {
       console.warn(
         "[HomeworkRepository] listAssignmentsByClassroomId DB warning:",
@@ -204,33 +213,7 @@ export async function listAssignmentsByTeacherId(
         .where(eq(homeworkAssignments.teacherId, teacherId))
         .orderBy(desc(homeworkAssignments.createdAt));
 
-      const fromDb = rows.map((row) => ({
-        id: row.id,
-        classroomId: row.classroomId,
-        teacherId: row.teacherId,
-        title: row.title,
-        instructions: row.instructions,
-        prompts: row.prompts as HomeworkPromptItem[],
-        submissionDeadline: new Date(row.submissionDeadline),
-        status: row.status as HomeworkAssignmentStatus,
-        createdAt: new Date(row.createdAt),
-        updatedAt: new Date(row.updatedAt),
-      }));
-
-      const map = new Map<string, HomeworkAssignment>();
-      for (const item of fromDb) {
-        map.set(item.id, item);
-        devHomeworkAssignmentCache.set(item.id, item);
-      }
-      for (const item of cached) {
-        if (!map.has(item.id)) {
-          map.set(item.id, item);
-        }
-      }
-
-      return Array.from(map.values()).sort(
-        (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-      );
+      return mapDbRowsAndMergeCache(rows, cached);
     } catch (err) {
       console.warn(
         "[HomeworkRepository] listAssignmentsByTeacherId DB warning:",
