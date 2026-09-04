@@ -36,7 +36,11 @@ export async function POST(req: NextRequest) {
       throw new ValidationError("Tên lớp học là trường bắt buộc (string).");
     }
 
-    if (description !== undefined && typeof description !== "string") {
+    if (
+      description !== undefined &&
+      description !== null &&
+      typeof description !== "string"
+    ) {
       throw new ValidationError("Mô tả lớp học phải là chuỗi ký tự.");
     }
 

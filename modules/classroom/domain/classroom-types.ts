@@ -37,6 +37,8 @@ export interface CreateClassroomInput {
   description?: string | null;
 }
 
-export interface EnrollLearnerInput {
+export interface AddMemberInput {
   email: string;
 }
+
+export type EnrollLearnerInput = AddMemberInput;

@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
 import { classrooms, classroomMembers } from "./classroom-schema";
-import { user } from "@/modules/identity/infrastructure/auth-schema";
+import {
+  user,
+  type UserRole,
+} from "@/modules/identity/infrastructure/auth-schema";
 import type {
   Classroom,
   ClassroomWithMemberCount,
@@ -14,7 +17,7 @@ export interface UserLookupResult {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
   image: string | null;
 }
 
@@ -50,7 +53,7 @@ export function registerDevUser(userData: {
   id: string;
   name: string;
   email: string;
-  role: string;
+  role: UserRole;
   image?: string | null;
 }): void {
   devUserCache.set(userData.email.toLowerCase().trim(), {
@@ -272,9 +275,9 @@ export async function findMember(
 }
 
 /**
- * Enrolls a learner into a classroom
+ * Adds a learner to a classroom as a member (Issue #73, ADR-0009)
  */
-export async function enrollMember(
+export async function addMember(
   classroomId: string,
   learnerId: string
 ): Promise<ClassroomMember> {
@@ -297,7 +300,7 @@ export async function enrollMember(
         joinedAt: record.joinedAt,
       });
     } catch (err) {
-      console.warn("[ClassroomRepository] enrollMember DB warning:", err);
+      console.warn("[ClassroomRepository] addMember DB warning:", err);
       if (process.env.NODE_ENV === "production") {
         throw err;
       }
@@ -308,6 +311,8 @@ export async function enrollMember(
   return record;
 }
 
+export const enrollMember = addMember;
+
 /**
  * Removes a learner from a classroom
  */
@@ -315,6 +320,8 @@ export async function removeMember(
   classroomId: string,
   learnerId: string
 ): Promise<boolean> {
+  let removed = false;
+
   if (process.env.DATABASE_URL) {
     try {
       await db
@@ -325,6 +332,7 @@ export async function removeMember(
             eq(classroomMembers.learnerId, learnerId)
           )
         );
+      removed = true;
     } catch (err) {
       console.warn("[ClassroomRepository] removeMember DB warning:", err);
       if (process.env.NODE_ENV === "production") {
@@ -333,15 +341,15 @@ export async function removeMember(
     }
   }
 
-  const initialLength = devMemberCache.length;
   const index = devMemberCache.findIndex(
     (m) => m.classroomId === classroomId && m.learnerId === learnerId
   );
   if (index !== -1) {
     devMemberCache.splice(index, 1);
+    removed = true;
   }
 
-  return devMemberCache.length < initialLength;
+  return removed;
 }
 
 /**

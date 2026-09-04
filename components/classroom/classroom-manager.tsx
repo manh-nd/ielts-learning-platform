@@ -40,18 +40,17 @@ export function ClassroomManager({
 }: ClassroomManagerProps) {
   const [classrooms, setClassrooms] =
     React.useState<ClassroomWithMemberCount[]>(initialClassrooms);
-  const [selectedClassroom, setSelectedClassroom] =
-    React.useState<ClassroomWithMemberCount | null>(
-      initialClassrooms.length > 0 ? initialClassrooms[0] : null
-    );
+  const [selectedClassroomId, setSelectedClassroomId] = React.useState<
+    string | null
+  >(initialClassrooms.length > 0 ? initialClassrooms[0].id : null);
+  const selectedClassroom =
+    classrooms.find((c) => c.id === selectedClassroomId) ?? null;
   const [members, setMembers] =
     React.useState<ClassroomMemberDetail[]>(initialMembers);
   const [isLoadingRoster, setIsLoadingRoster] = React.useState(false);
   const [isCreating, setIsCreating] = React.useState(false);
   const [isEnrolling, setIsEnrolling] = React.useState(false);
   const [removingId, setRemovingId] = React.useState<string | null>(null);
-
-  const selectedClassroomId = selectedClassroom?.id;
 
   // Load roster when selected classroom changes
   React.useEffect(() => {
@@ -127,7 +126,7 @@ export function ClassroomManager({
       }
 
       setClassrooms((prev) => [newClassroom, ...prev]);
-      setSelectedClassroom(newClassroom);
+      setSelectedClassroomId(newClassroom.id);
       setMembers([]);
     } finally {
       setIsCreating(false);
@@ -168,13 +167,10 @@ export function ClassroomManager({
       // Increment count on selected classroom
       setClassrooms((prev) =>
         prev.map((c) =>
-          c.id === selectedClassroom.id
+          c.id === selectedClassroomId
             ? { ...c, memberCount: c.memberCount + 1 }
             : c
         )
-      );
-      setSelectedClassroom((prev) =>
-        prev ? { ...prev, memberCount: prev.memberCount + 1 } : null
       );
     } finally {
       setIsEnrolling(false);
@@ -205,15 +201,10 @@ export function ClassroomManager({
       setMembers((prev) => prev.filter((m) => m.learnerId !== learnerId));
       setClassrooms((prev) =>
         prev.map((c) =>
-          c.id === selectedClassroom.id
+          c.id === selectedClassroomId
             ? { ...c, memberCount: Math.max(0, c.memberCount - 1) }
             : c
         )
-      );
-      setSelectedClassroom((prev) =>
-        prev
-          ? { ...prev, memberCount: Math.max(0, prev.memberCount - 1) }
-          : null
       );
     } finally {
       setRemovingId(null);
@@ -290,7 +281,7 @@ export function ClassroomManager({
                   key={cls.id}
                   classroom={cls}
                   isSelected={selectedClassroom?.id === cls.id}
-                  onSelect={(selected) => setSelectedClassroom(selected)}
+                  onSelect={(selected) => setSelectedClassroomId(selected.id)}
                 />
               ))}
             </div>

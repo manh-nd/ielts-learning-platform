@@ -150,6 +150,24 @@ describe("Teacher Classroom Management API Endpoints (Issue #73, ADR-0009)", () 
       expect(data.classroom.teacherId).toBe(teacherA.id);
     });
 
+    it("should allow creating classroom with explicit null description", async () => {
+      const req = new NextRequest(
+        "http://localhost:3000/api/teacher/classrooms",
+        {
+          method: "POST",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({
+            name: "Class with Null Description",
+            description: null,
+          }),
+        }
+      );
+      const res = await createClassroomRoute(req);
+      expect(res.status).toBe(201);
+      const data = await res.json();
+      expect(data.classroom.description).toBeNull();
+    });
+
     it("should list only classrooms owned by requesting teacher (200 OK)", async () => {
       await createTeacherClassroom(teacherA.id, { name: "Alice Class 1" });
       await createTeacherClassroom(teacherA.id, { name: "Alice Class 2" });
@@ -176,6 +194,25 @@ describe("Teacher Classroom Management API Endpoints (Issue #73, ADR-0009)", () 
   });
 
   describe("POST, GET, DELETE /api/teacher/classrooms/:id/members", () => {
+    it("should reject learner role attempting to add members with 403 Forbidden", async () => {
+      const aliceClass = await createTeacherClassroom(teacherA.id, {
+        name: "Alice Class",
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/teacher/classrooms/${aliceClass.id}/members`,
+        {
+          method: "POST",
+          headers: createAuthHeaders(learnerUser),
+          body: JSON.stringify({ email: "student@example.com" }),
+        }
+      );
+      const res = await enrollMemberRoute(req, {
+        params: Promise.resolve({ id: aliceClass.id }),
+      });
+      expect(res.status).toBe(403);
+    });
+
     it("should reject enrolling learner when Teacher A targets Teacher B classroom with 403 Forbidden", async () => {
       const bobClass = await createTeacherClassroom(teacherB.id, {
         name: "Bob Class",
@@ -190,6 +227,42 @@ describe("Teacher Classroom Management API Endpoints (Issue #73, ADR-0009)", () 
         }
       );
       const res = await enrollMemberRoute(req, {
+        params: Promise.resolve({ id: bobClass.id }),
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it("should reject Teacher A viewing Teacher B's roster with 403 Forbidden", async () => {
+      const bobClass = await createTeacherClassroom(teacherB.id, {
+        name: "Bob Class",
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/teacher/classrooms/${bobClass.id}/members`,
+        {
+          method: "GET",
+          headers: createAuthHeaders(teacherA),
+        }
+      );
+      const res = await listMembersRoute(req, {
+        params: Promise.resolve({ id: bobClass.id }),
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it("should reject Teacher A deleting a learner from Teacher B's roster with 403 Forbidden", async () => {
+      const bobClass = await createTeacherClassroom(teacherB.id, {
+        name: "Bob Class",
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/teacher/classrooms/${bobClass.id}/members?learnerId=${learnerUser.id}`,
+        {
+          method: "DELETE",
+          headers: createAuthHeaders(teacherA),
+        }
+      );
+      const res = await removeMemberRoute(req, {
         params: Promise.resolve({ id: bobClass.id }),
       });
       expect(res.status).toBe(403);

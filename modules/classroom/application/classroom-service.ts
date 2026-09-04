@@ -66,10 +66,31 @@ export async function getTeacherClassrooms(
 }
 
 /**
- * Enrolls a learner into a classroom by resolving their existing user account email.
+ * Asserts that a classroom exists and is owned by the specified teacher.
+ */
+export async function assertTeacherOwnsClassroom(
+  teacherId: string,
+  classroomId: string
+): Promise<Classroom> {
+  const classroom = await findClassroomById(classroomId);
+  if (!classroom) {
+    throw new NotFoundError("Không tìm thấy lớp học được yêu cầu.");
+  }
+
+  if (classroom.teacherId !== teacherId) {
+    throw new ForbiddenError(
+      "Bị từ chối: Bạn không có quyền quản lý lớp học của giáo viên khác."
+    );
+  }
+
+  return classroom;
+}
+
+/**
+ * Adds a learner into a classroom by resolving their existing user account email.
  * Preserves Single-Teacher ownership and Identity & Membership boundary invariants (Ticket #53, ADR-0009).
  */
-export async function enrollLearnerInClassroom(
+export async function addMemberToClassroom(
   teacherId: string,
   classroomId: string,
   email: string
@@ -86,20 +107,10 @@ export async function enrollLearnerInClassroom(
     throw new ValidationError("Email học viên không đúng định dạng.");
   }
 
-  // 1. Verify classroom exists
-  const classroom = await findClassroomById(classroomId);
-  if (!classroom) {
-    throw new NotFoundError("Không tìm thấy lớp học được yêu cầu.");
-  }
+  // 1. Verify classroom exists and teacher ownership
+  await assertTeacherOwnsClassroom(teacherId, classroomId);
 
-  // 2. Enforce Single-Teacher ownership invariant: Teacher A cannot modify Teacher B's classroom
-  if (classroom.teacherId !== teacherId) {
-    throw new ForbiddenError(
-      "Bị từ chối: Bạn không có quyền thêm học viên vào lớp học của giáo viên khác."
-    );
-  }
-
-  // 3. Resolve existing user account by email
+  // 2. Resolve existing user account by email
   const user = await findUserByEmail(normalizedEmail);
   if (!user) {
     throw new NotFoundError(
@@ -107,20 +118,20 @@ export async function enrollLearnerInClassroom(
     );
   }
 
-  // 4. Verify user role: only learners can be enrolled into classrooms
+  // 3. Verify user role: only learners can be enrolled into classrooms
   if (user.role !== "learner") {
     throw new ValidationError(
       "Chỉ có thể thêm tài khoản có vai trò học viên (learner) vào danh sách lớp."
     );
   }
 
-  // 5. Enforce uniqueness: duplicate enrollment rejection
+  // 4. Enforce uniqueness: duplicate enrollment rejection
   const existingMember = await findMember(classroomId, user.id);
   if (existingMember) {
     throw new ConflictError("Học viên này đã có trong danh sách lớp học.");
   }
 
-  // 6. Persist enrollment
+  // 5. Persist membership
   const member = await enrollMember(classroomId, user.id);
 
   return {
@@ -133,6 +144,8 @@ export async function enrollLearnerInClassroom(
     joinedAt: member.joinedAt,
   };
 }
+
+export const enrollLearnerInClassroom = addMemberToClassroom;
 
 /**
  * Removes a learner from a classroom roster.
@@ -150,16 +163,7 @@ export async function removeLearnerFromClassroom(
     throw new ValidationError("Thiếu thông tin lớp học hoặc học viên.");
   }
 
-  const classroom = await findClassroomById(classroomId);
-  if (!classroom) {
-    throw new NotFoundError("Không tìm thấy lớp học được yêu cầu.");
-  }
-
-  if (classroom.teacherId !== teacherId) {
-    throw new ForbiddenError(
-      "Bị từ chối: Bạn không có quyền quản lý học viên trong lớp học của giáo viên khác."
-    );
-  }
+  await assertTeacherOwnsClassroom(teacherId, classroomId);
 
   const existingMember = await findMember(classroomId, learnerId);
   if (!existingMember) {
@@ -188,16 +192,7 @@ export async function getClassroomRoster(
     throw new ValidationError("Thiếu thông tin mã lớp học.");
   }
 
-  const classroom = await findClassroomById(classroomId);
-  if (!classroom) {
-    throw new NotFoundError("Không tìm thấy lớp học được yêu cầu.");
-  }
-
-  if (classroom.teacherId !== teacherId) {
-    throw new ForbiddenError(
-      "Bị từ chối: Bạn không có quyền xem danh sách lớp học của giáo viên khác."
-    );
-  }
+  await assertTeacherOwnsClassroom(teacherId, classroomId);
 
   return await listClassroomMembers(classroomId);
 }
