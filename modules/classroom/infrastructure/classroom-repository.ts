@@ -38,16 +38,57 @@ export const devMemberCache: ClassroomMember[] =
 export const devUserCache: Map<string, UserLookupResult> =
   globalForClassroom.devUserCache || new Map<string, UserLookupResult>();
 
-if (process.env.NODE_ENV !== "production") {
+if (
+  process.env.NODE_ENV !== "production" ||
+  process.env.ENABLE_E2E_MOCK_AUTH === "true"
+) {
   globalForClassroom.devClassroomCache = devClassroomCache;
   globalForClassroom.devMemberCache = devMemberCache;
   globalForClassroom.devUserCache = devUserCache;
+
+  if (!devUserCache.has("teacher@ielts.liuhocngoaingu.com")) {
+    devUserCache.set("teacher@ielts.liuhocngoaingu.com", {
+      id: "usr_mock_teacher_01",
+      name: "IELTS Teacher Dev",
+      email: "teacher@ielts.liuhocngoaingu.com",
+      role: "teacher",
+      image: null,
+    });
+  }
+  if (!devUserCache.has("learner@ielts-prep.vn")) {
+    devUserCache.set("learner@ielts-prep.vn", {
+      id: "usr_mock_learner_01",
+      name: "IELTS Learner Dev",
+      email: "learner@ielts-prep.vn",
+      role: "learner",
+      image: null,
+    });
+  }
 }
 
 export function clearDevClassroomCache(): void {
   devClassroomCache.clear();
   devMemberCache.length = 0;
   devUserCache.clear();
+  if (
+    process.env.NODE_ENV !== "production" ||
+    process.env.ENABLE_E2E_MOCK_AUTH === "true"
+  ) {
+    devUserCache.set("teacher@ielts.liuhocngoaingu.com", {
+      id: "usr_mock_teacher_01",
+      name: "IELTS Teacher Dev",
+      email: "teacher@ielts.liuhocngoaingu.com",
+      role: "teacher",
+      image: null,
+    });
+    devUserCache.set("learner@ielts-prep.vn", {
+      id: "usr_mock_learner_01",
+      name: "IELTS Learner Dev",
+      email: "learner@ielts-prep.vn",
+      role: "learner",
+      image: null,
+    });
+  }
 }
 
 export function registerDevUser(userData: {
@@ -110,6 +151,45 @@ export async function findUserByEmail(
 }
 
 /**
+ * Finds an identity user by ID
+ */
+export async function findUserById(
+  userId: string
+): Promise<UserLookupResult | null> {
+  // 1. Check dev cache first
+  for (const u of devUserCache.values()) {
+    if (u.id === userId) {
+      return u;
+    }
+  }
+
+  // 2. Query Postgres if DATABASE_URL is available
+  if (process.env.DATABASE_URL) {
+    try {
+      const rows = await db
+        .select({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          image: user.image,
+        })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1);
+
+      if (rows.length > 0) {
+        return rows[0];
+      }
+    } catch (err) {
+      console.warn("[ClassroomRepository] findUserById database warning:", err);
+    }
+  }
+
+  return null;
+}
+
+/**
  * Creates a new classroom owned by the specified teacher
  */
 export async function createClassroom(
@@ -140,7 +220,10 @@ export async function createClassroom(
       });
     } catch (err) {
       console.warn("[ClassroomRepository] createClassroom DB warning:", err);
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -191,7 +274,10 @@ export async function updateClassroom(
         .where(eq(classrooms.id, classroomId));
     } catch (err) {
       console.warn("[ClassroomRepository] updateClassroom DB warning:", err);
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -207,6 +293,10 @@ export async function updateClassroom(
 export async function findClassroomById(
   classroomId: string
 ): Promise<Classroom | null> {
+  if (devClassroomCache.has(classroomId)) {
+    return devClassroomCache.get(classroomId) || null;
+  }
+
   if (process.env.DATABASE_URL) {
     try {
       const rows = await db
@@ -231,7 +321,7 @@ export async function findClassroomById(
     }
   }
 
-  return devClassroomCache.get(classroomId) || null;
+  return null;
 }
 
 /**
@@ -299,6 +389,11 @@ export async function findMember(
   classroomId: string,
   learnerId: string
 ): Promise<ClassroomMember | null> {
+  const cached = devMemberCache.find(
+    (m) => m.classroomId === classroomId && m.learnerId === learnerId
+  );
+  if (cached) return cached;
+
   if (process.env.DATABASE_URL) {
     try {
       const rows = await db
@@ -320,10 +415,7 @@ export async function findMember(
     }
   }
 
-  const found = devMemberCache.find(
-    (m) => m.classroomId === classroomId && m.learnerId === learnerId
-  );
-  return found || null;
+  return null;
 }
 
 /**
@@ -343,6 +435,8 @@ export async function addMember(
     joinedAt: now,
   };
 
+  devMemberCache.push(record);
+
   if (process.env.DATABASE_URL) {
     try {
       await db.insert(classroomMembers).values({
@@ -353,13 +447,15 @@ export async function addMember(
       });
     } catch (err) {
       console.warn("[ClassroomRepository] addMember DB warning:", err);
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
   }
 
-  devMemberCache.push(record);
   return record;
 }
 
@@ -387,7 +483,10 @@ export async function removeMember(
       removed = true;
     } catch (err) {
       console.warn("[ClassroomRepository] removeMember DB warning:", err);
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -410,6 +509,43 @@ export async function removeMember(
 export async function listClassroomMembers(
   classroomId: string
 ): Promise<ClassroomMemberDetail[]> {
+  const cachedMembers = devMemberCache.filter(
+    (m) => m.classroomId === classroomId
+  );
+  if (
+    cachedMembers.length > 0 &&
+    (process.env.ENABLE_E2E_MOCK_AUTH === "true" ||
+      process.env.NODE_ENV !== "production")
+  ) {
+    const details: ClassroomMemberDetail[] = [];
+    for (const m of cachedMembers) {
+      let learnerName = "Learner";
+      let learnerEmail = "learner@example.com";
+      let learnerImage: string | null = null;
+
+      for (const u of devUserCache.values()) {
+        if (u.id === m.learnerId) {
+          learnerName = u.name;
+          learnerEmail = u.email;
+          learnerImage = u.image;
+          break;
+        }
+      }
+
+      details.push({
+        id: m.id,
+        classroomId: m.classroomId,
+        learnerId: m.learnerId,
+        joinedAt: m.joinedAt,
+        learnerName,
+        learnerEmail,
+        learnerImage,
+      });
+    }
+
+    return details.sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime());
+  }
+
   if (process.env.DATABASE_URL) {
     try {
       const rows = await db

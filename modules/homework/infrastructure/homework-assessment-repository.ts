@@ -40,7 +40,10 @@ export const devEvaluationFeedbackCache: Map<string, EvaluationFeedback[]> =
   globalForAssessment.devEvaluationFeedbackCache ||
   new Map<string, EvaluationFeedback[]>();
 
-if (process.env.NODE_ENV !== "production") {
+if (
+  process.env.NODE_ENV !== "production" ||
+  process.env.ENABLE_E2E_MOCK_AUTH === "true"
+) {
   globalForAssessment.devAiProposalCache = devAiProposalCache;
   globalForAssessment.devTeacherAssessmentCache = devTeacherAssessmentCache;
   globalForAssessment.devPublishedAssessmentCache = devPublishedAssessmentCache;
@@ -101,7 +104,10 @@ export async function saveAiProposal(
         });
     } catch (err) {
       console.warn("[HomeworkAssessmentRepo] saveAiProposal DB warning:", err);
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -142,10 +148,15 @@ export async function findAiProposalByAttemptId(
           strengths: (r.strengths || []) as string[],
           improvements: (r.improvements || []) as string[],
           actionPlan: (r.actionPlan || []) as string[],
-          pronunciationNotes: (r.pronunciationNotes ||
-            []) as AiAssessmentProposal["pronunciationNotes"],
+          pronunciationNotes: (r.pronunciationNotes || []) as Array<{
+            word: string;
+            expectedIpa?: string;
+            detectedIssue?: string;
+            timestampSeconds?: number;
+            recommendation?: string;
+          }>,
           rawProposalJson: r.rawProposalJson as Record<string, unknown> | null,
-          modelVersion: r.modelVersion,
+          modelVersion: r.modelVersion || "gemini-2.5-flash",
           createdAt: r.createdAt,
           updatedAt: r.updatedAt,
         };
@@ -215,7 +226,10 @@ export async function saveTeacherAssessment(
         "[HomeworkAssessmentRepo] saveTeacherAssessment DB warning:",
         err
       );
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -311,7 +325,10 @@ export async function createPublishedAssessment(
         "[HomeworkAssessmentRepo] createPublishedAssessment DB warning:",
         err
       );
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -465,7 +482,10 @@ export async function createEvaluationFeedback(
         "[HomeworkAssessmentRepo] createEvaluationFeedback DB warning:",
         err
       );
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }

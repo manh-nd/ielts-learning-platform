@@ -16,7 +16,10 @@ export const devHomeworkAssignmentCache: Map<string, HomeworkAssignment> =
   globalForHomework.devHomeworkAssignmentCache ||
   new Map<string, HomeworkAssignment>();
 
-if (process.env.NODE_ENV !== "production") {
+if (
+  process.env.NODE_ENV !== "production" ||
+  process.env.ENABLE_E2E_MOCK_AUTH === "true"
+) {
   globalForHomework.devHomeworkAssignmentCache = devHomeworkAssignmentCache;
 }
 
@@ -76,7 +79,10 @@ export async function createAssignment(
       });
     } catch (err) {
       console.warn("[HomeworkRepository] createAssignment DB warning:", err);
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -276,7 +282,10 @@ export async function updateAssignment(
         .where(eq(homeworkAssignments.id, id));
     } catch (err) {
       console.warn("[HomeworkRepository] updateAssignment DB warning:", err);
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -297,7 +306,10 @@ export async function deleteAssignment(id: string): Promise<void> {
         .where(eq(homeworkAssignments.id, id));
     } catch (err) {
       console.warn("[HomeworkRepository] deleteAssignment DB warning:", err);
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }

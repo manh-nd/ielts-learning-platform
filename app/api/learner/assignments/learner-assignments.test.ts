@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { NextRequest } from "next/server";
 import { GET as getLearnerAssignmentRoute } from "./[id]/route";
+import { GET as getLearnerAssignmentResultRoute } from "./[id]/result/route";
 import { POST as submitLearnerHomeworkRoute } from "./[id]/submit/route";
 import { POST as uploadUrlLearnerHomeworkRoute } from "./[id]/upload-url/route";
 import {
@@ -15,8 +16,13 @@ import {
 } from "@/modules/homework/infrastructure/homework-assignment-repository";
 import {
   clearDevHomeworkSubmissionCache,
+  createInitialSubmissionWithAttempt,
   updateSubmissionStatus,
 } from "@/modules/homework/infrastructure/homework-submission-repository";
+import {
+  clearDevHomeworkAssessmentCache,
+  createPublishedAssessment,
+} from "@/modules/homework/infrastructure/homework-assessment-repository";
 import { buildHomeworkAudioStorageKey } from "@/lib/storage/s3-client";
 
 function createAuthHeaders(
@@ -72,6 +78,7 @@ describe("Learner Speaking Homework API Endpoints (Issue #75, ADR-0008, ADR-0009
     clearDevClassroomCache();
     clearDevHomeworkCache();
     clearDevHomeworkSubmissionCache();
+    clearDevHomeworkAssessmentCache();
 
     registerDevUser(teacherUser);
     registerDevUser(enrolledLearner);
@@ -400,6 +407,194 @@ describe("Learner Speaking Homework API Endpoints (Issue #75, ADR-0008, ADR-0009
       expect(data.storageKey).toContain(
         `homework/${enrolledLearner.id}/${assignmentId}/p_1/part1_clip.webm`
       );
+    });
+  });
+
+  describe("GET /api/learner/assignments/:id/result (Issue #77)", () => {
+    it("should reject unauthenticated requests with 401 Unauthorized", async () => {
+      const req = new NextRequest(
+        `http://localhost:3000/api/learner/assignments/${assignmentId}/result`,
+        {
+          method: "GET",
+          headers: createAuthHeaders(null),
+        }
+      );
+
+      const res = await getLearnerAssignmentResultRoute(req, {
+        params: Promise.resolve({ id: assignmentId }),
+      });
+
+      expect(res.status).toBe(401);
+    });
+
+    it("should reject non-enrolled learners with 403 Forbidden", async () => {
+      const req = new NextRequest(
+        `http://localhost:3000/api/learner/assignments/${assignmentId}/result`,
+        {
+          method: "GET",
+          headers: createAuthHeaders(outsiderLearner),
+        }
+      );
+
+      const res = await getLearnerAssignmentResultRoute(req, {
+        params: Promise.resolve({ id: assignmentId }),
+      });
+
+      expect(res.status).toBe(403);
+    });
+
+    it("should return 404 Not Found when learner has not submitted", async () => {
+      const req = new NextRequest(
+        `http://localhost:3000/api/learner/assignments/${assignmentId}/result`,
+        {
+          method: "GET",
+          headers: createAuthHeaders(enrolledLearner),
+        }
+      );
+
+      const res = await getLearnerAssignmentResultRoute(req, {
+        params: Promise.resolve({ id: assignmentId }),
+      });
+
+      expect(res.status).toBe(404);
+    });
+
+    it("should return 409 Conflict when submission exists but is not published", async () => {
+      await createInitialSubmissionWithAttempt({
+        assignmentId,
+        learnerId: enrolledLearner.id,
+        status: "submitted",
+        audioResponses: [
+          {
+            promptId: "p_1",
+            storageKey: buildHomeworkAudioStorageKey(
+              enrolledLearner.id,
+              assignmentId,
+              "p_1",
+              "clip1.webm"
+            ),
+            durationMs: 30000,
+            audioBytes: 50000,
+          },
+          {
+            promptId: "p_2",
+            storageKey: buildHomeworkAudioStorageKey(
+              enrolledLearner.id,
+              assignmentId,
+              "p_2",
+              "clip2.webm"
+            ),
+            durationMs: 60000,
+            audioBytes: 100000,
+          },
+        ],
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/learner/assignments/${assignmentId}/result`,
+        {
+          method: "GET",
+          headers: createAuthHeaders(enrolledLearner),
+        }
+      );
+
+      const res = await getLearnerAssignmentResultRoute(req, {
+        params: Promise.resolve({ id: assignmentId }),
+      });
+
+      expect(res.status).toBe(409);
+      const data = await res.json();
+      expect(data.error.code).toBe("SUBMISSION_NOT_PUBLISHED");
+    });
+
+    it("should return 200 OK with official scores and strictly conceal AI proposals when published", async () => {
+      const submissionResult = await createInitialSubmissionWithAttempt({
+        assignmentId,
+        learnerId: enrolledLearner.id,
+        status: "submitted",
+        audioResponses: [
+          {
+            promptId: "p_1",
+            storageKey: buildHomeworkAudioStorageKey(
+              enrolledLearner.id,
+              assignmentId,
+              "p_1",
+              "clip1.webm"
+            ),
+            durationMs: 35000,
+            audioBytes: 55000,
+          },
+          {
+            promptId: "p_2",
+            storageKey: buildHomeworkAudioStorageKey(
+              enrolledLearner.id,
+              assignmentId,
+              "p_2",
+              "clip2.webm"
+            ),
+            durationMs: 65000,
+            audioBytes: 110000,
+          },
+        ],
+      });
+
+      // Update status to published
+      await updateSubmissionStatus(
+        submissionResult.submission.id,
+        "published",
+        1
+      );
+
+      // Create PublishedAssessment
+      await createPublishedAssessment({
+        id: "pub_test_01",
+        submissionId: submissionResult.submission.id,
+        assignmentId,
+        teacherAssessmentId: "teach_test_01",
+        learnerId: enrolledLearner.id,
+        teacherId: teacherUser.id,
+        attemptNumber: 1,
+        fluencyCoherence: 7.0,
+        lexicalResource: 7.5,
+        grammaticalRangeAccuracy: 7.0,
+        pronunciation: 7.5,
+        overallBand: 7.5,
+        overallFeedback:
+          "Em hoàn thành bài nói rất tốt, ngữ pháp chuẩn và phát âm rõ ràng.",
+        criteriaFeedback: {
+          fluencyAndCoherence: "Mạch lạc, ít ngập ngừng.",
+          lexicalResource: "Từ vựng đa dạng, dùng đúng collocations.",
+          grammaticalRangeAndAccuracy: "Cấu trúc câu phong phú.",
+          pronunciation: "Ngữ điệu tự nhiên.",
+        },
+        publishedAt: new Date(),
+      });
+
+      const req = new NextRequest(
+        `http://localhost:3000/api/learner/assignments/${assignmentId}/result`,
+        {
+          method: "GET",
+          headers: createAuthHeaders(enrolledLearner),
+        }
+      );
+
+      const res = await getLearnerAssignmentResultRoute(req, {
+        params: Promise.resolve({ id: assignmentId }),
+      });
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.success).toBe(true);
+      expect(data.publishedAssessment.overallBand).toBe(7.5);
+      expect(data.publishedAssessment.fluencyCoherence).toBe(7.0);
+      expect(data.publishedAssessment.overallFeedback).toContain("rất tốt");
+      expect(data.teacher.name).toBe("Teacher Alice");
+      expect(data.attempt.audioResponses.length).toBe(2);
+
+      // Invariant check: Strictly NO AI proposals or internal draft data
+      expect(data.aiProposal).toBeUndefined();
+      expect(data.rawProposalJson).toBeUndefined();
+      expect(data.teacherDraft).toBeUndefined();
     });
   });
 });

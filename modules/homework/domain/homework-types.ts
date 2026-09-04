@@ -118,6 +118,22 @@ export interface LearnerHomeworkDetail {
   submission: HomeworkSubmission | null;
   currentAttempt: SubmissionAttempt | null;
   allAttempts: SubmissionAttempt[];
+  publishedAssessment?: PublishedAssessment | null;
+}
+
+export interface LearnerPublishedAssessmentData {
+  assignment: HomeworkAssignment;
+  classroom: {
+    id: string;
+    name: string;
+  };
+  submission: HomeworkSubmission;
+  attempt: SubmissionAttempt;
+  publishedAssessment: PublishedAssessment;
+  teacher: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface SpeakingCriteriaScores {

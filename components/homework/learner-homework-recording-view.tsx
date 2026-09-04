@@ -675,9 +675,25 @@ export function LearnerHomeworkRecordingView({
           <AlertTitle className="font-bold">
             Bài làm đã được Giáo viên đánh giá & công bố
           </AlertTitle>
-          <AlertDescription className="text-xs mt-1 leading-relaxed font-medium">
-            Giáo viên đã hoàn tất chấm điểm và công bố kết quả cho bài làm này.
-            Bạn có thể nghe lại các câu trả lời đã nộp bên dưới.
+          <AlertDescription className="text-xs mt-1 leading-relaxed font-medium space-y-2">
+            <p>
+              Giáo viên đã hoàn tất chấm điểm và công bố kết quả cho bài làm
+              này. Bạn có thể xem bảng điểm chi tiết hoặc nghe lại các câu trả
+              lời đã nộp bên dưới.
+            </p>
+            <div>
+              <Button
+                variant="default"
+                size="sm"
+                render={
+                  <Link href={`/learner/assignments/${assignment.id}/result`} />
+                }
+                data-testid="view-published-result-btn"
+                className="gap-1.5 text-xs font-semibold h-7 px-3 mt-1"
+              >
+                <span>Xem Bảng Điểm & Nhận Xét Chi Tiết</span>
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}

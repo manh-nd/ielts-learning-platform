@@ -21,7 +21,10 @@ export const devSubmissionCache: Map<string, HomeworkSubmission> =
 export const devAttemptCache: Map<string, SubmissionAttempt[]> =
   globalForSubmission.devAttemptCache || new Map<string, SubmissionAttempt[]>();
 
-if (process.env.NODE_ENV !== "production") {
+if (
+  process.env.NODE_ENV !== "production" ||
+  process.env.ENABLE_E2E_MOCK_AUTH === "true"
+) {
   globalForSubmission.devSubmissionCache = devSubmissionCache;
   globalForSubmission.devAttemptCache = devAttemptCache;
 }
@@ -183,7 +186,10 @@ export async function createInitialSubmissionWithAttempt(data: {
         "[HomeworkSubmissionRepo] createInitialSubmissionWithAttempt DB warning:",
         err
       );
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -252,7 +258,10 @@ export async function createSubsequentAttempt(
         "[HomeworkSubmissionRepo] createSubsequentAttempt DB warning:",
         err
       );
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
@@ -304,7 +313,10 @@ export async function updateSubmissionStatus(
         "[HomeworkSubmissionRepo] updateSubmissionStatus DB warning:",
         err
       );
-      if (process.env.NODE_ENV === "production") {
+      if (
+        process.env.NODE_ENV === "production" &&
+        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
+      ) {
         throw err;
       }
     }
