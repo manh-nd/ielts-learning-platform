@@ -9,6 +9,7 @@ import {
   MicIcon,
   BookOpenIcon,
   PenToolIcon,
+  SchoolIcon,
 } from "lucide-react";
 import { UserNavMenu } from "./user-nav-menu";
 import { signOut } from "@/lib/auth-client";
@@ -50,6 +51,11 @@ export function ProtectedHeader({ user }: ProtectedHeaderProps) {
           href: "/teacher/review",
           label: "Không gian Chấm bài",
           icon: PenToolIcon,
+        },
+        {
+          href: "/teacher/classrooms",
+          label: "Quản lý Lớp học",
+          icon: SchoolIcon,
         },
         {
           href: "/learner/dashboard",

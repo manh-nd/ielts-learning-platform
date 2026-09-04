@@ -5,6 +5,7 @@ import {
   ForbiddenError,
   NotFoundError,
   ValidationError,
+  ConflictError,
   toErrorResponse,
 } from "./errors";
 
@@ -49,6 +50,14 @@ describe("Custom Errors Hierarchy", () => {
     expect(error.statusCode).toBe(400);
     expect(error.details).toEqual(details);
     expect(error.name).toBe("ValidationError");
+  });
+
+  it("should create ConflictError with 409 status and code", () => {
+    const error = new ConflictError("Learner already enrolled");
+    expect(error.message).toBe("Learner already enrolled");
+    expect(error.code).toBe("CONFLICT");
+    expect(error.statusCode).toBe(409);
+    expect(error.name).toBe("ConflictError");
   });
 
   it("should convert AppError to Response with correct status and body", async () => {

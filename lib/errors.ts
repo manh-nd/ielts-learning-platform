@@ -91,6 +91,22 @@ export class ValidationError extends AppError {
   }
 }
 
+/**
+ * 409 Conflict Error - Request conflicts with current state of the resource (e.g. duplicate enrollment).
+ */
+export class ConflictError extends AppError {
+  constructor(
+    message = "Tài nguyên đã tồn tại hoặc xung đột dữ liệu.",
+    details?: unknown
+  ) {
+    super(message, {
+      code: "CONFLICT",
+      statusCode: 409,
+      details,
+    });
+  }
+}
+
 export interface ErrorResponseBody {
   error: {
     message: string;
