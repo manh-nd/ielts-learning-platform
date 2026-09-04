@@ -93,5 +93,17 @@ export const InteractiveOpenTest: Story = {
     });
     await userEvent.click(preset18Btn);
     await expect(trigger).toHaveTextContent("18:00, 10/09/2026");
+
+    // Click 23:59 preset and verify last items (hour 23 and minute 59)
+    const preset2359Btn = within(document.body).getByRole("button", {
+      name: "23:59",
+    });
+    await userEvent.click(preset2359Btn);
+    await expect(trigger).toHaveTextContent("23:59, 10/09/2026");
+
+    const hour23Btn = within(document.body).getByTestId("time-hour-23");
+    const minute59Btn = within(document.body).getByTestId("time-minute-59");
+    await expect(hour23Btn).toBeInTheDocument();
+    await expect(minute59Btn).toBeInTheDocument();
   },
 };

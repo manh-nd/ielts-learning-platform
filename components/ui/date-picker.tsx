@@ -135,7 +135,62 @@ export function DatePicker({
     }
   };
 
-  const handleTimeUpdate = (newHours: string, newMinutes: string) => {
+  const hourListRef = React.useRef<HTMLDivElement>(null);
+  const minuteListRef = React.useRef<HTMLDivElement>(null);
+
+  const scrollToTime = React.useCallback(
+    (h: string, m: string, behavior: ScrollBehavior = "smooth") => {
+      requestAnimationFrame(() => {
+        if (hourListRef.current) {
+          const viewport = hourListRef.current.closest<HTMLElement>(
+            '[data-slot="scroll-area-viewport"]'
+          );
+          const targetBtn = hourListRef.current.querySelector<HTMLElement>(
+            `[data-testid="time-hour-${h}"]`
+          );
+          if (viewport && targetBtn) {
+            const top =
+              targetBtn.offsetTop -
+              viewport.clientHeight / 2 +
+              targetBtn.clientHeight / 2;
+            viewport.scrollTo({ top: Math.max(0, top), behavior });
+          }
+        }
+
+        if (minuteListRef.current) {
+          const viewport = minuteListRef.current.closest<HTMLElement>(
+            '[data-slot="scroll-area-viewport"]'
+          );
+          const targetBtn = minuteListRef.current.querySelector<HTMLElement>(
+            `[data-testid="time-minute-${m}"]`
+          );
+          if (viewport && targetBtn) {
+            const top =
+              targetBtn.offsetTop -
+              viewport.clientHeight / 2 +
+              targetBtn.clientHeight / 2;
+            viewport.scrollTo({ top: Math.max(0, top), behavior });
+          }
+        }
+      });
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (open && includeTime) {
+      const timer = setTimeout(() => {
+        scrollToTime(currentHours, currentMinutes, "instant");
+      }, 40);
+      return () => clearTimeout(timer);
+    }
+  }, [open, includeTime, currentHours, currentMinutes, scrollToTime]);
+
+  const handleTimeUpdate = (
+    newHours: string,
+    newMinutes: string,
+    shouldScroll = false
+  ) => {
     const formattedTime = `${newHours}:${newMinutes}`;
     setInternalTime(formattedTime);
 
@@ -147,6 +202,10 @@ export function DatePicker({
 
     if (!isControlled) setUncontrolledDate(combined);
     onChange?.(combined, toLocalDatetimeString(combined));
+
+    if (shouldScroll) {
+      scrollToTime(newHours, newMinutes, "smooth");
+    }
   };
 
   const formattedDisplay = React.useMemo(() => {
@@ -234,7 +293,8 @@ export function DatePicker({
                         onClick={() =>
                           handleTimeUpdate(
                             pad(preset.hours),
-                            pad(preset.minutes)
+                            pad(preset.minutes),
+                            true
                           )
                         }
                       >
@@ -247,19 +307,22 @@ export function DatePicker({
                 {/* Two scrollable columns: Hours & Minutes */}
                 <div className="flex h-44 divide-x divide-border border border-border/70 rounded-md bg-muted/10 overflow-hidden text-center">
                   {/* Hours column */}
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <div className="text-[10px] font-semibold text-muted-foreground border-b border-border/70 py-1 bg-muted/30">
+                  <div className="flex flex-col flex-1 min-w-0 h-full">
+                    <div className="shrink-0 text-[10px] font-semibold text-muted-foreground border-b border-border/70 py-1 bg-muted/30">
                       Giờ
                     </div>
-                    <ScrollArea className="h-full">
-                      <div className="flex flex-col p-1 gap-0.5">
+                    <ScrollArea className="flex-1 min-h-0">
+                      <div
+                        ref={hourListRef}
+                        className="flex flex-col p-1 pb-3 gap-0.5"
+                      >
                         {HOURS.map((h) => (
                           <Button
                             key={h}
                             type="button"
                             variant={currentHours === h ? "default" : "ghost"}
                             size="xs"
-                            className="h-6 w-full text-xs font-normal"
+                            className="h-6 w-full text-xs font-normal shrink-0"
                             data-testid={`time-hour-${h}`}
                             onClick={() => handleTimeUpdate(h, currentMinutes)}
                           >
@@ -271,19 +334,22 @@ export function DatePicker({
                   </div>
 
                   {/* Minutes column */}
-                  <div className="flex flex-col flex-1 min-w-0">
-                    <div className="text-[10px] font-semibold text-muted-foreground border-b border-border/70 py-1 bg-muted/30">
+                  <div className="flex flex-col flex-1 min-w-0 h-full">
+                    <div className="shrink-0 text-[10px] font-semibold text-muted-foreground border-b border-border/70 py-1 bg-muted/30">
                       Phút
                     </div>
-                    <ScrollArea className="h-full">
-                      <div className="flex flex-col p-1 gap-0.5">
+                    <ScrollArea className="flex-1 min-h-0">
+                      <div
+                        ref={minuteListRef}
+                        className="flex flex-col p-1 pb-3 gap-0.5"
+                      >
                         {MINUTES.map((m) => (
                           <Button
                             key={m}
                             type="button"
                             variant={currentMinutes === m ? "default" : "ghost"}
                             size="xs"
-                            className="h-6 w-full text-xs font-normal"
+                            className="h-6 w-full text-xs font-normal shrink-0"
                             data-testid={`time-minute-${m}`}
                             onClick={() => handleTimeUpdate(currentHours, m)}
                           >
