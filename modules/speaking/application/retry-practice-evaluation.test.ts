@@ -65,7 +65,10 @@ describe("retryPracticeEvaluation Use Case", () => {
       durationSeconds: 40,
       overallBand: null,
       scorecardJson: null,
-      evidenceJson: { liveTranscript: "I like football." },
+      evidenceJson: {
+        liveTranscript: "I like football.",
+        evaluationStatus: "failed",
+      },
       createdAt: now,
       updatedAt: now,
     });
@@ -271,6 +274,58 @@ describe("retryPracticeEvaluation Use Case", () => {
       sessionId,
     });
 
+    expect(res.success).toBe(false);
+    expect(res.httpStatus).toBe(409);
+    expect(res.error).toBe("EVALUATION_PENDING");
+  });
+
+  it("should deny retry when completed practice has no scorecard and no failure marker (treated as pending, not failed)", async () => {
+    const sessionId = "ses_retry_no_failure_marker";
+    const storageKey = `speaking/user_valid/${sessionId}/candidate.webm`;
+    await persistSpeakingAudioBuffer(storageKey, Buffer.from("audio"));
+
+    const now = new Date();
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId: "user_valid",
+      candidateName: "Valid User",
+      topicTitle: "Hobbies",
+      status: "completed",
+      targetPart: "part_1",
+      durationSeconds: 40,
+      overallBand: null,
+      scorecardJson: null,
+      // No evaluationStatus field at all in evidenceJson
+      evidenceJson: { liveTranscript: "Initial recording done" },
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    devResponseCache.set(sessionId, [
+      {
+        id: `resp_${sessionId}_p1_0`,
+        sessionId,
+        partNumber: 1,
+        itemIndex: 0,
+        promptQuestion: "Hobbies",
+        storageKey,
+        audioUrl: `/api/speaking/upload-direct?key=${encodeURIComponent(storageKey)}`,
+        mimeType: "audio/webm",
+        startMs: 0,
+        endMs: 40000,
+        durationSeconds: 40,
+        liveTranscript: "Initial recording done",
+        verifiedTranscript: null,
+        createdAt: now,
+      },
+    ]);
+
+    const res = await retryPracticeEvaluation({
+      authenticatedUserId: "user_valid",
+      sessionId,
+    });
+
+    // Invariant: Must NOT infer failed just because scorecard is absent; treated as pending -> 409 conflict
     expect(res.success).toBe(false);
     expect(res.httpStatus).toBe(409);
     expect(res.error).toBe("EVALUATION_PENDING");

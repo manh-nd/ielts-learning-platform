@@ -80,11 +80,6 @@ export function mapSpeakingPracticePersistenceToDomain(practice: {
     evaluationStatus = "ready";
   } else if (evidence?.evaluationStatus === "failed") {
     evaluationStatus = "failed";
-  } else if (evidence?.evaluationStatus === "pending") {
-    evaluationStatus = "pending";
-  } else if (practiceStatus === "completed" && !practice.scorecardJson) {
-    // Practice completed, but no scorecard and not actively pending -> evaluation failed or interrupted
-    evaluationStatus = "failed";
   } else {
     evaluationStatus = "pending";
   }

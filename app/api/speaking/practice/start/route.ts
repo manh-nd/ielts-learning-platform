@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
-import { toErrorResponse, AppError } from "@/lib/errors";
+import { toErrorResponse, AppError, ValidationError } from "@/lib/errors";
 import { speakingPracticeRepository } from "@/modules/speaking/infrastructure/speaking-practice-repository";
 import {
   normalizeSpeakingPracticeScope,
   CANONICAL_SPEAKING_PRACTICE_SCOPE,
+  SpeakingPracticeScope,
 } from "@/modules/speaking/domain";
 
 export const runtime = "nodejs";
@@ -17,9 +18,17 @@ export async function POST(req: NextRequest) {
       sessionId = `ses_${crypto.randomUUID()}`,
       topicTitle = "IELTS Speaking Examination",
     } = body;
-    const targetPart =
-      normalizeSpeakingPracticeScope(body.targetPart) ||
-      CANONICAL_SPEAKING_PRACTICE_SCOPE;
+
+    let targetPart: SpeakingPracticeScope = CANONICAL_SPEAKING_PRACTICE_SCOPE;
+    if (body.targetPart !== undefined && body.targetPart !== null) {
+      const normalized = normalizeSpeakingPracticeScope(body.targetPart);
+      if (!normalized) {
+        throw new ValidationError(
+          `Invalid targetPart '${body.targetPart}'. SpeakingPractice only supports Part 1 practice ('part_1'). Full Mock and other scopes are not permitted.`
+        );
+      }
+      targetPart = normalized;
+    }
 
     const record = await speakingPracticeRepository.createInProgress({
       sessionId,
