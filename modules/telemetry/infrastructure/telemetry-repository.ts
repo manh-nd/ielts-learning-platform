@@ -60,11 +60,16 @@ export async function recordTelemetryEvent(
       });
     } catch (err) {
       console.warn("[TelemetryRepository] Database insert warning:", err);
+      if (process.env.NODE_ENV === "production") {
+        throw err;
+      }
     }
   }
 
-  // 2. Always store in dev cache for offline/test assertions
-  devTelemetryCache.push(record);
+  // 2. Store in dev cache for offline/test assertions (avoid memory leak in production)
+  if (process.env.NODE_ENV !== "production") {
+    devTelemetryCache.push(record);
+  }
 
   return record;
 }

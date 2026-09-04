@@ -429,9 +429,12 @@ export function LiveSpeakingExaminerRoom({
 
     let storageKey = "";
     let base64Audio = "";
+    const hasValidAudioBlob = Boolean(
+      finalizedAudio?.blob && finalizedAudio.blob.size > 0
+    );
 
     // 1. Convert to base64 as guaranteed fallback
-    if (finalizedAudio?.blob) {
+    if (hasValidAudioBlob && finalizedAudio?.blob) {
       dispatchPracticeAudioRecorded(
         activeSessionId,
         Math.round((finalizedAudio.durationSeconds || 0) * 1000),
@@ -486,7 +489,7 @@ export function LiveSpeakingExaminerRoom({
     }
 
     if (
-      !finalizedAudio?.blob &&
+      !hasValidAudioBlob &&
       !base64Audio &&
       !storageKey &&
       !persistedAudioBase64 &&
@@ -495,7 +498,7 @@ export function LiveSpeakingExaminerRoom({
       dispatchPracticeAudioError(
         activeSessionId,
         "EMPTY_AUDIO_RECORDING",
-        "Chưa ghi nhận được âm thanh từ microphone."
+        "Chưa ghi nhận được âm thanh từ microphone (0 bytes)."
       );
       setEvalError(
         "Chưa ghi nhận được âm thanh từ microphone. Vui lòng nói vào microphone trước khi nộp bài."
