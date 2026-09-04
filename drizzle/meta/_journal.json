@@ -57,6 +57,13 @@
       "when": 1788510928358,
       "tag": "0007_dizzy_doctor_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788513926293,
+      "tag": "0008_classy_morlocks",
+      "breakpoints": true
     }
   ]
 }
