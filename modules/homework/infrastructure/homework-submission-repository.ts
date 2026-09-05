@@ -34,6 +34,13 @@ export function clearDevHomeworkSubmissionCache(): void {
   devAttemptCache.clear();
 }
 
+export class SubmissionIntegrityError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SubmissionIntegrityError";
+  }
+}
+
 function mapRowToSubmission(
   r: typeof homeworkSubmissions.$inferSelect
 ): HomeworkSubmission {
@@ -43,7 +50,7 @@ function mapRowToSubmission(
     status !== "in_review" &&
     status !== "published"
   ) {
-    throw new Error(
+    throw new SubmissionIntegrityError(
       `[HomeworkSubmissionRepo] Encountered uncommitted/invalid submission status "${status}" for submission ${r.id}. Persistence rows without a committed attempt must not be treated as valid HomeworkSubmission.`
     );
   }
@@ -93,6 +100,9 @@ export async function findSubmissionByAssignmentAndLearner(
         return record;
       }
     } catch (err) {
+      if (err instanceof SubmissionIntegrityError) {
+        throw err;
+      }
       console.warn(
         "[HomeworkSubmissionRepo] findSubmissionByAssignmentAndLearner DB warning:",
         err
@@ -127,6 +137,9 @@ export async function findSubmissionById(
         return record;
       }
     } catch (err) {
+      if (err instanceof SubmissionIntegrityError) {
+        throw err;
+      }
       console.warn(
         "[HomeworkSubmissionRepo] findSubmissionById DB warning:",
         err
@@ -416,6 +429,9 @@ export async function listSubmissionsByAssignmentId(
       for (const s of cachedSubmissions) merged.set(s.id, s);
       return Array.from(merged.values());
     } catch (err) {
+      if (err instanceof SubmissionIntegrityError) {
+        throw err;
+      }
       console.warn(
         "[HomeworkSubmissionRepo] listSubmissionsByAssignmentId DB warning:",
         err

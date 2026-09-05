@@ -4,10 +4,13 @@ import {
   createSubsequentAttempt,
   findSubmissionByAssignmentAndLearner,
   findSubmissionById,
+  listSubmissionsByAssignmentId,
   listAttemptsBySubmissionId,
   updateSubmissionStatus,
   clearDevHomeworkSubmissionCache,
+  SubmissionIntegrityError,
 } from "./homework-submission-repository";
+import { db } from "@/lib/db";
 
 describe("Homework Submission Repository (Issue #75, ADR-0009)", () => {
   beforeEach(() => {
@@ -135,5 +138,75 @@ describe("Homework Submission Repository (Issue #75, ADR-0009)", () => {
 
     const published = await updateSubmissionStatus(submission.id, "published");
     expect(published.status).toBe("published");
+  });
+
+  it("should fail fast with SubmissionIntegrityError on uncommitted pending status in DB and not swallow as null or empty array", async () => {
+    const corruptedAssignmentId = "asg_corrupted_pending";
+    const corruptedLearnerId = "user_corrupted_pending";
+    const corruptedSubmissionId = "sub_corrupted_pending";
+
+    // Mock db.select() to simulate a persisted row with legacy/uncommitted "pending" status
+    const originalSelect = db.select;
+    const originalDatabaseUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL =
+      process.env.DATABASE_URL || "postgresql://mock-db:5432/test";
+
+    try {
+      const mockQueryBuilder = {
+        from: () => mockQueryBuilder,
+        where: () => mockQueryBuilder,
+        limit: () => mockQueryBuilder,
+        orderBy: () => mockQueryBuilder,
+        then: <TResult1 = unknown, TResult2 = never>(
+          onFulfilled?:
+            ((value: unknown[]) => TResult1 | PromiseLike<TResult1>) | null,
+          onRejected?:
+            ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+        ) =>
+          Promise.resolve([
+            {
+              id: corruptedSubmissionId,
+              assignmentId: corruptedAssignmentId,
+              learnerId: corruptedLearnerId,
+              status: "pending", // uncommitted legacy status
+              currentAttemptNumber: 1,
+              reviewedAttemptNumber: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ]).then(onFulfilled, onRejected),
+      };
+
+      Object.defineProperty(db, "select", {
+        value: () => mockQueryBuilder,
+        configurable: true,
+        writable: true,
+      });
+
+      // 1. findSubmissionById must throw SubmissionIntegrityError (NOT return null)
+      await expect(findSubmissionById(corruptedSubmissionId)).rejects.toThrow(
+        SubmissionIntegrityError
+      );
+
+      // 2. findSubmissionByAssignmentAndLearner must throw SubmissionIntegrityError (NOT return null)
+      await expect(
+        findSubmissionByAssignmentAndLearner(
+          corruptedAssignmentId,
+          corruptedLearnerId
+        )
+      ).rejects.toThrow(SubmissionIntegrityError);
+
+      // 3. listSubmissionsByAssignmentId must throw SubmissionIntegrityError (NOT return empty array or hide row)
+      await expect(
+        listSubmissionsByAssignmentId(corruptedAssignmentId)
+      ).rejects.toThrow(SubmissionIntegrityError);
+    } finally {
+      Object.defineProperty(db, "select", {
+        value: originalSelect,
+        configurable: true,
+        writable: true,
+      });
+      process.env.DATABASE_URL = originalDatabaseUrl;
+    }
   });
 });
