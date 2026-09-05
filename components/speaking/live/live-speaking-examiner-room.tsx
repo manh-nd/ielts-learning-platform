@@ -24,13 +24,11 @@ import { Button } from "@/components/ui/button";
 import { LiveConnectionBadge } from "./live-connection-badge";
 import { LiveTranscriptStream } from "./live-transcript-stream";
 import { LiveSessionControls } from "./live-session-controls";
-import { LiveSpeakingCueCardModal } from "./live-speaking-cue-card-modal";
 import { LiveSpeakingResultView } from "./live-speaking-result-view";
 import { FreeTierConsentNoticeModal } from "./free-tier-consent-notice-modal";
 import { MicPermissionDeniedDialog } from "./mic-permission-denied-dialog";
 import { useGeminiLive } from "./use-gemini-live";
 import {
-  CandidateTurnMarker,
   RecordedAudioData,
   ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
   clearActiveSpeakingSession,
@@ -38,22 +36,15 @@ import {
 import { SpeakingPracticeTopic } from "@/lib/data/speaking-practice-topics";
 import { SpeakingMockTopic } from "@/lib/data/speaking-mock-topics";
 import {
-  IeltsSpeakingEvaluationResult,
   PracticeFeedback,
   SpeakingEvaluationTrace,
 } from "@/lib/gemini/speaking-schema";
 import {
   dispatchPracticeStarted,
-  dispatchPracticeAudioRecorded,
-  dispatchPracticeSubmittedForFeedback,
-  dispatchPracticeFeedbackReady,
   dispatchPracticeAgainStarted,
   dispatchPracticeAudioError,
 } from "@/lib/telemetry/telemetry-client";
-import {
-  CANONICAL_SPEAKING_PRACTICE_SCOPE,
-  normalizeSpeakingPracticeScope,
-} from "@/modules/speaking/domain";
+import { CANONICAL_SPEAKING_PRACTICE_SCOPE } from "@/modules/speaking/domain";
 import {
   finishSpeakingPracticeWorkflow,
   retrySpeakingPracticeEvaluationWorkflow,
@@ -142,10 +133,6 @@ export function LiveSpeakingExaminerRoom({
     status,
     voiceActivity,
     examStage,
-    part2Phase,
-    cueCardData,
-    prepTimeRemaining,
-    scratchpadNotes,
     transcripts,
     turnMarkers,
     isMuted,
@@ -156,8 +143,6 @@ export function LiveSpeakingExaminerRoom({
     disconnect,
     toggleMute,
     toggleNoiseSuppression,
-    setScratchpadNotes,
-    finishPart2PrepEarly,
   } = useGeminiLive({
     candidateName,
     topic: adaptPracticeTopicToLiveEngine(topic),
@@ -171,14 +156,8 @@ export function LiveSpeakingExaminerRoom({
   const [activeSessionId, setActiveSessionId] = useState<string>(
     () => initialSessionId || `ses_live_${Date.now()}`
   );
-  const [persistedStorageKey, setPersistedStorageKey] = useState<string | null>(
-    null
-  );
-  const [persistedAudioBase64, setPersistedAudioBase64] = useState<
-    string | null
-  >(null);
-  const [evaluationResult, setEvaluationResult] =
-    useState<IeltsSpeakingEvaluationResult | null>(null);
+  const [persistedStorageKey] = useState<string | null>(null);
+  const [persistedAudioBase64] = useState<string | null>(null);
   const [practiceFeedback, setPracticeFeedback] =
     useState<PracticeFeedback | null>(null);
   const [traceMetadata, setTraceMetadata] =
@@ -273,168 +252,8 @@ export function LiveSpeakingExaminerRoom({
   }, [status, activeSessionId]);
 
   const isConnected = status === "connected";
-  const isPart1Practice = normalizeSpeakingPracticeScope(targetPart) !== null;
 
-  // Audio upload with exponential backoff
-  const uploadAudioWithRetry = useCallback(
-    async (
-      sessionId: string,
-      blob: Blob,
-      mimeType: string,
-      maxRetries = 2
-    ): Promise<string> => {
-      let lastErr: unknown = null;
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        if (attempt > 0) {
-          await new Promise((r) => setTimeout(r, attempt === 1 ? 500 : 1500));
-        }
-        try {
-          const uploadUrlRes = await fetch("/api/speaking/upload-url", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              sessionId,
-              filename: "candidate.webm",
-              mimeType,
-            }),
-          });
-          if (!uploadUrlRes.ok) {
-            throw new Error(
-              `Upload URL request failed (${uploadUrlRes.status})`
-            );
-          }
-          const uploadInfo = (await uploadUrlRes.json()) as {
-            uploadUrl: string;
-            storageKey: string;
-          };
-          const putRes = await fetch(uploadInfo.uploadUrl, {
-            method: "PUT",
-            headers: { "Content-Type": mimeType },
-            body: blob,
-          });
-          if (!putRes.ok) {
-            throw new Error(`Storage PUT failed (${putRes.status})`);
-          }
-          return uploadInfo.storageKey;
-        } catch (err) {
-          lastErr = err;
-          console.warn(
-            `[LiveExaminerRoom] Audio upload attempt ${attempt + 1} failed:`,
-            err
-          );
-        }
-      }
-      throw lastErr;
-    },
-    []
-  );
-
-  // Dispatch evaluation request to server
-  const triggerEvaluation = useCallback(
-    async (
-      sessionIdToUse?: string,
-      storageKeyToUse?: string,
-      audioBase64ToUse?: string,
-      audioDuration?: number,
-      markers?: CandidateTurnMarker[]
-    ) => {
-      setIsEvaluating(true);
-      setEvalError(null);
-
-      const resolvedSessionId = sessionIdToUse || activeSessionId;
-      const resolvedStorageKey =
-        storageKeyToUse || persistedStorageKey || undefined;
-      const resolvedBase64 =
-        audioBase64ToUse || persistedAudioBase64 || undefined;
-
-      try {
-        dispatchPracticeSubmittedForFeedback(resolvedSessionId, {
-          target_part: isPart1Practice ? "part_1" : "full",
-        });
-        const evalStartTime = Date.now();
-
-        const payload = {
-          sessionId: resolvedSessionId,
-          topicTitle: topic?.title || "General IELTS Speaking Practice",
-          candidateName,
-          practiceMode: isPart1Practice ? "part_1" : undefined,
-          targetPart: isPart1Practice ? "part_1" : "full",
-          questions:
-            isPart1Practice && topic?.part1.questions
-              ? topic.part1.questions
-              : undefined,
-          transcripts: transcripts.map((t) => ({
-            sender: t.sender,
-            text: t.text,
-            timestamp: t.timestamp,
-          })),
-          turnMarkers: markers || turnMarkers,
-          part1Question:
-            topic?.part1.questions[0] || "Introduction and interview questions",
-          part2Topic: "Individual long turn topic",
-          part3Theme: "Two-way discussion topic",
-          storageKey: resolvedStorageKey,
-          audioBase64: resolvedBase64,
-          durationSeconds:
-            audioDuration || recordedAudio?.durationSeconds || 120,
-        };
-
-        const res = await fetch("/api/speaking/evaluate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(
-            errData.message || `Lỗi khi chấm điểm (${res.status})`
-          );
-        }
-
-        const data = await res.json();
-        const evalDurationMs = Date.now() - evalStartTime;
-        const overallBand = data.isPractice
-          ? undefined
-          : (data.result as IeltsSpeakingEvaluationResult)?.overallScorecard
-              ?.overallBand;
-
-        dispatchPracticeFeedbackReady(resolvedSessionId, evalDurationMs, {
-          is_practice: Boolean(data.isPractice),
-          ...(overallBand !== undefined ? { overall_band: overallBand } : {}),
-        });
-
-        if (data.isPractice) {
-          setPracticeFeedback(data.result as PracticeFeedback);
-        } else {
-          setEvaluationResult(data.result as IeltsSpeakingEvaluationResult);
-        }
-        if (data.trace) {
-          setTraceMetadata(data.trace as SpeakingEvaluationTrace);
-        }
-      } catch (err: unknown) {
-        console.error("[LiveExaminerRoom] Evaluation failed:", err);
-        setEvalError(
-          (err as Error)?.message || "Không thể thực hiện chấm điểm tự động."
-        );
-      } finally {
-        setIsEvaluating(false);
-      }
-    },
-    [
-      activeSessionId,
-      candidateName,
-      isPart1Practice,
-      persistedAudioBase64,
-      persistedStorageKey,
-      recordedAudio,
-      topic,
-      transcripts,
-      turnMarkers,
-    ]
-  );
-
-  // Session state restoration from URL or sessionStorage
+  // Session state restoration from URL or sessionStorage (Practice-only application workflow)
   useEffect(() => {
     let isCancelled = false;
     const sessionToRestore =
@@ -443,127 +262,65 @@ export function LiveSpeakingExaminerRoom({
         ? sessionStorage.getItem(ACTIVE_SPEAKING_SESSION_STORAGE_KEY)
         : null);
 
-    if (
-      sessionToRestore &&
-      !isExamFinished &&
-      !evaluationResult &&
-      !practiceFeedback
-    ) {
-      // Part 1 Speaking Practice Flow: driven by explicit application RestoredSpeakingPracticeState (#82)
-      if (isPart1Practice) {
-        const restorePractice = async () => {
-          try {
-            const restored = await restoreSpeakingPracticeWorkflow(
-              sessionToRestore,
-              effectiveWorkflowPorts
-            );
-            if (isCancelled || !restored) return;
-
-            setActiveSessionId(restored.sessionId);
-
-            switch (restored.status) {
-              case "ended_feedback_ready":
-                setPracticeFeedback(restored.feedback);
-                if (restored.trace) {
-                  setTraceMetadata(restored.trace);
-                }
-                setCanRetryEvaluation(false);
-                setIsExamFinished(true);
-                setIsEvaluating(false);
-                setEvalError(null);
-                break;
-
-              case "ended_evaluation_failed_retryable":
-                setEvalError(restored.error);
-                setCanRetryEvaluation(true);
-                setIsExamFinished(true);
-                setIsEvaluating(false);
-                break;
-
-              case "ended_audio_unavailable":
-                setEvalError(restored.error);
-                setCanRetryEvaluation(false);
-                setIsExamFinished(true);
-                setIsEvaluating(false);
-                break;
-
-              case "ended_evaluating":
-                setIsExamFinished(true);
-                setIsEvaluating(true);
-                setCanRetryEvaluation(false);
-                setEvalError(null);
-                // DO NOT trigger evaluation again. Mark UI as waiting/evaluating.
-                break;
-
-              case "in_progress":
-                setIsExamFinished(false);
-                setIsEvaluating(false);
-                setCanRetryEvaluation(false);
-                break;
-            }
-          } catch (err) {
-            console.warn(
-              "[LiveExaminerRoom] Speaking practice restoration error:",
-              err
-            );
-          }
-        };
-
-        restorePractice();
-        return;
-      }
-
-      // Full Mock Examination Flow (Untouched)
-      const restoreSession = async () => {
+    if (sessionToRestore && !isExamFinished && !practiceFeedback) {
+      const restorePractice = async () => {
         try {
-          const res = await fetch(
-            `/api/speaking/evaluate?sessionId=${encodeURIComponent(sessionToRestore)}`
+          const restored = await restoreSpeakingPracticeWorkflow(
+            sessionToRestore,
+            effectiveWorkflowPorts
           );
-          if (!res.ok) return;
-          const data = await res.json();
-          if (isCancelled || !data?.success || !data?.session) return;
+          if (isCancelled || !restored) return;
 
-          const pSession = data.session;
-          const responses = data.responses || [];
+          setActiveSessionId(restored.sessionId);
 
-          setActiveSessionId(pSession.id);
-          if (responses.length > 0 && responses[0].storageKey) {
-            setPersistedStorageKey(responses[0].storageKey);
-          }
+          switch (restored.status) {
+            case "ended_feedback_ready":
+              setPracticeFeedback(restored.feedback);
+              if (restored.trace) {
+                setTraceMetadata(restored.trace);
+              }
+              setCanRetryEvaluation(false);
+              setIsExamFinished(true);
+              setIsEvaluating(false);
+              setEvalError(null);
+              break;
 
-          if (pSession.status === "evaluated" && pSession.scorecardJson) {
-            const sc = pSession.scorecardJson as Record<string, unknown>;
-            setEvaluationResult(sc as unknown as IeltsSpeakingEvaluationResult);
-            if (pSession.evidenceJson?.trace) {
-              setTraceMetadata(
-                pSession.evidenceJson.trace as SpeakingEvaluationTrace
-              );
-            }
-            setIsExamFinished(true);
-          } else if (pSession.status === "completed") {
-            setIsExamFinished(true);
-            if (pSession.evidenceJson?.evaluationStatus === "failed") {
-              setEvalError(
-                pSession.evidenceJson.evaluationError ||
-                  "Lần phân tích trước bị gián đoạn. Vui lòng bấm thử phân tích lại."
-              );
+            case "ended_evaluation_failed_retryable":
+              setEvalError(restored.error);
               setCanRetryEvaluation(true);
-            } else {
-              // In-flight evaluation resumption
+              setIsExamFinished(true);
+              setIsEvaluating(false);
+              break;
+
+            case "ended_audio_unavailable":
+              setEvalError(restored.error);
+              setCanRetryEvaluation(false);
+              setIsExamFinished(true);
+              setIsEvaluating(false);
+              break;
+
+            case "ended_evaluating":
+              setIsExamFinished(true);
               setIsEvaluating(true);
-              triggerEvaluation(
-                pSession.id,
-                responses[0]?.storageKey || undefined,
-                undefined
-              );
-            }
+              setCanRetryEvaluation(false);
+              setEvalError(null);
+              break;
+
+            case "in_progress":
+              setIsExamFinished(false);
+              setIsEvaluating(false);
+              setCanRetryEvaluation(false);
+              break;
           }
         } catch (err) {
-          console.warn("[LiveExaminerRoom] Session restoration error:", err);
+          console.warn(
+            "[LiveExaminerRoom] Speaking practice restoration error:",
+            err
+          );
         }
       };
 
-      restoreSession();
+      restorePractice();
     }
 
     return () => {
@@ -572,14 +329,11 @@ export function LiveSpeakingExaminerRoom({
   }, [
     initialSessionId,
     isExamFinished,
-    evaluationResult,
     practiceFeedback,
-    triggerEvaluation,
-    isPart1Practice,
     effectiveWorkflowPorts,
   ]);
 
-  // Finish exam manually or automatically
+  // Finish exam manually or automatically (SpeakingPractice application workflow)
   const handleFinishExam = useCallback(async () => {
     if (isEvaluating) return;
     setIsEvaluating(true);
@@ -592,126 +346,23 @@ export function LiveSpeakingExaminerRoom({
 
     onSessionChange?.(activeSessionId);
 
-    // Speaking Practice Flow: delegate finish & evaluation orchestration to application seam (#81)
-    if (isPart1Practice) {
-      const outcome = await finishSpeakingPracticeWorkflow(
-        {
-          sessionId: activeSessionId,
-          candidateName,
-          topicTitle: topic?.title,
-          questions: topic?.part1.questions,
-          part1Question: topic?.part1.questions?.[0],
-          transcripts,
-          turnMarkers,
-          audio: finalizedAudio,
-          durationSeconds: finalizedAudio?.durationSeconds,
-          persistedStorageKey: persistedStorageKey || undefined,
-          persistedAudioBase64: persistedAudioBase64 || undefined,
-        },
-        effectiveWorkflowPorts
-      );
-      applyWorkflowOutcome(outcome);
-      return;
-    }
-
-    // Full Mock Examination Flow (Untouched)
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(
-        ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
-        activeSessionId
-      );
-      const url = new URL(window.location.href);
-      url.searchParams.set("sessionId", activeSessionId);
-      window.history.replaceState(null, "", url.toString());
-    }
-
-    let storageKey = "";
-    let base64Audio = "";
-    const hasValidAudioBlob = Boolean(
-      finalizedAudio?.blob && finalizedAudio.blob.size > 0
+    const outcome = await finishSpeakingPracticeWorkflow(
+      {
+        sessionId: activeSessionId,
+        candidateName,
+        topicTitle: topic?.title,
+        questions: topic?.part1.questions,
+        part1Question: topic?.part1.questions?.[0],
+        transcripts,
+        turnMarkers,
+        audio: finalizedAudio,
+        durationSeconds: finalizedAudio?.durationSeconds,
+        persistedStorageKey: persistedStorageKey || undefined,
+        persistedAudioBase64: persistedAudioBase64 || undefined,
+      },
+      effectiveWorkflowPorts
     );
-
-    // 1. Convert to base64 as guaranteed fallback
-    if (hasValidAudioBlob && finalizedAudio?.blob) {
-      dispatchPracticeAudioRecorded(
-        activeSessionId,
-        Math.round((finalizedAudio.durationSeconds || 0) * 1000),
-        finalizedAudio.blob.size,
-        {
-          mime_type: finalizedAudio.mimeType || "audio/webm;codecs=opus",
-          turn_count: turnMarkers.length,
-        }
-      );
-
-      try {
-        const reader = new FileReader();
-        base64Audio = await new Promise<string>((resolve) => {
-          reader.onloadend = () => {
-            const res = reader.result as string;
-            const commaIndex = res.indexOf(",");
-            resolve(commaIndex !== -1 ? res.slice(commaIndex + 1) : res);
-          };
-          reader.readAsDataURL(finalizedAudio.blob);
-        });
-        setPersistedAudioBase64(base64Audio);
-      } catch (readErr) {
-        console.warn(
-          "[LiveExaminerRoom] Could not read audio blob as base64:",
-          readErr
-        );
-      }
-
-      // 2. Upload to storage with 2 silent retries and exponential backoff
-      setIsUploadingAudio(true);
-      try {
-        storageKey = await uploadAudioWithRetry(
-          activeSessionId,
-          finalizedAudio.blob,
-          finalizedAudio.mimeType || "audio/webm;codecs=opus",
-          2
-        );
-        setPersistedStorageKey(storageKey);
-      } catch (uploadErr) {
-        console.warn(
-          "[LiveExaminerRoom] Direct storage upload failed after retries:",
-          uploadErr
-        );
-        setIsUploadingAudio(false);
-        setIsEvaluating(false);
-        setUploadError(
-          "Không thể tải tệp âm thanh lên máy chủ do lỗi kết nối mạng. Bản thu âm của bạn vẫn được bảo toàn trong bộ nhớ."
-        );
-        return;
-      }
-      setIsUploadingAudio(false);
-    }
-
-    if (
-      !hasValidAudioBlob &&
-      !base64Audio &&
-      !storageKey &&
-      !persistedAudioBase64 &&
-      !persistedStorageKey
-    ) {
-      dispatchPracticeAudioError(
-        activeSessionId,
-        "EMPTY_AUDIO_RECORDING",
-        "Chưa ghi nhận được âm thanh từ microphone (0 bytes)."
-      );
-      setEvalError(
-        "Chưa ghi nhận được âm thanh từ microphone. Vui lòng nói vào microphone trước khi nộp bài."
-      );
-      setIsEvaluating(false);
-      return;
-    }
-
-    await triggerEvaluation(
-      activeSessionId,
-      storageKey,
-      base64Audio,
-      finalizedAudio?.durationSeconds,
-      turnMarkers
-    );
+    applyWorkflowOutcome(outcome);
   }, [
     activeSessionId,
     applyWorkflowOutcome,
@@ -719,15 +370,12 @@ export function LiveSpeakingExaminerRoom({
     disconnect,
     effectiveWorkflowPorts,
     isEvaluating,
-    isPart1Practice,
     onSessionChange,
     persistedAudioBase64,
     persistedStorageKey,
     topic,
     transcripts,
-    triggerEvaluation,
     turnMarkers,
-    uploadAudioWithRetry,
   ]);
 
   const handleRetryUpload = useCallback(async () => {
@@ -736,94 +384,53 @@ export function LiveSpeakingExaminerRoom({
     setUploadError(null);
     setIsEvaluating(true);
 
-    if (isPart1Practice) {
-      const outcome = await retrySpeakingAudioUploadWorkflow(
-        {
-          sessionId: activeSessionId,
-          audio: savedFinalizedAudio,
-          candidateName,
-          topicTitle: topic?.title,
-          questions: topic?.part1.questions,
-          part1Question: topic?.part1.questions?.[0],
-          transcripts,
-          turnMarkers,
-          audioBase64: persistedAudioBase64 || undefined,
-        },
-        effectiveWorkflowPorts
-      );
-      applyWorkflowOutcome(outcome);
-      return;
-    }
-
-    // Full Mock retry upload flow (Untouched)
-    try {
-      const storageKey = await uploadAudioWithRetry(
-        activeSessionId,
-        savedFinalizedAudio.blob,
-        savedFinalizedAudio.mimeType || "audio/webm;codecs=opus",
-        2
-      );
-      setPersistedStorageKey(storageKey);
-      setIsUploadingAudio(false);
-      await triggerEvaluation(
-        activeSessionId,
-        storageKey,
-        persistedAudioBase64 || undefined,
-        savedFinalizedAudio.durationSeconds,
-        turnMarkers
-      );
-    } catch (err) {
-      console.error("[LiveExaminerRoom] Retry upload failed:", err);
-      setIsUploadingAudio(false);
-      setIsEvaluating(false);
-      setUploadError(
-        "Tải lên lại vẫn thất bại do gián đoạn kết nối mạng. Vui lòng kiểm tra đường truyền và thử lại."
-      );
-    }
+    const outcome = await retrySpeakingAudioUploadWorkflow(
+      {
+        sessionId: activeSessionId,
+        audio: savedFinalizedAudio,
+        candidateName,
+        topicTitle: topic?.title,
+        questions: topic?.part1.questions,
+        part1Question: topic?.part1.questions?.[0],
+        transcripts,
+        turnMarkers,
+        audioBase64: persistedAudioBase64 || undefined,
+      },
+      effectiveWorkflowPorts
+    );
+    applyWorkflowOutcome(outcome);
   }, [
     activeSessionId,
     applyWorkflowOutcome,
     candidateName,
     effectiveWorkflowPorts,
-    isPart1Practice,
     persistedAudioBase64,
     savedFinalizedAudio,
     topic,
     transcripts,
-    triggerEvaluation,
     turnMarkers,
-    uploadAudioWithRetry,
   ]);
 
   const handleRetryEvaluation = useCallback(async () => {
-    if (isPart1Practice) {
-      setIsEvaluating(true);
-      setEvalError(null);
-      const outcome = await retrySpeakingPracticeEvaluationWorkflow(
-        {
-          sessionId: activeSessionId,
-          candidateName,
-          topicTitle: topic?.title,
-          questions: topic?.part1.questions,
-          part1Question: topic?.part1.questions?.[0],
-          transcripts,
-          turnMarkers,
-          storageKey: persistedStorageKey || undefined,
-          audioBase64: persistedAudioBase64 || undefined,
-          durationSeconds: savedFinalizedAudio?.durationSeconds,
-        },
-        effectiveWorkflowPorts
-      );
-      applyWorkflowOutcome(outcome);
-    } else {
-      triggerEvaluation(
-        activeSessionId,
-        persistedStorageKey || undefined,
-        persistedAudioBase64 || undefined
-      );
-    }
+    setIsEvaluating(true);
+    setEvalError(null);
+    const outcome = await retrySpeakingPracticeEvaluationWorkflow(
+      {
+        sessionId: activeSessionId,
+        candidateName,
+        topicTitle: topic?.title,
+        questions: topic?.part1.questions,
+        part1Question: topic?.part1.questions?.[0],
+        transcripts,
+        turnMarkers,
+        storageKey: persistedStorageKey || undefined,
+        audioBase64: persistedAudioBase64 || undefined,
+        durationSeconds: savedFinalizedAudio?.durationSeconds,
+      },
+      effectiveWorkflowPorts
+    );
+    applyWorkflowOutcome(outcome);
   }, [
-    isPart1Practice,
     activeSessionId,
     candidateName,
     topic,
@@ -834,7 +441,6 @@ export function LiveSpeakingExaminerRoom({
     savedFinalizedAudio?.durationSeconds,
     effectiveWorkflowPorts,
     applyWorkflowOutcome,
-    triggerEvaluation,
   ]);
 
   useEffect(() => {
@@ -922,28 +528,24 @@ export function LiveSpeakingExaminerRoom({
     );
   }
 
-  // If exam has finished, display the comprehensive Result View
+  // If exam has finished, display the comprehensive Result View for SpeakingPractice
   if (isExamFinished) {
-    const isRetryAllowed = isPart1Practice ? canRetryEvaluation : true;
-
     return (
       <LiveSpeakingResultView
-        evaluationResult={evaluationResult}
         practiceFeedback={practiceFeedback}
         traceMetadata={traceMetadata}
-        isPracticeMode={isPart1Practice}
+        isPracticeMode={true}
         isLoading={isEvaluating}
         error={evalError}
         recordedAudio={savedFinalizedAudio || recordedAudio}
         transcripts={transcripts}
-        onRetryEvaluation={isRetryAllowed ? handleRetryEvaluation : undefined}
+        onRetryEvaluation={
+          canRetryEvaluation ? handleRetryEvaluation : undefined
+        }
         onRestartTest={() => {
           setIsExamFinished(false);
-          setEvaluationResult(null);
           setPracticeFeedback(null);
           setTraceMetadata(null);
-          setPersistedStorageKey(null);
-          setPersistedAudioBase64(null);
           setSavedFinalizedAudio(null);
           setUploadError(null);
           setCanRetryEvaluation(false);
@@ -1099,18 +701,6 @@ export function LiveSpeakingExaminerRoom({
             </p>
           </div>
         </div>
-
-        {/* Part 2 Cue Card Modal & Prep Countdown */}
-        {examStage === 2 && cueCardData && (
-          <LiveSpeakingCueCardModal
-            cueCard={cueCardData}
-            phase={part2Phase}
-            prepTimeRemaining={prepTimeRemaining}
-            notes={scratchpadNotes}
-            onNotesChange={setScratchpadNotes}
-            onFinishPrepEarly={finishPart2PrepEarly}
-          />
-        )}
 
         {/* Real-time Subtitle & Transcript Stream */}
         <div className="space-y-1.5">
