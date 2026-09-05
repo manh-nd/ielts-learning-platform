@@ -28,37 +28,7 @@ export interface HomeworkAssignment {
   updatedAt: Date;
 }
 
-export interface CreateHomeworkAssignmentInput {
-  title: string;
-  instructions?: string | null;
-  prompts: Array<{
-    promptId?: string;
-    text: string;
-    partNumber: 1 | 2 | 3;
-    subPrompts?: string[];
-  }>;
-  submissionDeadline: Date | string;
-  status?: "draft" | "published";
-}
-
-export interface UpdateHomeworkAssignmentInput {
-  title?: string;
-  instructions?: string | null;
-  prompts?: Array<{
-    promptId?: string;
-    text: string;
-    partNumber: 1 | 2 | 3;
-    subPrompts?: string[];
-  }>;
-  submissionDeadline?: Date | string;
-  status?: HomeworkAssignmentStatus;
-}
-
-export type HomeworkSubmissionStatus =
-  "not_submitted" | "submitted" | "in_review" | "under_review" | "published";
-
-export type SubmissionRecordStatus =
-  "pending" | "submitted" | "in_review" | "published";
+export type HomeworkSubmissionStatus = "submitted" | "in_review" | "published";
 
 export interface AudioResponseClip {
   promptId: string;
@@ -79,61 +49,11 @@ export interface HomeworkSubmission {
   id: string;
   assignmentId: string;
   learnerId: string;
-  status: SubmissionRecordStatus;
+  status: HomeworkSubmissionStatus;
   currentAttemptNumber: number;
   reviewedAttemptNumber: number | null;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface SubmitHomeworkInput {
-  audioResponses: AudioResponseClip[];
-}
-
-export interface HomeworkAssignmentStudentRosterItem {
-  learnerId: string;
-  learnerName: string;
-  learnerEmail: string;
-  learnerImage: string | null;
-  submissionStatus: HomeworkSubmissionStatus;
-  submittedAt: Date | null;
-  submissionId: string | null;
-}
-
-export interface HomeworkAssignmentDetail {
-  assignment: HomeworkAssignment;
-  classroom: {
-    id: string;
-    name: string;
-  };
-  students: HomeworkAssignmentStudentRosterItem[];
-}
-
-export interface LearnerHomeworkDetail {
-  assignment: HomeworkAssignment;
-  classroom: {
-    id: string;
-    name: string;
-  };
-  submission: HomeworkSubmission | null;
-  currentAttempt: SubmissionAttempt | null;
-  allAttempts: SubmissionAttempt[];
-  publishedAssessment?: PublishedAssessment | null;
-}
-
-export interface LearnerPublishedAssessmentData {
-  assignment: HomeworkAssignment;
-  classroom: {
-    id: string;
-    name: string;
-  };
-  submission: HomeworkSubmission;
-  attempt: SubmissionAttempt;
-  publishedAssessment: PublishedAssessment;
-  teacher: {
-    id: string;
-    name: string;
-  };
 }
 
 export interface SpeakingCriteriaScores {
@@ -261,33 +181,6 @@ export interface EvaluationFeedback {
   } | null;
   modelVersion: string;
   createdAt: Date;
-}
-
-export interface TeacherReviewCockpitData {
-  assignment: HomeworkAssignment;
-  submission: HomeworkSubmission;
-  attempt: SubmissionAttempt;
-  student: {
-    id: string;
-    name: string;
-    email: string;
-    avatarUrl: string | null;
-    targetBand?: number;
-  };
-  aiProposal: AiAssessmentProposal | null;
-  teacherDraft: TeacherAssessment | null;
-  publishedAssessment: PublishedAssessment | null;
-}
-
-export interface PublishAssessmentInput {
-  fluencyCoherence: number;
-  lexicalResource: number;
-  grammaticalRangeAccuracy: number;
-  pronunciation: number;
-  overallFeedback: string;
-  criteriaFeedback?: SpeakingCriteriaFeedback;
-  annotations?: SpeakingReviewAnnotationItem[];
-  activeReviewDurationMs: number;
 }
 
 /**

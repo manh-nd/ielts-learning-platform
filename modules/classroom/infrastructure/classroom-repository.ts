@@ -4,14 +4,15 @@ import {
   user,
   type UserRole,
 } from "@/modules/identity/infrastructure/auth-schema";
+import type { Classroom, Membership } from "../domain/classroom-types";
 import type {
-  Classroom,
   ClassroomWithMemberCount,
-  ClassroomMember,
-  ClassroomMemberDetail,
+  ClassroomRosterItem,
+} from "../application/classroom-read-models";
+import type {
   CreateClassroomInput,
   UpdateClassroomInput,
-} from "../domain/classroom-types";
+} from "../application/classroom-inputs";
 import { eq, and, desc, count, sql } from "drizzle-orm";
 
 export interface UserLookupResult {
@@ -25,14 +26,14 @@ export interface UserLookupResult {
 // In-memory cache for development/test isolation
 const globalForClassroom = globalThis as unknown as {
   devClassroomCache?: Map<string, Classroom>;
-  devMemberCache?: ClassroomMember[];
+  devMemberCache?: Membership[];
   devUserCache?: Map<string, UserLookupResult>;
 };
 
 export const devClassroomCache: Map<string, Classroom> =
   globalForClassroom.devClassroomCache || new Map<string, Classroom>();
 
-export const devMemberCache: ClassroomMember[] =
+export const devMemberCache: Membership[] =
   globalForClassroom.devMemberCache || [];
 
 export const devUserCache: Map<string, UserLookupResult> =
@@ -385,10 +386,10 @@ export async function listClassroomsByTeacherId(
 /**
  * Finds a membership record by classroomId and learnerId
  */
-export async function findMember(
+export async function findMembership(
   classroomId: string,
   learnerId: string
-): Promise<ClassroomMember | null> {
+): Promise<Membership | null> {
   const cached = devMemberCache.find(
     (m) => m.classroomId === classroomId && m.learnerId === learnerId
   );
@@ -411,7 +412,7 @@ export async function findMember(
         return rows[0];
       }
     } catch (err) {
-      console.warn("[ClassroomRepository] findMember DB warning:", err);
+      console.warn("[ClassroomRepository] findMembership DB warning:", err);
     }
   }
 
@@ -421,14 +422,14 @@ export async function findMember(
 /**
  * Adds a learner to a classroom as a member (Issue #73, ADR-0009)
  */
-export async function addMember(
+export async function addMembership(
   classroomId: string,
   learnerId: string
-): Promise<ClassroomMember> {
+): Promise<Membership> {
   const memberId = crypto.randomUUID();
   const now = new Date();
 
-  const record: ClassroomMember = {
+  const record: Membership = {
     id: memberId,
     classroomId,
     learnerId,
@@ -446,7 +447,7 @@ export async function addMember(
         joinedAt: record.joinedAt,
       });
     } catch (err) {
-      console.warn("[ClassroomRepository] addMember DB warning:", err);
+      console.warn("[ClassroomRepository] addMembership DB warning:", err);
       if (
         process.env.NODE_ENV === "production" &&
         process.env.ENABLE_E2E_MOCK_AUTH !== "true"
@@ -459,12 +460,10 @@ export async function addMember(
   return record;
 }
 
-export const enrollMember = addMember;
-
 /**
  * Removes a learner from a classroom
  */
-export async function removeMember(
+export async function removeMembership(
   classroomId: string,
   learnerId: string
 ): Promise<boolean> {
@@ -482,7 +481,7 @@ export async function removeMember(
         );
       removed = true;
     } catch (err) {
-      console.warn("[ClassroomRepository] removeMember DB warning:", err);
+      console.warn("[ClassroomRepository] removeMembership DB warning:", err);
       if (
         process.env.NODE_ENV === "production" &&
         process.env.ENABLE_E2E_MOCK_AUTH !== "true"
@@ -504,11 +503,11 @@ export async function removeMember(
 }
 
 /**
- * Lists all member details for a given classroom
+ * Lists all roster items for a given classroom
  */
-export async function listClassroomMembers(
+export async function listClassroomRoster(
   classroomId: string
-): Promise<ClassroomMemberDetail[]> {
+): Promise<ClassroomRosterItem[]> {
   const cachedMembers = devMemberCache.filter(
     (m) => m.classroomId === classroomId
   );
@@ -517,7 +516,7 @@ export async function listClassroomMembers(
     (process.env.ENABLE_E2E_MOCK_AUTH === "true" ||
       process.env.NODE_ENV !== "production")
   ) {
-    const details: ClassroomMemberDetail[] = [];
+    const details: ClassroomRosterItem[] = [];
     for (const m of cachedMembers) {
       let learnerName = "Learner";
       let learnerEmail = "learner@example.com";
@@ -574,7 +573,7 @@ export async function listClassroomMembers(
       }));
     } catch (err) {
       console.warn(
-        "[ClassroomRepository] listClassroomMembers DB warning:",
+        "[ClassroomRepository] listClassroomRoster DB warning:",
         err
       );
     }
@@ -582,7 +581,7 @@ export async function listClassroomMembers(
 
   // Fallback to dev cache
   const members = devMemberCache.filter((m) => m.classroomId === classroomId);
-  const details: ClassroomMemberDetail[] = [];
+  const details: ClassroomRosterItem[] = [];
 
   for (const m of members) {
     let learnerName = "Learner";

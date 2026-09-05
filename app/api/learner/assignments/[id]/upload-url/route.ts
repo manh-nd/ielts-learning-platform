@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
 import { findAssignmentById } from "@/modules/homework/infrastructure/homework-assignment-repository";
-import { findMember } from "@/modules/classroom/infrastructure/classroom-repository";
+import { findMembership } from "@/modules/classroom/infrastructure/classroom-repository";
 import {
   buildHomeworkAudioStorageKey,
   getSpeakingUploadPresignedUrl,
@@ -29,7 +29,10 @@ export async function POST(
       throw new NotFoundError("Không tìm thấy bài tập được yêu cầu.");
     }
 
-    const member = await findMember(assignment.classroomId, session.user.id);
+    const member = await findMembership(
+      assignment.classroomId,
+      session.user.id
+    );
     if (!member) {
       throw new ForbiddenError("Bạn không phải là thành viên của lớp học này.");
     }

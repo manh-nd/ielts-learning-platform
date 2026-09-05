@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, userEvent, within, fn } from "storybook/test";
 import { ClassroomCard } from "./classroom-card";
-import type { ClassroomWithMemberCount } from "@/modules/classroom/domain/classroom-types";
+import type { ClassroomWithMemberCount } from "@/modules/classroom/application/classroom-read-models";
 
 const mockClassroom: ClassroomWithMemberCount = {
   id: "cls_101",

@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BandScoreBadge } from "@/components/ui/band-score-badge";
-import type { LearnerPublishedAssessmentData } from "@/modules/homework/domain/homework-types";
+import type { LearnerPublishedAssessmentData } from "@/modules/homework/application/homework-read-models";
 
 export interface LearnerPublishedAssessmentViewProps {
   data: LearnerPublishedAssessmentData;

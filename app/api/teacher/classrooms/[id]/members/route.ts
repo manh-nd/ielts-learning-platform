@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
 import { toErrorResponse, AppError, ValidationError } from "@/lib/errors";
 import {
-  enrollLearnerInClassroom,
+  addLearnerMembership,
   getClassroomRoster,
-  removeLearnerFromClassroom,
+  removeLearnerMembership,
 } from "@/modules/classroom/application/classroom-service";
 
 export const runtime = "nodejs";
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       throw new ValidationError("Email học viên là trường bắt buộc (string).");
     }
 
-    const member = await enrollLearnerInClassroom(
+    const member = await addLearnerMembership(
       session.user.id,
       classroomId,
       email
@@ -143,7 +143,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
       throw new ValidationError("Thiếu thông tin learnerId cần xóa.");
     }
 
-    const result = await removeLearnerFromClassroom(
+    const result = await removeLearnerMembership(
       session.user.id,
       classroomId,
       learnerId

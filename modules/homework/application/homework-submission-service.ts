@@ -1,6 +1,6 @@
 import { findAssignmentById } from "../infrastructure/homework-assignment-repository";
 import {
-  findMember,
+  findMembership,
   findClassroomById,
   findUserById,
 } from "@/modules/classroom/infrastructure/classroom-repository";
@@ -15,10 +15,13 @@ import { findPublishedAssessmentBySubmission } from "../infrastructure/homework-
 import type {
   HomeworkSubmission,
   SubmissionAttempt,
+} from "../domain/homework-types";
+import type {
   LearnerHomeworkDetail,
   LearnerPublishedAssessmentData,
-  SubmitHomeworkInput,
-} from "../domain/homework-types";
+} from "./homework-read-models";
+import type { SubmitHomeworkInput } from "./homework-inputs";
+
 import {
   ValidationError,
   NotFoundError,
@@ -46,8 +49,8 @@ async function assertLearnerEnrolledInAssignmentClassroom(
     throw new NotFoundError("Không tìm thấy bài tập được yêu cầu.");
   }
 
-  // Verify learner is enrolled in the classroom
-  const member = await findMember(assignment.classroomId, learnerId);
+  // Verify learner has active membership in the classroom
+  const member = await findMembership(assignment.classroomId, learnerId);
   if (!member) {
     throw new ForbiddenError("Bạn không phải là thành viên của lớp học này.");
   }

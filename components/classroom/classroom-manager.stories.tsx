@@ -3,8 +3,8 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { ClassroomManager } from "./classroom-manager";
 import type {
   ClassroomWithMemberCount,
-  ClassroomMemberDetail,
-} from "@/modules/classroom/domain/classroom-types";
+  ClassroomRosterItem,
+} from "@/modules/classroom/application/classroom-read-models";
 
 const mockClassrooms: ClassroomWithMemberCount[] = [
   {
@@ -28,7 +28,7 @@ const mockClassrooms: ClassroomWithMemberCount[] = [
   },
 ];
 
-const mockMembersCls1: ClassroomMemberDetail[] = [
+const mockMembersCls1: ClassroomRosterItem[] = [
   {
     id: "mem_m1",
     classroomId: "cls_m1",

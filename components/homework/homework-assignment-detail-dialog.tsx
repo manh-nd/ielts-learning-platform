@@ -11,10 +11,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { HomeworkAssignmentStatusBadge } from "./homework-assignment-status-badge";
 import { HomeworkAssignmentRosterTable } from "./homework-assignment-roster-table";
-import type {
-  HomeworkAssignment,
-  HomeworkAssignmentStudentRosterItem,
-} from "@/modules/homework/domain/homework-types";
+import type { HomeworkAssignment } from "@/modules/homework/domain/homework-types";
+import type { HomeworkAssignmentStudentRosterItem } from "@/modules/homework/application/homework-read-models";
 
 export interface HomeworkAssignmentDetailDialogProps {
   assignment: HomeworkAssignment | null;

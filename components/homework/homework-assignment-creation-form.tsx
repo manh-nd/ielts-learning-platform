@@ -26,10 +26,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { DatePicker, toLocalDatetimeString } from "@/components/ui/date-picker";
 import { PRESET_SPEAKING_PROMPTS } from "./homework-prompt-presets";
-import type {
-  CreateHomeworkAssignmentInput,
-  HomeworkPromptItem,
-} from "@/modules/homework/domain/homework-types";
+import type { HomeworkPromptItem } from "@/modules/homework/domain/homework-types";
+import type { CreateHomeworkAssignmentInput } from "@/modules/homework/application/homework-inputs";
 
 export type FormPromptItem = HomeworkPromptItem;
 

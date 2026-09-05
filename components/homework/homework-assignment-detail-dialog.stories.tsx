@@ -1,10 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, within } from "storybook/test";
 import { HomeworkAssignmentDetailDialog } from "./homework-assignment-detail-dialog";
-import type {
-  HomeworkAssignment,
-  HomeworkAssignmentStudentRosterItem,
-} from "@/modules/homework/domain/homework-types";
+import type { HomeworkAssignment } from "@/modules/homework/domain/homework-types";
+import type { HomeworkAssignmentStudentRosterItem } from "@/modules/homework/application/homework-read-models";
 
 const mockAssignment: HomeworkAssignment = {
   id: "hw_detail_story_01",

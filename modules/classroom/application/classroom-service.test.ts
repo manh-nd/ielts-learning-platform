@@ -3,8 +3,8 @@ import {
   createTeacherClassroom,
   getTeacherClassrooms,
   updateTeacherClassroom,
-  enrollLearnerInClassroom,
-  removeLearnerFromClassroom,
+  addLearnerMembership,
+  removeLearnerMembership,
   getClassroomRoster,
 } from "./classroom-service";
 import {
@@ -84,7 +84,7 @@ describe("Classroom Application Service", () => {
       const c1 = await createTeacherClassroom(teacherId, { name: "Class 1" });
       await createTeacherClassroom(otherTeacherId, { name: "Class Other" });
 
-      await enrollLearnerInClassroom(teacherId, c1.id, "learner01@example.com");
+      await addLearnerMembership(teacherId, c1.id, "learner01@example.com");
 
       const classrooms = await getTeacherClassrooms(teacherId);
       expect(classrooms.length).toBe(1);
@@ -150,10 +150,10 @@ describe("Classroom Application Service", () => {
     });
   });
 
-  describe("enrollLearnerInClassroom", () => {
+  describe("addLearnerMembership", () => {
     it("should successfully enroll a registered learner into the classroom", async () => {
       const c = await createTeacherClassroom(teacherId, { name: "Class Test" });
-      const member = await enrollLearnerInClassroom(
+      const member = await addLearnerMembership(
         teacherId,
         c.id,
         "learner01@example.com"
@@ -169,13 +169,13 @@ describe("Classroom Application Service", () => {
     it("should reject invalid email formatting", async () => {
       const c = await createTeacherClassroom(teacherId, { name: "Class Test" });
       expect(
-        enrollLearnerInClassroom(teacherId, c.id, "not-an-email")
+        addLearnerMembership(teacherId, c.id, "not-an-email")
       ).rejects.toBeInstanceOf(ValidationError);
     });
 
     it("should throw NotFoundError if classroom does not exist", async () => {
       expect(
-        enrollLearnerInClassroom(
+        addLearnerMembership(
           teacherId,
           "00000000-0000-0000-0000-000000000000",
           "learner01@example.com"
@@ -189,7 +189,7 @@ describe("Classroom Application Service", () => {
       });
 
       expect(
-        enrollLearnerInClassroom(teacherId, c.id, "learner01@example.com")
+        addLearnerMembership(teacherId, c.id, "learner01@example.com")
       ).rejects.toBeInstanceOf(ForbiddenError);
     });
 
@@ -197,7 +197,7 @@ describe("Classroom Application Service", () => {
       const c = await createTeacherClassroom(teacherId, { name: "Class Test" });
 
       expect(
-        enrollLearnerInClassroom(teacherId, c.id, "unregistered@example.com")
+        addLearnerMembership(teacherId, c.id, "unregistered@example.com")
       ).rejects.toBeInstanceOf(NotFoundError);
     });
 
@@ -205,26 +205,26 @@ describe("Classroom Application Service", () => {
       const c = await createTeacherClassroom(teacherId, { name: "Class Test" });
 
       expect(
-        enrollLearnerInClassroom(teacherId, c.id, "otherteacher@example.com")
+        addLearnerMembership(teacherId, c.id, "otherteacher@example.com")
       ).rejects.toBeInstanceOf(ValidationError);
     });
 
     it("should throw ConflictError if learner is already enrolled in the classroom", async () => {
       const c = await createTeacherClassroom(teacherId, { name: "Class Test" });
-      await enrollLearnerInClassroom(teacherId, c.id, "learner01@example.com");
+      await addLearnerMembership(teacherId, c.id, "learner01@example.com");
 
       expect(
-        enrollLearnerInClassroom(teacherId, c.id, "learner01@example.com")
+        addLearnerMembership(teacherId, c.id, "learner01@example.com")
       ).rejects.toBeInstanceOf(ConflictError);
     });
   });
 
-  describe("removeLearnerFromClassroom", () => {
+  describe("removeLearnerMembership", () => {
     it("should remove learner when requested by owning teacher", async () => {
       const c = await createTeacherClassroom(teacherId, { name: "Class Test" });
-      await enrollLearnerInClassroom(teacherId, c.id, "learner01@example.com");
+      await addLearnerMembership(teacherId, c.id, "learner01@example.com");
 
-      const result = await removeLearnerFromClassroom(
+      const result = await removeLearnerMembership(
         teacherId,
         c.id,
         "learner_svc_01"
@@ -239,14 +239,10 @@ describe("Classroom Application Service", () => {
       const c = await createTeacherClassroom(otherTeacherId, {
         name: "Other Class",
       });
-      await enrollLearnerInClassroom(
-        otherTeacherId,
-        c.id,
-        "learner01@example.com"
-      );
+      await addLearnerMembership(otherTeacherId, c.id, "learner01@example.com");
 
       expect(
-        removeLearnerFromClassroom(teacherId, c.id, "learner_svc_01")
+        removeLearnerMembership(teacherId, c.id, "learner_svc_01")
       ).rejects.toBeInstanceOf(ForbiddenError);
     });
 
@@ -254,7 +250,7 @@ describe("Classroom Application Service", () => {
       const c = await createTeacherClassroom(teacherId, { name: "Class Test" });
 
       expect(
-        removeLearnerFromClassroom(teacherId, c.id, "learner_svc_02")
+        removeLearnerMembership(teacherId, c.id, "learner_svc_02")
       ).rejects.toBeInstanceOf(NotFoundError);
     });
   });
@@ -262,8 +258,8 @@ describe("Classroom Application Service", () => {
   describe("getClassroomRoster", () => {
     it("should list members for the owning teacher", async () => {
       const c = await createTeacherClassroom(teacherId, { name: "Class Test" });
-      await enrollLearnerInClassroom(teacherId, c.id, "learner01@example.com");
-      await enrollLearnerInClassroom(teacherId, c.id, "learner02@example.com");
+      await addLearnerMembership(teacherId, c.id, "learner01@example.com");
+      await addLearnerMembership(teacherId, c.id, "learner02@example.com");
 
       const roster = await getClassroomRoster(teacherId, c.id);
       expect(roster.length).toBe(2);

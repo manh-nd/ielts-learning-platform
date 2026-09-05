@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, within, userEvent } from "storybook/test";
 import { TeacherReviewCockpit } from "./teacher-review-cockpit";
-import type { TeacherReviewCockpitData } from "@/modules/homework/domain/homework-types";
+import type { TeacherReviewCockpitData } from "@/modules/homework/application/homework-read-models";
 
 const mockCockpitDataProposalReady: TeacherReviewCockpitData = {
   assignment: {

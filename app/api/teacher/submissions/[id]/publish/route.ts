@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
 import { toErrorResponse, AppError, ValidationError } from "@/lib/errors";
 import { publishTeacherAssessment } from "@/modules/homework/application/homework-review-service";
-import type { PublishAssessmentInput } from "@/modules/homework/domain/homework-types";
+import type { PublishAssessmentInput } from "@/modules/homework/application/homework-inputs";
 
 export const runtime = "nodejs";
 

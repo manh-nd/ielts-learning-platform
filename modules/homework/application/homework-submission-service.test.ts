@@ -14,7 +14,7 @@ import {
 } from "../infrastructure/homework-submission-repository";
 import {
   createClassroom,
-  addMember,
+  addMembership,
   clearDevClassroomCache,
   registerDevUser,
 } from "@/modules/classroom/infrastructure/classroom-repository";
@@ -62,7 +62,7 @@ describe("Homework Submission Application Service (Issue #75, ADR-0008, ADR-0009
       name: "IELTS Speaking Room",
     });
 
-    await addMember(classroom.id, learnerId);
+    await addMembership(classroom.id, learnerId);
 
     const assignment = await createAssignment({
       classroomId: classroom.id,

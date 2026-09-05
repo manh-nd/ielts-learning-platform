@@ -4,7 +4,7 @@ import type {
   HomeworkSubmission,
   SubmissionAttempt,
   AudioResponseClip,
-  SubmissionRecordStatus,
+  HomeworkSubmissionStatus,
 } from "../domain/homework-types";
 import { eq, and, desc, asc } from "drizzle-orm";
 
@@ -37,11 +37,22 @@ export function clearDevHomeworkSubmissionCache(): void {
 function mapRowToSubmission(
   r: typeof homeworkSubmissions.$inferSelect
 ): HomeworkSubmission {
+  const status = r.status;
+  if (
+    status !== "submitted" &&
+    status !== "in_review" &&
+    status !== "published"
+  ) {
+    throw new Error(
+      `[HomeworkSubmissionRepo] Encountered uncommitted/invalid submission status "${status}" for submission ${r.id}. Persistence rows without a committed attempt must not be treated as valid HomeworkSubmission.`
+    );
+  }
+
   return {
     id: r.id,
     assignmentId: r.assignmentId,
     learnerId: r.learnerId,
-    status: r.status as SubmissionRecordStatus,
+    status: status as HomeworkSubmissionStatus,
     currentAttemptNumber: r.currentAttemptNumber,
     reviewedAttemptNumber: r.reviewedAttemptNumber,
     createdAt: r.createdAt,
@@ -134,7 +145,7 @@ export async function createInitialSubmissionWithAttempt(data: {
   assignmentId: string;
   learnerId: string;
   audioResponses: AudioResponseClip[];
-  status?: SubmissionRecordStatus;
+  status?: HomeworkSubmissionStatus;
 }): Promise<{ submission: HomeworkSubmission; attempt: SubmissionAttempt }> {
   const submissionId = data.id || crypto.randomUUID();
   const attemptId = crypto.randomUUID();
@@ -279,7 +290,7 @@ export async function createSubsequentAttempt(
  */
 export async function updateSubmissionStatus(
   submissionId: string,
-  status: SubmissionRecordStatus,
+  status: HomeworkSubmissionStatus,
   reviewedAttemptNumber?: number | null
 ): Promise<HomeworkSubmission> {
   const existing = await findSubmissionById(submissionId);

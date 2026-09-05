@@ -34,11 +34,11 @@ import {
   dispatchHomeworkSubmitConflictRejected,
 } from "@/lib/telemetry/telemetry-client";
 import type {
-  LearnerHomeworkDetail,
   HomeworkSubmission,
   SubmissionAttempt,
   AudioResponseClip,
 } from "@/modules/homework/domain/homework-types";
+import type { LearnerHomeworkDetail } from "@/modules/homework/application/homework-read-models";
 
 export interface RecordedClipData {
   blob?: Blob;

@@ -6,7 +6,7 @@ import {
 import { findAssignmentById } from "../infrastructure/homework-assignment-repository";
 import {
   findClassroomById,
-  listClassroomMembers,
+  listClassroomRoster,
 } from "@/modules/classroom/infrastructure/classroom-repository";
 import {
   findAiProposalByAttemptId,
@@ -19,12 +19,12 @@ import {
 import {
   calculateIeltsSpeakingOverallBand,
   type HomeworkSubmission,
-  type TeacherReviewCockpitData,
-  type PublishAssessmentInput,
   type TeacherAssessment,
   type PublishedAssessment,
   type EvaluationFeedback,
 } from "../domain/homework-types";
+import type { TeacherReviewCockpitData } from "./homework-read-models";
+import type { PublishAssessmentInput } from "./homework-inputs";
 import {
   ValidationError,
   NotFoundError,
@@ -126,7 +126,7 @@ export async function getTeacherReviewCockpit(
     submission.id
   );
 
-  const members = await listClassroomMembers(assignment.classroomId);
+  const members = await listClassroomRoster(assignment.classroomId);
   const member = members.find((m) => m.learnerId === submission.learnerId);
 
   return {
@@ -139,7 +139,6 @@ export async function getTeacherReviewCockpit(
         member?.learnerName || `Học viên ${submission.learnerId.slice(0, 6)}`,
       email: member?.learnerEmail || `${submission.learnerId}@learner.local`,
       avatarUrl: member?.learnerImage || null,
-      targetBand: 6.5,
     },
     aiProposal,
     teacherDraft,

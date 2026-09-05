@@ -16,10 +16,10 @@ import { HomeworkAssignmentCreationDialog } from "./homework-assignment-creation
 import { HomeworkAssignmentDetailDialog } from "./homework-assignment-detail-dialog";
 import type {
   HomeworkAssignment,
-  HomeworkAssignmentDetail,
-  CreateHomeworkAssignmentInput,
   HomeworkAssignmentStatus,
 } from "@/modules/homework/domain/homework-types";
+import type { CreateHomeworkAssignmentInput } from "@/modules/homework/application/homework-inputs";
+import type { HomeworkAssignmentDetail } from "@/modules/homework/application/homework-read-models";
 
 export interface HomeworkAssignmentListProps {
   classroomId: string;

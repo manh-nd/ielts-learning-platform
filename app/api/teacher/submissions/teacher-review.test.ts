@@ -7,7 +7,7 @@ import { POST as submitLearnerRoute } from "@/app/api/learner/assignments/[id]/s
 import {
   clearDevClassroomCache,
   createClassroom,
-  addMember,
+  addMembership,
 } from "@/modules/classroom/infrastructure/classroom-repository";
 import {
   clearDevHomeworkCache,
@@ -88,7 +88,7 @@ describe("Teacher Review Cockpit API Endpoints (Issue #76, ADR-0008, ADR-0009)",
     classroomId = classroom.id;
 
     // Enroll learner
-    await addMember(classroomId, learnerUser.id);
+    await addMembership(classroomId, learnerUser.id);
 
     // Teacher A creates published assignment
     const assignment = await createAssignment({

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, within, userEvent } from "storybook/test";
 import { LearnerHomeworkRecordingView } from "./learner-homework-recording-view";
-import type { LearnerHomeworkDetail } from "@/modules/homework/domain/homework-types";
+import type { LearnerHomeworkDetail } from "@/modules/homework/application/homework-read-models";
 
 const mockAssignmentDetail: LearnerHomeworkDetail = {
   assignment: {

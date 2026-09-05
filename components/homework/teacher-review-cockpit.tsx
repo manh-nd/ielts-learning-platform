@@ -4,12 +4,12 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type {
-  TeacherReviewCockpitData,
-  PublishAssessmentInput,
   SpeakingCriteriaScores,
   SpeakingCriteriaFeedback,
 } from "@/modules/homework/domain/homework-types";
 import { calculateIeltsSpeakingOverallBand } from "@/modules/homework/domain/homework-types";
+import type { PublishAssessmentInput } from "@/modules/homework/application/homework-inputs";
+import type { TeacherReviewCockpitData } from "@/modules/homework/application/homework-read-models";
 import { useActiveReviewTimer } from "./hooks/use-active-review-timer";
 import { AudioWaveformVisualizer } from "@/components/speaking/audio-waveform-visualizer";
 

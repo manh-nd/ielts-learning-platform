@@ -14,7 +14,7 @@ import {
 import {
   clearDevClassroomCache,
   createClassroom,
-  addMember,
+  addMembership,
 } from "@/modules/classroom/infrastructure/classroom-repository";
 import {
   getTeacherReviewCockpit,
@@ -48,7 +48,7 @@ describe("Homework Review Service (Issue #76, ADR-0008, ADR-0009, Ticket #51, #5
     classroomId = classroom.id;
 
     // Enroll learner
-    await addMember(classroomId, learnerId);
+    await addMembership(classroomId, learnerId);
 
     // Create published assignment with 2 prompts
     const assignment = await createAssignment({

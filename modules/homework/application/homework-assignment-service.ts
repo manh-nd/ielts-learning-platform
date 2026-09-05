@@ -12,13 +12,17 @@ import {
 } from "@/modules/classroom/application/classroom-service";
 import type {
   HomeworkAssignment,
-  HomeworkAssignmentDetail,
   HomeworkPromptItem,
+} from "../domain/homework-types";
+import type {
+  HomeworkAssignmentDetail,
+  HomeworkAssignmentStudentRosterItem,
+  HomeworkRosterSubmissionStatus,
+} from "./homework-read-models";
+import type {
   CreateHomeworkAssignmentInput,
   UpdateHomeworkAssignmentInput,
-  HomeworkAssignmentStudentRosterItem,
-  HomeworkSubmissionStatus,
-} from "../domain/homework-types";
+} from "./homework-inputs";
 import { ValidationError, NotFoundError } from "@/lib/errors";
 
 /**
@@ -184,7 +188,7 @@ export async function getTeacherAssignmentDetails(
   const students: HomeworkAssignmentStudentRosterItem[] = rosterMembers.map(
     (m) => {
       const sub = submissionMap.get(m.learnerId);
-      let status: HomeworkSubmissionStatus = "not_submitted";
+      let status: HomeworkRosterSubmissionStatus = "not_submitted";
       if (sub) {
         if (sub.status === "in_review") {
           status = "under_review";

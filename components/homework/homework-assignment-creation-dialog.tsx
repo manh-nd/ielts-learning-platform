@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { HomeworkAssignmentCreationForm } from "./homework-assignment-creation-form";
-import type { CreateHomeworkAssignmentInput } from "@/modules/homework/domain/homework-types";
+import type { CreateHomeworkAssignmentInput } from "@/modules/homework/application/homework-inputs";
 
 export interface HomeworkAssignmentCreationDialogProps {
   classroomName?: string;

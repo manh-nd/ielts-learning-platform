@@ -3,8 +3,8 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { ClassroomRosterTable } from "./classroom-roster-table";
 import type {
   ClassroomWithMemberCount,
-  ClassroomMemberDetail,
-} from "@/modules/classroom/domain/classroom-types";
+  ClassroomRosterItem,
+} from "@/modules/classroom/application/classroom-read-models";
 
 const mockClassroom: ClassroomWithMemberCount = {
   id: "cls_201",
@@ -17,7 +17,7 @@ const mockClassroom: ClassroomWithMemberCount = {
   updatedAt: new Date("2026-08-20T09:00:00Z"),
 };
 
-const mockMembers: ClassroomMemberDetail[] = [
+const mockMembers: ClassroomRosterItem[] = [
   {
     id: "mem_1",
     classroomId: "cls_201",

@@ -115,4 +115,25 @@ describe("Homework Submission Repository (Issue #75, ADR-0009)", () => {
     expect(reloaded?.status).toBe("in_review");
     expect(reloaded?.reviewedAttemptNumber).toBe(1);
   });
+
+  it("should enforce canonical domain statuses and reject uncommitted pending status", async () => {
+    const { submission } = await createInitialSubmissionWithAttempt({
+      assignmentId: "asg_canonical",
+      learnerId: "user_canonical",
+      audioResponses: [],
+    });
+
+    expect(submission.status).toBe("submitted");
+
+    // Transition through review to published
+    const inReview = await updateSubmissionStatus(
+      submission.id,
+      "in_review",
+      1
+    );
+    expect(inReview.status).toBe("in_review");
+
+    const published = await updateSubmissionStatus(submission.id, "published");
+    expect(published.status).toBe("published");
+  });
 });

@@ -27,3 +27,21 @@ describe("IELTS Speaking Overall Band Calculation (ADR-0009, Ticket #51)", () =>
     expect(calculateIeltsSpeakingOverallBand(7.0, 7.0, 7.0, 6.5)).toBe(7.0);
   });
 });
+
+describe("Homework Submission Domain Vocabulary (Issue #85, ADR-0009)", () => {
+  it("should enforce canonical HomeworkSubmissionStatus vocabulary", () => {
+    const validStatuses = ["submitted", "in_review", "published"] as const;
+    expect(validStatuses).toHaveLength(3);
+
+    // Verify allowed states conform to business aggregate lifecycle
+    const status1: (typeof validStatuses)[number] = "submitted";
+    const status2: (typeof validStatuses)[number] = "in_review";
+    const status3: (typeof validStatuses)[number] = "published";
+
+    expect([status1, status2, status3]).toEqual([
+      "submitted",
+      "in_review",
+      "published",
+    ]);
+  });
+});

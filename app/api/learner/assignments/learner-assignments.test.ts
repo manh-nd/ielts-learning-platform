@@ -8,7 +8,7 @@ import {
   clearDevClassroomCache,
   registerDevUser,
   createClassroom,
-  enrollMember,
+  addMembership,
 } from "@/modules/classroom/infrastructure/classroom-repository";
 import {
   clearDevHomeworkCache,
@@ -88,7 +88,7 @@ describe("Learner Speaking Homework API Endpoints (Issue #75, ADR-0008, ADR-0009
       name: "IELTS Mastery Class",
     });
 
-    await enrollMember(classroom.id, enrolledLearner.id);
+    await addMembership(classroom.id, enrolledLearner.id);
 
     const assignment = await createAssignment({
       classroomId: classroom.id,

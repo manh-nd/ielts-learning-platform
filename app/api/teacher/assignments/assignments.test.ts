@@ -13,7 +13,7 @@ import {
   clearDevClassroomCache,
   registerDevUser,
   createClassroom,
-  enrollMember,
+  addMembership,
 } from "@/modules/classroom/infrastructure/classroom-repository";
 import { clearDevHomeworkCache } from "@/modules/homework/infrastructure/homework-assignment-repository";
 
@@ -94,7 +94,7 @@ describe("Teacher Speaking Homework Assignment API Endpoints (Issue #74, ADR-000
       description: "Homework Test Room",
     });
     classroomId = cls.id;
-    await enrollMember(classroomId, learnerUser.id);
+    await addMembership(classroomId, learnerUser.id);
   });
 
   describe("POST /api/teacher/classrooms/:id/assignments", () => {

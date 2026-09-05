@@ -3,19 +3,21 @@ import {
   updateClassroom,
   findClassroomById,
   listClassroomsByTeacherId,
-  findMember,
-  enrollMember,
-  removeMember,
-  listClassroomMembers,
+  findMembership,
+  addMembership,
+  removeMembership,
+  listClassroomRoster,
   findUserByEmail,
 } from "../infrastructure/classroom-repository";
+import type { Classroom } from "../domain/classroom-types";
 import type {
-  Classroom,
   ClassroomWithMemberCount,
-  ClassroomMemberDetail,
+  ClassroomRosterItem,
+} from "./classroom-read-models";
+import type {
   CreateClassroomInput,
   UpdateClassroomInput,
-} from "../domain/classroom-types";
+} from "./classroom-inputs";
 import {
   ValidationError,
   NotFoundError,
@@ -145,11 +147,11 @@ export async function assertTeacherOwnsClassroom(
  * Adds a learner into a classroom by resolving their existing user account email.
  * Preserves Single-Teacher ownership and Identity & Membership boundary invariants (Ticket #53, ADR-0009).
  */
-export async function addMemberToClassroom(
+export async function addLearnerMembership(
   teacherId: string,
   classroomId: string,
   email: string
-): Promise<ClassroomMemberDetail> {
+): Promise<ClassroomRosterItem> {
   if (!teacherId) {
     throw new ValidationError("Thiếu thông tin định danh giáo viên.");
   }
@@ -181,13 +183,13 @@ export async function addMemberToClassroom(
   }
 
   // 4. Enforce uniqueness: duplicate enrollment rejection
-  const existingMember = await findMember(classroomId, user.id);
+  const existingMember = await findMembership(classroomId, user.id);
   if (existingMember) {
     throw new ConflictError("Học viên này đã có trong danh sách lớp học.");
   }
 
   // 5. Persist membership
-  const member = await enrollMember(classroomId, user.id);
+  const member = await addMembership(classroomId, user.id);
 
   return {
     id: member.id,
@@ -200,13 +202,11 @@ export async function addMemberToClassroom(
   };
 }
 
-export const enrollLearnerInClassroom = addMemberToClassroom;
-
 /**
  * Removes a learner from a classroom roster.
  * Preserves historical user accounts and submissions (Ticket #53 Invariant 2).
  */
-export async function removeLearnerFromClassroom(
+export async function removeLearnerMembership(
   teacherId: string,
   classroomId: string,
   learnerId: string
@@ -220,12 +220,12 @@ export async function removeLearnerFromClassroom(
 
   await assertTeacherOwnsClassroom(teacherId, classroomId);
 
-  const existingMember = await findMember(classroomId, learnerId);
+  const existingMember = await findMembership(classroomId, learnerId);
   if (!existingMember) {
     throw new NotFoundError("Học viên không tồn tại trong lớp học này.");
   }
 
-  await removeMember(classroomId, learnerId);
+  await removeMembership(classroomId, learnerId);
 
   return {
     success: true,
@@ -239,7 +239,7 @@ export async function removeLearnerFromClassroom(
 export async function getClassroomRoster(
   teacherId: string,
   classroomId: string
-): Promise<ClassroomMemberDetail[]> {
+): Promise<ClassroomRosterItem[]> {
   if (!teacherId) {
     throw new ValidationError("Thiếu thông tin định danh giáo viên.");
   }
@@ -249,5 +249,5 @@ export async function getClassroomRoster(
 
   await assertTeacherOwnsClassroom(teacherId, classroomId);
 
-  return await listClassroomMembers(classroomId);
+  return await listClassroomRoster(classroomId);
 }

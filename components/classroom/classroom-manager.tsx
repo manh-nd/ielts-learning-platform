@@ -11,17 +11,15 @@ import { ClassroomRosterTable } from "./classroom-roster-table";
 import { HomeworkAssignmentList } from "@/components/homework/homework-assignment-list";
 import type {
   ClassroomWithMemberCount,
-  ClassroomMemberDetail,
-} from "@/modules/classroom/domain/classroom-types";
-import type {
-  HomeworkAssignment,
-  CreateHomeworkAssignmentInput,
-  HomeworkAssignmentDetail,
-} from "@/modules/homework/domain/homework-types";
+  ClassroomRosterItem,
+} from "@/modules/classroom/application/classroom-read-models";
+import type { HomeworkAssignment } from "@/modules/homework/domain/homework-types";
+import type { CreateHomeworkAssignmentInput } from "@/modules/homework/application/homework-inputs";
+import type { HomeworkAssignmentDetail } from "@/modules/homework/application/homework-read-models";
 
 export interface ClassroomManagerProps {
   initialClassrooms?: ClassroomWithMemberCount[];
-  initialMembers?: ClassroomMemberDetail[];
+  initialMembers?: ClassroomRosterItem[];
   initialAssignments?: HomeworkAssignment[];
   className?: string;
   // Optional mock handlers for Storybook or testing
@@ -29,11 +27,11 @@ export interface ClassroomManagerProps {
     name: string;
     description?: string;
   }) => Promise<ClassroomWithMemberCount>;
-  onFetchRoster?: (classroomId: string) => Promise<ClassroomMemberDetail[]>;
+  onFetchRoster?: (classroomId: string) => Promise<ClassroomRosterItem[]>;
   onEnrollMember?: (
     classroomId: string,
     email: string
-  ) => Promise<ClassroomMemberDetail>;
+  ) => Promise<ClassroomRosterItem>;
   onRemoveMember?: (classroomId: string, learnerId: string) => Promise<void>;
   onUpdateClassroom?: (
     classroomId: string,
@@ -78,7 +76,7 @@ export function ClassroomManager({
   const selectedClassroom =
     classrooms.find((c) => c.id === selectedClassroomId) ?? null;
   const [members, setMembers] =
-    React.useState<ClassroomMemberDetail[]>(initialMembers);
+    React.useState<ClassroomRosterItem[]>(initialMembers);
   const [assignments, setAssignments] =
     React.useState<HomeworkAssignment[]>(initialAssignments);
 
@@ -229,7 +227,7 @@ export function ClassroomManager({
 
     setIsEnrolling(true);
     try {
-      let newMember: ClassroomMemberDetail | undefined;
+      let newMember: ClassroomRosterItem | undefined;
       if (onEnrollMember) {
         newMember = await onEnrollMember(selectedClassroom.id, email);
       } else {

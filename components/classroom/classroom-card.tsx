@@ -4,7 +4,7 @@ import * as React from "react";
 import { UsersIcon, CalendarIcon, ChevronRightIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import type { ClassroomWithMemberCount } from "@/modules/classroom/domain/classroom-types";
+import type { ClassroomWithMemberCount } from "@/modules/classroom/application/classroom-read-models";
 
 export interface ClassroomCardProps {
   classroom: ClassroomWithMemberCount;

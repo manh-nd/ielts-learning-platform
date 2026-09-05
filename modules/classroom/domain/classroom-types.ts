@@ -11,39 +11,9 @@ export interface Classroom {
   updatedAt: Date;
 }
 
-export interface ClassroomWithMemberCount extends Classroom {
-  memberCount: number;
-}
-
-export interface ClassroomMember {
+export interface Membership {
   id: string;
   classroomId: string;
   learnerId: string;
   joinedAt: Date;
 }
-
-export interface ClassroomMemberDetail {
-  id: string;
-  classroomId: string;
-  learnerId: string;
-  learnerName: string;
-  learnerEmail: string;
-  learnerImage: string | null;
-  joinedAt: Date;
-}
-
-export interface CreateClassroomInput {
-  name: string;
-  description?: string | null;
-}
-
-export interface UpdateClassroomInput {
-  name?: string;
-  description?: string | null;
-}
-
-export interface AddMemberInput {
-  email: string;
-}
-
-export type EnrollLearnerInput = AddMemberInput;

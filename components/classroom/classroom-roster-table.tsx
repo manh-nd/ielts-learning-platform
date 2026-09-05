@@ -30,12 +30,12 @@ import {
 import { EditClassroomDialog } from "./edit-classroom-dialog";
 import type {
   ClassroomWithMemberCount,
-  ClassroomMemberDetail,
-} from "@/modules/classroom/domain/classroom-types";
+  ClassroomRosterItem,
+} from "@/modules/classroom/application/classroom-read-models";
 
 export interface ClassroomRosterTableProps {
   classroom: ClassroomWithMemberCount | null;
-  members: ClassroomMemberDetail[];
+  members: ClassroomRosterItem[];
   isLoading?: boolean;
   isEnrolling?: boolean;
   isRemoving?: string | null;
@@ -65,7 +65,7 @@ export function ClassroomRosterTable({
     null
   );
   const [memberToRemove, setMemberToRemove] =
-    React.useState<ClassroomMemberDetail | null>(null);
+    React.useState<ClassroomRosterItem | null>(null);
   const [isUpdatingClassroom, setIsUpdatingClassroom] = React.useState(false);
 
   const handleEnrollSubmit = async (e: React.FormEvent) => {

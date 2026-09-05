@@ -16,8 +16,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type {
   HomeworkAssignmentStudentRosterItem,
-  HomeworkSubmissionStatus,
-} from "@/modules/homework/domain/homework-types";
+  HomeworkRosterSubmissionStatus,
+} from "@/modules/homework/application/homework-read-models";
 
 export interface HomeworkAssignmentRosterTableProps {
   students: HomeworkAssignmentStudentRosterItem[];
@@ -42,7 +42,7 @@ export function HomeworkAssignmentRosterTable({
     );
   }, [students, searchQuery]);
 
-  const renderStatusBadge = (status: HomeworkSubmissionStatus) => {
+  const renderStatusBadge = (status: HomeworkRosterSubmissionStatus) => {
     switch (status) {
       case "published":
         return (

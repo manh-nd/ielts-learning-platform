@@ -10,7 +10,7 @@ import {
 import { clearDevHomeworkCache } from "../infrastructure/homework-assignment-repository";
 import {
   createClassroom,
-  enrollMember,
+  addMembership,
   clearDevClassroomCache,
   registerDevUser,
 } from "@/modules/classroom/infrastructure/classroom-repository";
@@ -53,8 +53,8 @@ describe("Homework Assignment Application Service (Issue #74, ADR-0009)", () => 
     });
     classroomAId = cls.id;
 
-    // Enroll learner
-    await enrollMember(classroomAId, learner1);
+    // Add learner membership
+    await addMembership(classroomAId, learner1);
   });
 
   describe("createTeacherHomeworkAssignment", () => {
