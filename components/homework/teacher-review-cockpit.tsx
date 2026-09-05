@@ -41,6 +41,13 @@ import {
   PauseCircle,
 } from "lucide-react";
 
+import {
+  mapInitialSubmissionStatusToWorkflowState,
+  claimTeacherReview,
+  publishTeacherAssessment,
+  type ReviewWorkflowState,
+} from "./client/teacher-review-workflow";
+
 export interface TeacherReviewCockpitProps {
   initialData: TeacherReviewCockpitData;
   mockMode?: boolean;
@@ -68,13 +75,13 @@ export function TeacherReviewCockpit({
     publishedAssessment,
   } = initialData;
 
-  // Status state
-  const [submissionStatus, setSubmissionStatus] = useState<string>(
-    submission.status
+  // Presentation workflow state derived from submission status
+  const [workflowState, setWorkflowState] = useState<ReviewWorkflowState>(() =>
+    mapInitialSubmissionStatusToWorkflowState(submission.status)
   );
-  const isPublished = submissionStatus === "published";
-  const isInReview = submissionStatus === "in_review";
-  const isPendingStart = submissionStatus === "submitted";
+  const isPublished = workflowState === "published";
+  const isInReview = workflowState === "in_review";
+  const isPendingStart = workflowState === "claimable";
 
   // ActiveReviewTimer
   const { activeDurationMs, isPaused, pauseReason, formattedDuration } =
@@ -191,25 +198,20 @@ export function TeacherReviewCockpit({
       setIsStartingReview(true);
       setErrorMessage(null);
 
-      if (onStartReview) {
-        await onStartReview();
-      } else if (!mockMode) {
-        const res = await fetch(
-          `/api/teacher/submissions/${submission.id}/start-review`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          }
-        );
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData?.error?.message || `HTTP_${res.status}`);
-        }
-      }
+      const result = await claimTeacherReview({
+        submissionId: submission.id,
+        mockMode,
+        onStartReview,
+      });
 
-      setSubmissionStatus("in_review");
-    } catch (err: unknown) {
-      setErrorMessage((err as Error)?.message || "Không thể bắt đầu chấm bài.");
+      if (result.kind === "claimed") {
+        setWorkflowState("in_review");
+      } else if (result.kind === "terminal") {
+        setWorkflowState("published");
+        setErrorMessage(result.message);
+      } else {
+        setErrorMessage(result.message);
+      }
     } finally {
       setIsStartingReview(false);
     }
@@ -238,27 +240,19 @@ export function TeacherReviewCockpit({
         activeReviewDurationMs: activeDurationMs,
       };
 
-      if (onPublish) {
-        await onPublish(payload);
-      } else if (!mockMode) {
-        const res = await fetch(
-          `/api/teacher/submissions/${submission.id}/publish`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          }
-        );
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData?.error?.message || `HTTP_${res.status}`);
-        }
-      }
+      const result = await publishTeacherAssessment({
+        submissionId: submission.id,
+        input: payload,
+        mockMode,
+        onPublish,
+      });
 
-      setSubmissionStatus("published");
-      setSuccessMessage("Đã công bố kết quả chính thức cho học viên.");
-    } catch (err: unknown) {
-      setErrorMessage((err as Error)?.message || "Không thể công bố bài chấm.");
+      if (result.kind === "published") {
+        setWorkflowState("published");
+        setSuccessMessage("Đã công bố kết quả chính thức cho học viên.");
+      } else {
+        setErrorMessage(result.message);
+      }
     } finally {
       setIsPublishing(false);
     }

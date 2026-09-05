@@ -225,6 +225,29 @@ export const ProposalReady: Story = {
     await expect(applyAiBtn).toBeInTheDocument();
     await userEvent.click(applyAiBtn);
 
+    // Verify AI score value initialized
+    await expect(
+      canvas.getByTestId("score-value-fluencyAndCoherence")
+    ).toHaveTextContent("7.0");
+
+    // Teacher can modify an AI-proposed criterion score via slider
+    const thumb = fcSlider.querySelector("[role='slider']");
+    if (thumb) {
+      await userEvent.click(thumb);
+      await userEvent.keyboard("{ArrowRight}");
+      // Score modified from 7.0 to 7.5 -> Reset button appears
+      const resetBtn = canvas.getByLabelText(
+        /Khôi phục điểm AI cho Fluency & Coherence/i
+      );
+      await expect(resetBtn).toBeInTheDocument();
+      // Click reset to revert back to AI proposal
+      await userEvent.click(resetBtn);
+      await expect(resetBtn).not.toBeInTheDocument();
+      await expect(
+        canvas.getByTestId("score-value-fluencyAndCoherence")
+      ).toHaveTextContent("7.0");
+    }
+
     // Verify feedback textarea
     const feedbackInput = canvas.getByTestId("overall-feedback-textarea");
     await expect(feedbackInput).toBeInTheDocument();
@@ -292,6 +315,59 @@ export const FreshSubmittedPendingStart: Story = {
     const startReviewBtn = canvas.getByTestId("start-review-button");
     await expect(startReviewBtn).toBeInTheDocument();
     await expect(startReviewBtn).toHaveTextContent(/Bắt đầu chấm/i);
+
+    // Click Start Review to trigger claim workflow
+    await userEvent.click(startReviewBtn);
+
+    // Verify UI transitions to In Review session state
+    const statusBadge = canvas.getByTestId("submission-status-badge");
+    await expect(statusBadge).toHaveTextContent("Đang Chấm Bài");
+    const timer = canvas.getByTestId("active-review-timer-badge");
+    await expect(timer).toBeInTheDocument();
+  },
+};
+
+export const PublishWorkflowInteraction: Story = {
+  args: {
+    initialData: mockCockpitDataProposalReady,
+    mockMode: true,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    const publishBtn = canvas.getByTestId("publish-assessment-button");
+    await expect(publishBtn).toBeInTheDocument();
+
+    // 1. Attempt publish without overall feedback -> immediate UX validation error
+    const feedbackInput = canvas.getByTestId("overall-feedback-textarea");
+    await userEvent.clear(feedbackInput);
+    await userEvent.click(publishBtn);
+
+    await expect(
+      canvas.getByText(
+        /Vui lòng nhập nhận xét tổng quan của Giáo viên trước khi công bố kết quả\./i
+      )
+    ).toBeInTheDocument();
+
+    // Verify UI has NOT falsely transitioned
+    const statusBadge = canvas.getByTestId("submission-status-badge");
+    await expect(statusBadge).toHaveTextContent("Đang Chấm Bài");
+
+    // 2. Provide valid overall feedback
+    await userEvent.type(
+      feedbackInput,
+      "Học viên trả lời lưu loát, ý tưởng phát triển tốt."
+    );
+
+    // 3. Click publish -> successful atomic publication
+    await userEvent.click(publishBtn);
+
+    // UI transitions to Published state
+    await expect(
+      canvas.getByText(/Đã công bố kết quả chính thức cho học viên\./i)
+    ).toBeInTheDocument();
+    await expect(statusBadge).toHaveTextContent("Đã Công Bố");
+    await expect(canvas.getByText("Đã khóa chính thức")).toBeInTheDocument();
   },
 };
 
