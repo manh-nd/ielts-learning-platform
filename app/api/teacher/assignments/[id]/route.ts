@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
 import { toErrorResponse, AppError, ValidationError } from "@/lib/errors";
-import {
-  getTeacherAssignmentDetails,
-  updateTeacherHomeworkAssignment,
-  deleteTeacherDraftAssignment,
-} from "@/modules/homework/application/homework-assignment-service";
+import { getHomeworkAssignmentDetail } from "@/modules/homework/application/get-homework-assignment-detail";
+import { updateHomeworkAssignment } from "@/modules/homework/application/update-homework-assignment";
+import { deleteHomeworkDraft } from "@/modules/homework/application/delete-homework-draft";
 import type { HomeworkAssignmentStatus } from "@/modules/homework/domain/homework-types";
 
 export const runtime = "nodejs";
@@ -27,7 +25,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       throw new ValidationError("Thiếu thông tin mã bài tập.");
     }
 
-    const details = await getTeacherAssignmentDetails(
+    const details = await getHomeworkAssignmentDetail(
       session.user.id,
       assignmentId
     );
@@ -92,7 +90,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         status?: unknown;
       };
 
-    const assignment = await updateTeacherHomeworkAssignment(
+    const assignment = await updateHomeworkAssignment(
       session.user.id,
       assignmentId,
       {
@@ -160,10 +158,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
       throw new ValidationError("Thiếu thông tin mã bài tập.");
     }
 
-    const result = await deleteTeacherDraftAssignment(
-      session.user.id,
-      assignmentId
-    );
+    const result = await deleteHomeworkDraft(session.user.id, assignmentId);
 
     return NextResponse.json(result, { status: 200 });
   } catch (error: unknown) {

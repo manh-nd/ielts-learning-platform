@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
 import { toErrorResponse, AppError, ValidationError } from "@/lib/errors";
-import {
-  createTeacherHomeworkAssignment,
-  listTeacherAssignmentsByClassroom,
-} from "@/modules/homework/application/homework-assignment-service";
+import { createHomeworkAssignment } from "@/modules/homework/application/create-homework-assignment";
+import { listHomeworkAssignmentsByClassroom } from "@/modules/homework/application/list-homework-assignments";
 
 export const runtime = "nodejs";
 
@@ -64,7 +62,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const assignment = await createTeacherHomeworkAssignment(
+    const assignment = await createHomeworkAssignment(
       session.user.id,
       classroomId,
       {
@@ -123,7 +121,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       throw new ValidationError("Thiếu thông tin mã lớp học.");
     }
 
-    const assignments = await listTeacherAssignmentsByClassroom(
+    const assignments = await listHomeworkAssignmentsByClassroom(
       session.user.id,
       classroomId
     );
