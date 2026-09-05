@@ -58,14 +58,14 @@ export function FreeTierConsentNoticeModal({
       >
         <DialogHeader className="gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
                 Xác nhận Điều khoản Thử nghiệm AI
               </DialogTitle>
-              <span className="text-[11px] font-mono text-amber-800 dark:text-amber-300 font-semibold">
+              <span className="text-[11px] font-mono text-muted-foreground font-semibold">
                 Google Gemini Free Tier Pilot
               </span>
             </div>
@@ -79,7 +79,7 @@ export function FreeTierConsentNoticeModal({
 
         <div className="space-y-3 text-xs text-foreground/90 bg-muted/30 p-4 rounded-lg border border-border/70">
           <div className="flex items-start gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <span>
               <strong>Độ tuổi:</strong> Bạn xác nhận mình từ{" "}
               <strong>đủ 18 tuổi trở lên</strong> để tham gia thử nghiệm.
@@ -87,7 +87,7 @@ export function FreeTierConsentNoticeModal({
           </div>
 
           <div className="flex items-start gap-2">
-            <CheckCircle2 className="w-4 h-4 text-indigo-700 dark:text-indigo-400 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <span>
               <strong>Xử lý AI:</strong> Âm thanh và bản chép lời được truyền
               tới Google Gemini API phục vụ phân tích 4 tiêu chí IELTS. Theo
@@ -97,7 +97,7 @@ export function FreeTierConsentNoticeModal({
           </div>
 
           <div className="flex items-start gap-2">
-            <CheckCircle2 className="w-4 h-4 text-blue-700 dark:text-blue-400 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <span>
               <strong>Quyền riêng tư tuyệt đối:</strong> Phiên tự luyện Speaking
               là hoàn toàn riêng tư. Giáo viên của bạn{" "}
@@ -106,7 +106,7 @@ export function FreeTierConsentNoticeModal({
           </div>
 
           <div className="flex items-start gap-2">
-            <CheckCircle2 className="w-4 h-4 text-purple-700 dark:text-purple-400 shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
             <span>
               <strong>Thời hạn lưu trữ:</strong> Bản thu âm được lưu tạm thời
               tối đa 14 ngày và bạn có thể yêu cầu xóa vĩnh viễn bất kỳ lúc nào.
@@ -137,9 +137,10 @@ export function FreeTierConsentNoticeModal({
           <Button
             type="button"
             size="sm"
+            variant="default"
             onClick={handleConfirm}
             disabled={isSubmitting}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer text-xs gap-1.5"
+            className="cursor-pointer text-xs gap-1.5"
           >
             {isSubmitting ? (
               <>

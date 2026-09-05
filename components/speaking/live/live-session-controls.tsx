@@ -49,17 +49,17 @@ export function LiveSessionControls({
           data-testid="connect-live-btn"
           className="gap-2 font-semibold shadow-sm opacity-60 cursor-not-allowed rounded-full px-6"
         >
-          <MicOff className="w-4 h-4 text-rose-500" />
+          <MicOff className="w-4 h-4 text-destructive" />
           Microphone bị từ chối
         </Button>
         {onRequestPermissionDialog && (
           <Button
             type="button"
             size="lg"
-            variant="destructive"
+            variant="default"
             data-testid="open-mic-guide-btn"
             onClick={onRequestPermissionDialog}
-            className="gap-2 font-semibold shadow-md bg-rose-600 hover:bg-rose-700 text-white rounded-full px-6 cursor-pointer"
+            className="gap-2 font-semibold shadow-md rounded-full px-6 cursor-pointer"
           >
             Mở hướng dẫn cấp lại quyền
           </Button>
@@ -80,7 +80,7 @@ export function LiveSessionControls({
           variant="default"
           data-testid="connect-live-btn"
           onClick={onConnect}
-          className="gap-2 font-semibold shadow-md bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-6 transition-transform hover:scale-105 active:scale-95"
+          className="gap-2 font-semibold shadow-md rounded-full px-6 transition-transform hover:scale-105 active:scale-95 cursor-pointer"
         >
           <Play className="w-4 h-4 fill-current" />
           {connectLabel}
@@ -124,7 +124,7 @@ export function LiveSessionControls({
         {/* Dynamic Voice Volume Ring */}
         {!isMuted && isConnected && inputVolume > 0.05 && (
           <span
-            className="absolute inset-0 rounded-full bg-emerald-500/25 animate-ping -z-0 pointer-events-none"
+            className="absolute inset-0 rounded-full bg-primary/25 animate-ping -z-0 pointer-events-none"
             style={{
               transform: `scale(${1 + inputVolume * 0.5})`,
             }}
@@ -146,12 +146,7 @@ export function LiveSessionControls({
               ? "Bộ lọc khử tiếng ồn đang BẬT"
               : "Bộ lọc khử tiếng ồn đang TẮT"
           }
-          className={cn(
-            "w-11 h-11 rounded-full shadow-xs transition-colors",
-            isNoiseSuppressionActive
-              ? "bg-primary text-primary-foreground hover:bg-primary/90"
-              : "text-muted-foreground"
-          )}
+          className="w-11 h-11 rounded-full shadow-xs transition-colors"
         >
           <AudioLines className="w-4 h-4" />
           <span className="sr-only">Bật/tắt lọc tiếng ồn</span>

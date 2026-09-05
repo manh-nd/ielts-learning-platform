@@ -120,20 +120,17 @@ export function LiveSpeakingClientView({
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* Hero Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-500/15 via-indigo-500/5 to-muted/20 border border-indigo-500/20 p-6 sm:p-8">
+      <div className="relative overflow-hidden rounded-2xl bg-card border border-border shadow-xs p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
               <Badge
                 variant="outline"
-                className="border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-xs font-semibold"
+                className="border-primary/30 bg-primary/10 text-primary text-xs font-semibold"
               >
                 Giám khảo AI Trực tiếp
               </Badge>
-              <Badge
-                variant="secondary"
-                className="text-xs border bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
-              >
+              <Badge variant="secondary" className="text-xs">
                 Luyện tập Part 1 (~3-5 câu)
               </Badge>
             </div>
@@ -151,7 +148,7 @@ export function LiveSpeakingClientView({
             <Button
               size="lg"
               onClick={() => setIsInRoom(true)}
-              className="gap-2 font-semibold shadow-md bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer w-full sm:w-auto"
+              className="gap-2 font-semibold shadow-xs cursor-pointer w-full sm:w-auto"
               data-testid="start-practice-btn"
             >
               <Sparkles className="size-4" />
@@ -164,15 +161,15 @@ export function LiveSpeakingClientView({
         {/* Tips & Audio Best Practice Bar */}
         <div className="mt-5 pt-4 border-t border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
-            <Headphones className="size-4 text-indigo-500 shrink-0" />
+            <Headphones className="size-4 text-primary shrink-0" />
             <span>Nên đeo tai nghe để âm thanh rõ ràng & tránh lặp tiếng.</span>
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="size-4 text-emerald-500 shrink-0" />
+            <CheckCircle2 className="size-4 text-primary shrink-0" />
             <span>Hỗ trợ ngắt lời tự nhiên khi đang nói.</span>
           </div>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="size-4 text-blue-500 shrink-0" />
+            <ShieldCheck className="size-4 text-primary shrink-0" />
             <span>Chấm điểm 4 tiêu chí: FC, LR, GRA & Phát âm (PR).</span>
           </div>
         </div>
@@ -214,7 +211,7 @@ export function LiveSpeakingClientView({
                 className={cn(
                   "cursor-pointer transition-all border py-0 gap-0 overflow-hidden shadow-xs hover:border-primary/50",
                   isSelected
-                    ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-500/[0.03]"
+                    ? "border-primary ring-2 ring-primary/20 bg-primary/[0.03]"
                     : "border-border/70 hover:shadow-sm"
                 )}
               >
@@ -247,7 +244,7 @@ export function LiveSpeakingClientView({
                       className={cn(
                         "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
                         isSelected
-                          ? "border-indigo-600 bg-indigo-600 text-white"
+                          ? "border-primary bg-primary text-primary-foreground"
                           : "border-muted-foreground/40"
                       )}
                     >
@@ -287,11 +284,7 @@ export function LiveSpeakingClientView({
                       setSelectedTopic(topic);
                       setIsInRoom(true);
                     }}
-                    className={cn(
-                      "h-8 text-xs font-medium cursor-pointer gap-1.5",
-                      isSelected &&
-                        "bg-indigo-600 hover:bg-indigo-700 text-white"
-                    )}
+                    className="h-8 text-xs font-medium cursor-pointer gap-1.5"
                   >
                     <Mic className="size-3.5" />
                     <span>Bắt đầu luyện tập</span>

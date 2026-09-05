@@ -71,10 +71,10 @@ export function LiveTranscriptStream({
                       {/* Avatar */}
                       <MessageAvatar
                         className={cn(
-                          "size-7 shrink-0 text-white shadow-xs",
+                          "size-7 shrink-0 shadow-xs",
                           isExaminer
-                            ? "bg-indigo-600 dark:bg-indigo-500"
-                            : "bg-primary dark:bg-primary"
+                            ? "bg-muted text-muted-foreground border border-border"
+                            : "bg-primary text-primary-foreground"
                         )}
                       >
                         {isExaminer ? (
@@ -91,7 +91,7 @@ export function LiveTranscriptStream({
                             className={cn(
                               "font-semibold",
                               isExaminer
-                                ? "text-indigo-800 dark:text-indigo-300"
+                                ? "text-muted-foreground"
                                 : "text-foreground font-semibold"
                             )}
                           >

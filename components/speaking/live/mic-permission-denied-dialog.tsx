@@ -67,7 +67,7 @@ export function MicPermissionDeniedDialog({
       >
         <DialogHeader className="gap-2">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+            <div className="w-10 h-10 rounded-full bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
               <MicOff className="w-5 h-5" />
             </div>
             <div>
@@ -193,9 +193,10 @@ export function MicPermissionDeniedDialog({
           <Button
             type="button"
             size="sm"
+            variant="default"
             onClick={handleTestPermission}
             disabled={isChecking}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold cursor-pointer text-xs gap-1.5"
+            className="cursor-pointer text-xs gap-1.5"
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${isChecking ? "animate-spin" : ""}`}

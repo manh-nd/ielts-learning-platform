@@ -453,19 +453,19 @@ export function LiveSpeakingExaminerRoom({
       <Card
         data-testid="upload-failure-recovery-card"
         className={cn(
-          "w-full max-w-4xl mx-auto p-6 sm:p-8 shadow-md border-rose-500/40 bg-background",
+          "w-full max-w-4xl mx-auto p-6 sm:p-8 shadow-md border-destructive/40 bg-background",
           className
         )}
       >
         <div className="flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto">
-          <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">
             <AlertCircle className="w-6 h-6" />
           </div>
           <div className="space-y-1.5">
             <h3 className="text-lg font-bold text-foreground">
               Tải tệp âm thanh thất bại
             </h3>
-            <p className="text-xs text-rose-600 dark:text-rose-400 leading-relaxed">
+            <p className="text-xs text-destructive leading-relaxed">
               {uploadError}
             </p>
           </div>
@@ -486,9 +486,10 @@ export function LiveSpeakingExaminerRoom({
           <div className="flex items-center gap-3 pt-2">
             <Button
               size="sm"
+              variant="default"
               onClick={handleRetryUpload}
               disabled={isUploadingAudio}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold gap-1.5 cursor-pointer text-xs"
+              className="font-semibold gap-1.5 cursor-pointer text-xs"
             >
               {isUploadingAudio ? (
                 <>
@@ -518,7 +519,7 @@ export function LiveSpeakingExaminerRoom({
                 clearActiveSpeakingSession();
               }}
               disabled={isUploadingAudio}
-              className="cursor-pointer text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+              className="cursor-pointer text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
             >
               Hủy và thu âm lại
             </Button>
@@ -572,7 +573,7 @@ export function LiveSpeakingExaminerRoom({
       data-testid="live-speaking-examiner-room"
       className={cn(
         "w-full max-w-4xl mx-auto shadow-md border overflow-hidden py-0 gap-0 transition-all",
-        isConnected && "ring-1 ring-indigo-500/30",
+        isConnected && "ring-1 ring-primary/30",
         className
       )}
     >
@@ -582,7 +583,7 @@ export function LiveSpeakingExaminerRoom({
           <div>
             <div className="flex items-center gap-2">
               <CardTitle className="text-sm sm:text-base font-bold text-foreground flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-indigo-700 dark:text-indigo-400" />
+                <Sparkles className="w-4 h-4 text-primary" />
                 {title}
               </CardTitle>
               <Badge
@@ -633,22 +634,22 @@ export function LiveSpeakingExaminerRoom({
           <div
             data-testid="examiner-stage-card"
             className={cn(
-              "flex flex-col items-center justify-center p-4 sm:p-6 rounded-xl border text-center transition-all bg-gradient-to-b from-indigo-500/5 to-transparent",
+              "flex flex-col items-center justify-center p-4 sm:p-6 rounded-xl border bg-card text-center transition-all",
               voiceActivity === "ai_speaking" &&
-                "ring-2 ring-indigo-500 bg-indigo-500/10 shadow-xs"
+                "ring-2 ring-muted-foreground/40 bg-muted/30 shadow-xs"
             )}
           >
             <div className="relative mb-2.5">
               <div
                 className={cn(
-                  "w-14 h-14 rounded-full flex items-center justify-center bg-indigo-600 text-white shadow-md transition-transform",
+                  "w-14 h-14 rounded-full flex items-center justify-center bg-muted text-muted-foreground border border-border shadow-xs transition-transform",
                   voiceActivity === "ai_speaking" && "scale-105"
                 )}
               >
                 <Sparkles className="w-7 h-7" />
               </div>
               {voiceActivity === "ai_speaking" && (
-                <span className="absolute inset-0 rounded-full bg-indigo-500/30 animate-ping pointer-events-none" />
+                <span className="absolute inset-0 rounded-full bg-muted-foreground/20 animate-ping pointer-events-none" />
               )}
             </div>
 
@@ -668,9 +669,9 @@ export function LiveSpeakingExaminerRoom({
           <div
             data-testid="candidate-stage-card"
             className={cn(
-              "flex flex-col items-center justify-center p-4 sm:p-6 rounded-xl border text-center transition-all bg-gradient-to-b from-emerald-500/5 to-transparent",
+              "flex flex-col items-center justify-center p-4 sm:p-6 rounded-xl border bg-card text-center transition-all",
               voiceActivity === "user_speaking" &&
-                "ring-2 ring-emerald-500 bg-emerald-500/10 shadow-xs"
+                "ring-2 ring-primary bg-primary/10 shadow-xs"
             )}
           >
             <div className="relative mb-2.5">
@@ -683,7 +684,7 @@ export function LiveSpeakingExaminerRoom({
                 <User className="w-7 h-7" />
               </div>
               {voiceActivity === "user_speaking" && (
-                <span className="absolute inset-0 rounded-full bg-emerald-500/30 animate-ping pointer-events-none" />
+                <span className="absolute inset-0 rounded-full bg-primary/30 animate-ping pointer-events-none" />
               )}
             </div>
 
@@ -711,7 +712,7 @@ export function LiveSpeakingExaminerRoom({
             {mockMode && (
               <Badge
                 variant="outline"
-                className="text-[10px] text-amber-800 dark:text-amber-300 font-semibold"
+                className="text-[10px] text-muted-foreground font-semibold"
               >
                 Mock Simulation Mode
               </Badge>
@@ -724,7 +725,7 @@ export function LiveSpeakingExaminerRoom({
       {/* Footer Controls */}
       <CardFooter className="flex items-center justify-between border-t bg-muted/10 px-5 py-3.5">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <ShieldCheck className="w-4 h-4 text-emerald-800 dark:text-emerald-300" />
+          <ShieldCheck className="w-4 h-4 text-muted-foreground" />
           <span>Mô hình: Gemini 3.1 Flash Live</span>
         </div>
 

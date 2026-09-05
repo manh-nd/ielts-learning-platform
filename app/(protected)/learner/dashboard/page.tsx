@@ -21,17 +21,14 @@ export default async function LearnerDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Welcome Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/15 via-primary/5 to-muted/20 border border-primary/20 p-6 sm:p-8">
+      <div className="relative overflow-hidden rounded-2xl bg-card border border-border p-6 sm:p-8">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
               Xin chào, {session.user.name}! 👋
             </h1>
             {isTeacherPreview && (
-              <Badge
-                variant="outline"
-                className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs"
-              >
+              <Badge variant="secondary" className="text-xs">
                 Xem trước (Giáo viên)
               </Badge>
             )}
@@ -50,12 +47,12 @@ export default async function LearnerDashboardPage() {
           className="group rounded-xl border border-border/70 bg-card p-6 shadow-xs transition-all hover:border-primary/50 hover:shadow-md space-y-4"
         >
           <div className="flex items-center justify-between">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <MicIcon className="size-5" />
             </div>
             <Badge
               variant="outline"
-              className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-xs"
+              className="bg-primary/10 text-primary border-primary/20 text-xs"
             >
               Luyện tập Trực tiếp
             </Badge>
@@ -74,11 +71,11 @@ export default async function LearnerDashboardPage() {
 
           <div className="flex items-center gap-3 pt-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
-              <CheckCircle2Icon className="size-3.5 text-emerald-500" />
+              <CheckCircle2Icon className="size-3.5 text-primary" />
               Đàm thoại âm thanh hai chiều
             </span>
             <span className="flex items-center gap-1">
-              <CheckCircle2Icon className="size-3.5 text-emerald-500" />
+              <CheckCircle2Icon className="size-3.5 text-primary" />
               Nhận xét sau buổi luyện
             </span>
           </div>

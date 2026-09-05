@@ -38,7 +38,7 @@ export function LiveConnectionBadge({
         variant="outline"
         data-testid="live-status-badge"
         className={cn(
-          "gap-1.5 text-xs border-amber-500/30 text-amber-800 dark:text-amber-300 font-semibold animate-pulse",
+          "gap-1.5 text-xs text-muted-foreground font-medium animate-pulse",
           className
         )}
       >
@@ -54,7 +54,7 @@ export function LiveConnectionBadge({
         variant="outline"
         data-testid="live-status-badge"
         className={cn(
-          "gap-1.5 text-xs border-blue-500/30 text-blue-800 dark:text-blue-300 font-semibold animate-pulse",
+          "gap-1.5 text-xs text-muted-foreground font-medium animate-pulse",
           className
         )}
       >
@@ -68,13 +68,14 @@ export function LiveConnectionBadge({
     if (voiceActivity === "ai_speaking") {
       return (
         <Badge
+          variant="secondary"
           data-testid="live-status-badge"
           className={cn(
-            "gap-1.5 text-xs bg-indigo-700 text-white hover:bg-indigo-800 shadow-sm animate-pulse border-none",
+            "gap-1.5 text-xs shadow-xs animate-pulse border",
             className
           )}
         >
-          <Volume2 className="w-3.5 h-3.5 animate-bounce" />
+          <Volume2 className="w-3.5 h-3.5 animate-bounce text-muted-foreground" />
           Giám khảo đang nói
         </Badge>
       );
@@ -83,13 +84,11 @@ export function LiveConnectionBadge({
     if (voiceActivity === "user_speaking") {
       return (
         <Badge
+          variant="default"
           data-testid="live-status-badge"
-          className={cn(
-            "gap-1.5 text-xs bg-emerald-700 text-white hover:bg-emerald-800 shadow-sm animate-pulse border-none",
-            className
-          )}
+          className={cn("gap-1.5 text-xs shadow-xs animate-pulse", className)}
         >
-          <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+          <span className="w-2 h-2 rounded-full bg-primary-foreground animate-ping" />
           Bạn đang nói
         </Badge>
       );
@@ -97,9 +96,10 @@ export function LiveConnectionBadge({
 
     return (
       <Badge
+        variant="outline"
         data-testid="live-status-badge"
         className={cn(
-          "gap-1.5 text-xs bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300",
+          "gap-1.5 text-xs border-primary/40 text-primary bg-primary/5",
           className
         )}
       >
@@ -127,10 +127,7 @@ export function LiveConnectionBadge({
       <Badge
         variant="destructive"
         data-testid="live-status-badge"
-        className={cn(
-          "gap-1.5 text-xs bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30",
-          className
-        )}
+        className={cn("gap-1.5 text-xs", className)}
       >
         <AlertCircle className="w-3 h-3" />
         Micro bị chặn

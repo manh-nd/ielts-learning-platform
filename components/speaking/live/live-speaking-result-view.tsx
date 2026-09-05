@@ -215,7 +215,7 @@ export function LiveSpeakingResultView({
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
-            <Sparkles className="w-4 h-4 text-amber-500 absolute -top-1 -right-1 animate-bounce" />
+            <Sparkles className="w-4 h-4 text-primary absolute -top-1 -right-1 animate-bounce" />
           </div>
           <div className="space-y-1.5">
             <h2 className="text-xl font-bold text-foreground">
@@ -227,7 +227,7 @@ export function LiveSpeakingResultView({
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono bg-muted/30 px-3 py-1.5 rounded-md border">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            <span className="inline-block w-2 h-2 rounded-full bg-primary animate-ping" />
             <span>Mô hình: Gemini 3.7 Flash</span>
           </div>
         </div>
@@ -239,19 +239,19 @@ export function LiveSpeakingResultView({
     return (
       <Card
         className={cn(
-          "w-full max-w-4xl mx-auto p-8 shadow-md border-rose-500/30",
+          "w-full max-w-4xl mx-auto p-8 shadow-md border-destructive/30",
           className
         )}
       >
         <div className="flex flex-col items-center justify-center text-center space-y-4">
-          <div className="w-12 h-12 rounded-full bg-rose-500/10 text-rose-600 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center">
             <AlertCircle className="w-6 h-6" />
           </div>
           <div className="space-y-1">
             <h3 className="text-lg font-bold text-foreground">
               Không thể tải kết quả chấm điểm
             </h3>
-            <p className="text-xs text-rose-600 dark:text-rose-400 max-w-md">
+            <p className="text-xs text-destructive max-w-md">
               {error ||
                 "Đã xảy ra sự cố khi xử lý chấm điểm tự động. Vui lòng thử lại."}
             </p>
@@ -329,12 +329,10 @@ export function LiveSpeakingResultView({
         </div>
 
         {/* Practice Feedback Header Banner */}
-        <div className="rounded-xl border bg-gradient-to-r from-indigo-500/10 via-background to-muted/20 p-5 space-y-2">
+        <div className="rounded-xl border border-border bg-muted/30 p-5 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Badge className="bg-indigo-600 text-white text-xs">
-                Luyện tập Speaking Part 1
-              </Badge>
+              <Badge className="text-xs">Luyện tập Speaking Part 1</Badge>
               <Badge variant="outline" className="text-xs">
                 Formative Practice Feedback
               </Badge>
@@ -361,7 +359,7 @@ export function LiveSpeakingResultView({
                 <div className="text-[11px] text-muted-foreground font-semibold">
                   Fluency & Coherence
                 </div>
-                <div className="text-2xl font-black text-indigo-700 dark:text-indigo-400 mt-1">
+                <div className="text-2xl font-black text-criterion-cc mt-1">
                   {estimatedPerformance.fluencyAndCoherence?.toFixed(1) ||
                     "N/A"}
                 </div>
@@ -370,7 +368,7 @@ export function LiveSpeakingResultView({
                 <div className="text-[11px] text-muted-foreground font-semibold">
                   Lexical Resource
                 </div>
-                <div className="text-2xl font-black text-blue-700 dark:text-blue-400 mt-1">
+                <div className="text-2xl font-black text-criterion-lr mt-1">
                   {estimatedPerformance.lexicalResource?.toFixed(1) || "N/A"}
                 </div>
               </Card>
@@ -378,7 +376,7 @@ export function LiveSpeakingResultView({
                 <div className="text-[11px] text-muted-foreground font-semibold">
                   Grammar Range & Acc.
                 </div>
-                <div className="text-2xl font-black text-purple-700 dark:text-purple-400 mt-1">
+                <div className="text-2xl font-black text-criterion-gra mt-1">
                   {estimatedPerformance.grammaticalRangeAndAccuracy?.toFixed(
                     1
                   ) || "N/A"}
@@ -388,7 +386,7 @@ export function LiveSpeakingResultView({
                 <div className="text-[11px] text-muted-foreground font-semibold">
                   Pronunciation
                 </div>
-                <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 mt-1">
+                <div className="text-2xl font-black text-criterion-pr mt-1">
                   {estimatedPerformance.pronunciation?.toFixed(1) || "N/A"}
                 </div>
               </Card>
@@ -396,7 +394,7 @@ export function LiveSpeakingResultView({
           )}
 
         {evidenceSufficiency === "limited" && (
-          <Card className="p-4 border-amber-500/30 bg-amber-500/5 text-xs text-amber-900 dark:text-amber-200">
+          <Card className="p-4 border-border bg-muted/40 text-xs text-muted-foreground">
             ⚠ <strong>Bằng chứng nói chưa đủ:</strong> Câu trả lời quá ngắn để
             ước lượng chính xác các tiêu chí. Lần tới bạn hãy trả lời trọn vẹn
             từ 2-3 câu nhé!
@@ -419,10 +417,10 @@ export function LiveSpeakingResultView({
         {/* Detailed Points: Strengths & Priorities */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Key Strengths */}
-          <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs overflow-hidden">
+          <Card className="border-primary/20 bg-primary/5 shadow-xs overflow-hidden">
             <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <CardTitle className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-primary" />
                 <span>Điểm mạnh ghi nhận ({strengths.length})</span>
               </CardTitle>
             </CardHeader>
@@ -449,12 +447,12 @@ export function LiveSpeakingResultView({
                       {pt.observation}
                     </p>
                     {pt.evidence?.transcriptQuote && (
-                      <p className="italic text-[11px] text-muted-foreground border-l-2 border-emerald-500/40 pl-2">
+                      <p className="italic text-[11px] text-muted-foreground border-l-2 border-primary/40 pl-2">
                         &ldquo;{pt.evidence.transcriptQuote}&rdquo;
                       </p>
                     )}
                     {pt.suggestion && (
-                      <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">
+                      <p className="text-[11px] text-primary font-medium">
                         💡 {pt.suggestion}
                       </p>
                     )}
@@ -465,10 +463,10 @@ export function LiveSpeakingResultView({
           </Card>
 
           {/* Priority Improvements */}
-          <Card className="border-rose-500/30 bg-rose-500/5 shadow-xs overflow-hidden">
+          <Card className="border-border bg-card shadow-xs overflow-hidden">
             <CardHeader className="p-4 pb-2">
-              <CardTitle className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
-                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+              <CardTitle className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-destructive" />
                 <span>Ưu tiên cải thiện ({priorities.length})</span>
               </CardTitle>
             </CardHeader>
@@ -481,7 +479,7 @@ export function LiveSpeakingResultView({
                   <div className="flex items-center justify-between">
                     <Badge
                       variant="outline"
-                      className="text-[10px] font-mono font-bold text-rose-600 border-rose-300"
+                      className="text-[10px] font-mono font-bold text-destructive border-destructive/30"
                     >
                       {pt.criterion}
                     </Badge>
@@ -490,12 +488,12 @@ export function LiveSpeakingResultView({
                     {pt.observation}
                   </p>
                   {pt.evidence?.transcriptQuote && (
-                    <p className="italic text-[11px] text-muted-foreground border-l-2 border-rose-500/40 pl-2">
+                    <p className="italic text-[11px] text-muted-foreground border-l-2 border-destructive/40 pl-2">
                       &ldquo;{pt.evidence.transcriptQuote}&rdquo;
                     </p>
                   )}
                   {pt.suggestion && (
-                    <p className="text-[11px] text-rose-700 dark:text-rose-400 font-medium">
+                    <p className="text-[11px] text-foreground font-medium">
                       🎯 {pt.suggestion}
                     </p>
                   )}
@@ -581,8 +579,8 @@ export function LiveSpeakingResultView({
                         className={cn(
                           "font-semibold shrink-0 text-[11px]",
                           t.sender === "examiner"
-                            ? "text-indigo-600"
-                            : "text-emerald-600"
+                            ? "text-muted-foreground"
+                            : "text-primary"
                         )}
                       >
                         {t.sender === "examiner" ? "Giám khảo:" : "Bạn:"}
@@ -706,10 +704,10 @@ export function LiveSpeakingResultView({
           {/* Strengths & Weaknesses Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Strengths */}
-            <Card className="border-emerald-500/30 bg-emerald-500/5 shadow-xs py-0 gap-0 overflow-hidden">
+            <Card className="border-primary/20 bg-primary/5 shadow-xs py-0 gap-0 overflow-hidden">
               <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <CardTitle className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-primary" />
                   <span>Điểm mạnh nổi bật (Key Strengths)</span>
                 </CardTitle>
               </CardHeader>
@@ -723,10 +721,10 @@ export function LiveSpeakingResultView({
             </Card>
 
             {/* Priority Improvements */}
-            <Card className="border-rose-500/30 bg-rose-500/5 shadow-xs py-0 gap-0 overflow-hidden">
+            <Card className="border-border bg-card shadow-xs py-0 gap-0 overflow-hidden">
               <CardHeader className="p-4 pb-2">
-                <CardTitle className="text-xs font-bold text-rose-800 dark:text-rose-300 flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                <CardTitle className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-destructive" />
                   <span>Điểm cần cải thiện (Priority Improvements)</span>
                 </CardTitle>
               </CardHeader>
@@ -744,10 +742,10 @@ export function LiveSpeakingResultView({
           {evidence?.fluency &&
             evidence.fluency.longPauses &&
             evidence.fluency.longPauses.length > 0 && (
-              <Card className="shadow-xs border border-amber-500/30 bg-amber-500/5 py-0 gap-0 overflow-hidden">
+              <Card className="shadow-xs border border-border bg-muted/30 py-0 gap-0 overflow-hidden">
                 <CardHeader className="p-4 pb-2">
-                  <CardTitle className="text-xs font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
-                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <CardTitle className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-muted-foreground" />
                     <span>
                       Dấu hiệu Ngập ngừng kéo dài (Fluency Hesitations & Pauses)
                     </span>
@@ -795,7 +793,7 @@ export function LiveSpeakingResultView({
                           {isPlayingClip &&
                           activeClip?.startMs === pause.startMs ? (
                             <>
-                              <Pause className="w-3 h-3 text-rose-500" />
+                              <Pause className="w-3 h-3 text-destructive" />
                               <span>Dừng</span>
                             </>
                           ) : (
@@ -814,17 +812,20 @@ export function LiveSpeakingResultView({
 
           {/* Band 8.0+ Model Monologue */}
           {practiceMonologue && (
-            <Card className="shadow-xs border border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 via-background to-amber-500/5 py-0 gap-0 overflow-hidden">
-              <CardHeader className="p-4 border-b bg-indigo-500/10 pb-3 flex flex-row items-center justify-between space-y-0">
+            <Card className="shadow-xs border border-border bg-card py-0 gap-0 overflow-hidden">
+              <CardHeader className="p-4 border-b bg-muted/20 pb-3 flex flex-row items-center justify-between space-y-0">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
-                    <CardTitle className="text-xs font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <CardTitle className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
                       <span>
                         Bài Nói Mẫu Band 8.0+ (Tối ưu từ ý tưởng của bạn)
                       </span>
                     </CardTitle>
-                    <Badge className="bg-indigo-600 text-white text-[10px] font-mono py-0">
+                    <Badge
+                      variant="default"
+                      className="text-[10px] font-mono py-0"
+                    >
                       Band 8.0+ Model
                     </Badge>
                   </div>
@@ -842,8 +843,8 @@ export function LiveSpeakingResultView({
                 >
                   {copiedMonologue ? (
                     <>
-                      <Check className="w-3.5 h-3.5 text-emerald-800 dark:text-emerald-300" />
-                      <span className="text-emerald-800 dark:text-emerald-300 font-semibold">
+                      <Check className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-primary font-semibold">
                         Đã sao chép
                       </span>
                     </>
@@ -856,11 +857,11 @@ export function LiveSpeakingResultView({
                 </Button>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
-                <blockquote className="border-l-2 border-indigo-500/60 pl-3.5 text-xs text-foreground/90 italic leading-relaxed font-serif">
+                <blockquote className="border-l-2 border-primary pl-3.5 text-xs text-foreground/90 italic leading-relaxed font-serif">
                   &ldquo;{practiceMonologue}&rdquo;
                 </blockquote>
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/30 p-2.5 rounded-lg border">
-                  <Volume2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                  <Volume2 className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span>
                     💡 <strong>Mẹo luyện tập:</strong> Đọc to bài mẫu này từ 3–5
                     lần theo ngữ điệu tự nhiên (kỹ thuật Shadowing) để khắc sâu
@@ -873,7 +874,7 @@ export function LiveSpeakingResultView({
 
           {/* Actionable Practice Plan */}
           {actionPlan && actionPlan.length > 0 && (
-            <Card className="shadow-xs border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent py-0 gap-0 overflow-hidden">
+            <Card className="shadow-xs border border-border bg-card py-0 gap-0 overflow-hidden">
               <CardHeader className="p-4 pb-2">
                 <CardTitle className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <TrendingUp className="w-4 h-4 text-primary" />
@@ -927,7 +928,7 @@ export function LiveSpeakingResultView({
                     {partEval.verifiedTranscript && (
                       <Badge
                         variant="secondary"
-                        className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                        className="text-[10px] font-medium"
                       >
                         ✓ Audio Verified
                       </Badge>
@@ -945,7 +946,7 @@ export function LiveSpeakingResultView({
                 {partEval.pronunciationNotes &&
                   partEval.pronunciationNotes.length > 0 && (
                     <div>
-                      <span className="font-semibold text-purple-800 dark:text-purple-300 block mb-1.5">
+                      <span className="font-semibold text-criterion-pr block mb-1.5">
                         Lưu ý Phát âm (Phonetic & Stress Notes):
                       </span>
                       <div className="space-y-2">
@@ -960,11 +961,11 @@ export function LiveSpeakingResultView({
                           return (
                             <div
                               key={i}
-                              className="p-2.5 rounded-lg border bg-purple-500/5 space-y-1.5"
+                              className="p-2.5 rounded-lg border border-border bg-card space-y-1.5"
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-bold text-purple-700 dark:text-purple-300 text-sm">
+                                  <span className="font-bold text-criterion-pr text-sm">
                                     {item.word}
                                   </span>
                                   <span className="font-mono text-xs text-muted-foreground">
@@ -998,19 +999,19 @@ export function LiveSpeakingResultView({
                                   >
                                     {isThisClipPlaying ? (
                                       <>
-                                        <Pause className="w-3 h-3 text-rose-500" />
+                                        <Pause className="w-3 h-3 text-destructive" />
                                         <span>Dừng</span>
                                       </>
                                     ) : (
                                       <>
-                                        <Play className="w-3 h-3 text-purple-600" />
+                                        <Play className="w-3 h-3 text-criterion-pr" />
                                         <span>▶ Nghe lại giọng bạn</span>
                                       </>
                                     )}
                                   </Button>
                                 )}
                               </div>
-                              <div className="text-rose-700 dark:text-rose-400">
+                              <div className="text-destructive font-medium">
                                 ⚠ {item.detectedIssue}
                               </div>
                               <p className="text-[11px] text-muted-foreground">
@@ -1027,7 +1028,7 @@ export function LiveSpeakingResultView({
                 {partEval.grammarCorrections &&
                   partEval.grammarCorrections.length > 0 && (
                     <div>
-                      <span className="font-semibold text-amber-800 dark:text-amber-300 block mb-1.5">
+                      <span className="font-semibold text-criterion-gra block mb-1.5">
                         Sửa lỗi Ngữ pháp (Grammar Fixes):
                       </span>
                       <div className="space-y-2">
@@ -1042,10 +1043,10 @@ export function LiveSpeakingResultView({
                           return (
                             <div
                               key={i}
-                              className="p-2.5 rounded-lg border bg-amber-500/5 space-y-1"
+                              className="p-2.5 rounded-lg border border-border bg-card space-y-1"
                             >
                               <div className="flex items-center justify-between">
-                                <div className="text-rose-800 dark:text-rose-400 font-medium">
+                                <div className="text-destructive font-medium">
                                   ❌ {item.originalPhrase}
                                 </div>
                                 {hasTimestamp && recordedAudio && (
@@ -1065,15 +1066,15 @@ export function LiveSpeakingResultView({
                                     className="h-6 px-2 text-[11px] gap-1 cursor-pointer bg-background"
                                   >
                                     {isThisClipPlaying ? (
-                                      <Pause className="w-3 h-3 text-rose-500" />
+                                      <Pause className="w-3 h-3 text-destructive" />
                                     ) : (
-                                      <Play className="w-3 h-3 text-amber-600" />
+                                      <Play className="w-3 h-3 text-criterion-gra" />
                                     )}
                                     <span>Nghe</span>
                                   </Button>
                                 )}
                               </div>
-                              <div className="text-emerald-800 dark:text-emerald-400 font-medium">
+                              <div className="text-foreground font-medium">
                                 ✓ {item.correctedPhrase}
                               </div>
                               <p className="text-[11px] text-muted-foreground">
@@ -1090,8 +1091,8 @@ export function LiveSpeakingResultView({
                 {partEval.lexicalUpgrades &&
                   partEval.lexicalUpgrades.length > 0 && (
                     <div>
-                      <span className="font-semibold text-blue-800 dark:text-blue-300 block mb-1.5 flex items-center gap-1">
-                        <BookOpen className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <span className="font-semibold text-criterion-lr block mb-1.5 flex items-center gap-1">
+                        <BookOpen className="w-3.5 h-3.5 text-criterion-lr" />
                         <span>
                           Gợi ý nâng cấp Từ vựng (Band 7.5+ Upgrades):
                         </span>
@@ -1100,13 +1101,13 @@ export function LiveSpeakingResultView({
                         {partEval.lexicalUpgrades.map((item, i: number) => (
                           <div
                             key={i}
-                            className="p-2.5 rounded-lg border bg-blue-500/5 space-y-1"
+                            className="p-2.5 rounded-lg border border-border bg-card space-y-1"
                           >
                             <div className="flex items-center justify-between">
                               <span className="line-through text-muted-foreground">
                                 {item.originalExpression}
                               </span>
-                              <span className="font-bold text-blue-700 dark:text-blue-400">
+                              <span className="font-bold text-criterion-lr">
                                 ➔ {item.betterAlternative}
                               </span>
                             </div>
@@ -1247,15 +1248,15 @@ export function LiveSpeakingResultView({
                     className={cn(
                       "p-2.5 rounded-lg text-xs leading-relaxed",
                       item.sender === "examiner"
-                        ? "bg-indigo-500/10 border border-indigo-500/20 text-foreground"
-                        : "bg-muted/40 border text-foreground"
+                        ? "bg-muted/40 border border-border text-muted-foreground"
+                        : "bg-card border border-border text-foreground"
                     )}
                   >
                     <span
                       className={cn(
                         "font-bold mr-1.5 text-xs uppercase",
                         item.sender === "examiner"
-                          ? "text-indigo-900 dark:text-indigo-200"
+                          ? "text-muted-foreground"
                           : "text-foreground"
                       )}
                     >

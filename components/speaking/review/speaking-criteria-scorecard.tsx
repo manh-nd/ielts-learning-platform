@@ -27,11 +27,10 @@ export interface SpeakingCriterionMeta {
   label: string;
   short: string;
   vietnameseLabel: string;
-  color: "emerald" | "blue" | "amber" | "purple";
   bgLight: string;
   border: string;
   text: string;
-  badgeBg: string;
+  badgeClassName: string;
 }
 
 export const SPEAKING_CRITERIA_META: Record<
@@ -43,44 +42,44 @@ export const SPEAKING_CRITERIA_META: Record<
     label: "Fluency & Coherence",
     short: "FC",
     vietnameseLabel: "Độ trôi chảy & Mạch lạc",
-    color: "emerald",
-    bgLight: "bg-emerald-50 dark:bg-emerald-950/40",
-    border: "border-emerald-500",
-    text: "text-emerald-700 dark:text-emerald-300",
-    badgeBg: "bg-emerald-700 text-white",
+    bgLight: "bg-criterion-cc-bg border-criterion-cc-subtle",
+    border: "border-criterion-cc",
+    text: "text-foreground",
+    badgeClassName:
+      "bg-criterion-cc-bg text-foreground border-criterion-cc-subtle border",
   },
   lexicalResource: {
     key: "lexicalResource",
     label: "Lexical Resource",
     short: "LR",
     vietnameseLabel: "Vốn từ vựng & Độ chuẩn xác",
-    color: "blue",
-    bgLight: "bg-blue-50 dark:bg-blue-950/40",
-    border: "border-blue-500",
-    text: "text-blue-700 dark:text-blue-300",
-    badgeBg: "bg-blue-700 text-white",
+    bgLight: "bg-criterion-lr-bg border-criterion-lr-subtle",
+    border: "border-criterion-lr",
+    text: "text-foreground",
+    badgeClassName:
+      "bg-criterion-lr-bg text-foreground border-criterion-lr-subtle border",
   },
   grammaticalRangeAndAccuracy: {
     key: "grammaticalRangeAndAccuracy",
     label: "Grammatical Range & Accuracy",
     short: "GRA",
     vietnameseLabel: "Ngữ pháp & Cấu trúc đa dạng",
-    color: "amber",
-    bgLight: "bg-amber-50 dark:bg-amber-950/40",
-    border: "border-amber-500",
-    text: "text-amber-700 dark:text-amber-300",
-    badgeBg: "bg-amber-700 text-white",
+    bgLight: "bg-criterion-gra-bg border-criterion-gra-subtle",
+    border: "border-criterion-gra",
+    text: "text-foreground",
+    badgeClassName:
+      "bg-criterion-gra-bg text-foreground border-criterion-gra-subtle border",
   },
   pronunciation: {
     key: "pronunciation",
     label: "Pronunciation",
     short: "PR",
     vietnameseLabel: "Phát âm & Ngữ điệu sóng âm",
-    color: "purple",
-    bgLight: "bg-purple-50 dark:bg-purple-950/40",
-    border: "border-purple-500",
-    text: "text-purple-700 dark:text-purple-300",
-    badgeBg: "bg-purple-700 text-white",
+    bgLight: "bg-criterion-pr-bg border-criterion-pr-subtle",
+    border: "border-criterion-pr",
+    text: "text-foreground",
+    badgeClassName:
+      "bg-criterion-pr-bg text-foreground border-criterion-pr-subtle border",
   },
 };
 
@@ -229,14 +228,14 @@ export function SpeakingCriteriaScorecard({
               className={cn(
                 "gap-1 py-0.5 px-2 font-mono text-[11px] rounded-md font-medium",
                 traceMetadata.isFallback
-                  ? "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:text-amber-300"
-                  : "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/50 dark:text-emerald-300"
+                  ? "bg-muted text-foreground border-border"
+                  : "bg-primary/10 text-primary border-primary/20"
               )}
             >
               <Cpu className="h-3 w-3" />
               <span>{traceMetadata.modelUsed}</span>
               {traceMetadata.isFallback && (
-                <span className="font-sans text-[10px] uppercase font-bold text-amber-800 dark:text-amber-300">
+                <span className="font-sans text-[10px] uppercase font-bold text-foreground">
                   (Fallback)
                 </span>
               )}
@@ -328,7 +327,12 @@ export function SpeakingCriteriaScorecard({
                 )}
               >
                 <div className="flex items-center gap-2">
-                  <Badge className={cn("px-2 py-0.5 font-bold", meta.badgeBg)}>
+                  <Badge
+                    className={cn(
+                      "px-2 py-0.5 font-bold shadow-none",
+                      meta.badgeClassName
+                    )}
+                  >
                     {meta.short}
                   </Badge>
                   <div>
@@ -354,8 +358,8 @@ export function SpeakingCriteriaScorecard({
                           className={cn(
                             "px-1.5 py-0 text-[10px] font-mono",
                             delta > 0
-                              ? "text-emerald-800 border-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 dark:text-emerald-300"
-                              : "text-rose-800 border-rose-400 bg-rose-50 dark:bg-rose-950/40 dark:text-rose-300"
+                              ? "text-primary border-primary/30 bg-primary/10"
+                              : "text-destructive border-destructive/30 bg-destructive/10"
                           )}
                         >
                           {delta > 0

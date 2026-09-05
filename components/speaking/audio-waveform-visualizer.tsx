@@ -107,7 +107,13 @@ export function AudioWaveformVisualizer({
     const width = canvas.width / dpr;
     const canvasHeight = canvas.height / dpr;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Resolve semantic theme tokens via getComputedStyle on container
+    let mutedFgColor = "oklch(0.556 0 0)";
+    if (typeof window !== "undefined" && containerRef.current) {
+      const computed = window.getComputedStyle(containerRef.current);
+      const m = computed.getPropertyValue("--muted-foreground")?.trim();
+      if (m) mutedFgColor = m;
+    }
 
     if (analyserNode && !isPaused) {
       const bufferLength = analyserNode.frequencyBinCount;
@@ -132,7 +138,9 @@ export function AudioWaveformVisualizer({
         const x = i * (barWidth + barSpacing) + barSpacing / 2;
         const y = (canvasHeight - barHeight) / 2;
 
-        ctx.fillStyle = "rgba(239, 68, 68, 0.85)"; // Destructive red for active recording pulse
+        // Conventional red recording affordance (active recording indicator, not error/destructive)
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = "rgba(239, 68, 68, 1)";
 
         drawRoundedRect(
           ctx,
@@ -144,7 +152,7 @@ export function AudioWaveformVisualizer({
         );
       }
     } else {
-      // Idle or paused live state: low amplitude calm baseline
+      // Idle or paused live state: low amplitude calm baseline using muted-foreground
       const totalBars = barCount;
       const barSpacing = Math.max(2, width / (totalBars * 2.8));
       const barWidth = Math.max(
@@ -157,7 +165,8 @@ export function AudioWaveformVisualizer({
         const x = i * (barWidth + barSpacing) + barSpacing / 2;
         const y = (canvasHeight - barHeight) / 2;
 
-        ctx.fillStyle = "rgba(148, 163, 184, 0.35)";
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = mutedFgColor;
         drawRoundedRect(
           ctx,
           x * dpr,
@@ -168,6 +177,7 @@ export function AudioWaveformVisualizer({
         );
       }
     }
+    ctx.globalAlpha = 1.0;
   }, [analyserNode, isPaused, barCount]);
 
   /**
@@ -185,6 +195,17 @@ export function AudioWaveformVisualizer({
     const canvasHeight = canvas.height / dpr;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Resolve semantic theme tokens via getComputedStyle on container
+    let primaryColor = "oklch(0.508 0.118 165.612)";
+    let mutedFgColor = "oklch(0.556 0 0)";
+    if (typeof window !== "undefined" && containerRef.current) {
+      const computed = window.getComputedStyle(containerRef.current);
+      const p = computed.getPropertyValue("--primary")?.trim();
+      const m = computed.getPropertyValue("--muted-foreground")?.trim();
+      if (p) primaryColor = p;
+      if (m) mutedFgColor = m;
+    }
 
     const totalBars = amplitudes.length;
     const barSpacing = Math.max(2, width / (totalBars * 2.8));
@@ -207,9 +228,9 @@ export function AudioWaveformVisualizer({
 
       const isPlayed = i <= playedIndex;
 
-      ctx.fillStyle = isPlayed
-        ? "rgba(59, 130, 246, 0.95)" // Active / Played color (Blue/Primary)
-        : "rgba(148, 163, 184, 0.35)"; // Unplayed color (Muted slate)
+      // Semantic mapping: played bars use primary, unplayed bars use muted-foreground with alpha
+      ctx.globalAlpha = isPlayed ? 0.95 : 0.35;
+      ctx.fillStyle = isPlayed ? primaryColor : mutedFgColor;
 
       drawRoundedRect(
         ctx,
@@ -220,6 +241,7 @@ export function AudioWaveformVisualizer({
         (barWidth / 2) * dpr
       );
     }
+    ctx.globalAlpha = 1.0;
   }, [amplitudes, audioDuration, currentTime]);
 
   /**
