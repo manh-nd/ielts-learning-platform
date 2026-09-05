@@ -1,7 +1,6 @@
 import {
   findSubmissionById,
   claimTeacherReview,
-  updateSubmissionStatus,
   findAttemptByNumber,
 } from "../infrastructure/homework-submission-repository";
 import { findAssignmentById } from "../infrastructure/homework-assignment-repository";
@@ -12,10 +11,8 @@ import {
 import {
   findAiProposalByAttemptId,
   findTeacherAssessmentBySubmission,
-  saveTeacherAssessment,
-  createPublishedAssessment,
+  commitHomeworkPublication,
   findPublishedAssessmentBySubmission,
-  createEvaluationFeedback,
 } from "../infrastructure/homework-assessment-repository";
 import {
   calculateIeltsSpeakingOverallBand,
@@ -257,7 +254,7 @@ export async function publishTeacherAssessment(
   const publishedAssessmentId = crypto.randomUUID();
   const evaluationFeedbackId = crypto.randomUUID();
 
-  // 1. Persist TeacherAssessment
+  // Prepare the finalized TeacherAssessment.
   const teacherAssessment: TeacherAssessment = {
     id: teacherAssessmentId,
     submissionId: submission.id,
@@ -277,9 +274,8 @@ export async function publishTeacherAssessment(
     createdAt: now,
     updatedAt: now,
   };
-  await saveTeacherAssessment(teacherAssessment);
 
-  // 2. Persist PublishedAssessment (Domain Invariant: TeacherAssessment != PublishedAssessment)
+  // Prepare the separate immutable PublishedAssessment.
   const publishedAssessment: PublishedAssessment = {
     id: publishedAssessmentId,
     submissionId: submission.id,
@@ -297,20 +293,13 @@ export async function publishTeacherAssessment(
     criteriaFeedback: input.criteriaFeedback || null,
     publishedAt: now,
   };
-  await createPublishedAssessment(publishedAssessment);
 
-  // 3. Mark submission terminal 'published'
-  const updatedSubmission = await updateSubmissionStatus(
-    submission.id,
-    "published",
-    attemptNumber
-  );
-
-  // 4. Calculate AI Acceptance & Calibration Metrics (Contract §7.3)
+  // Prepare AI acceptance and calibration metrics (Contract §7.3).
   const attempt = await findAttemptByNumber(submission.id, attemptNumber);
-  const aiProposal = attempt
-    ? await findAiProposalByAttemptId(attempt.id)
-    : null;
+  if (!attempt) {
+    throw new NotFoundError("Không tìm thấy dữ liệu lượt nộp được đánh giá.");
+  }
+  const aiProposal = await findAiProposalByAttemptId(attempt.id);
 
   let aiProposalAccepted = false;
   let scoreDeltas = {
@@ -354,22 +343,6 @@ export async function publishTeacherAssessment(
     ).length;
 
     aiProposalAccepted = Math.abs(diffOverall) <= 0.5 && largeDeltaCount <= 1;
-
-    // Telemetry for proposal accept/reject
-    recordTelemetryEvent({
-      userId: teacherId,
-      eventName: aiProposalAccepted
-        ? "teacher_ai_proposal_accepted"
-        : "teacher_ai_proposal_rejected",
-      userRole: "teacher",
-      contextType: "homework",
-      contextId: submission.id,
-      properties: {
-        aiProposalId: aiProposal.id,
-        scoreDeltas,
-        aiProposalAccepted,
-      },
-    }).catch(() => {});
   }
 
   const evaluationFeedback: EvaluationFeedback = {
@@ -389,10 +362,51 @@ export async function publishTeacherAssessment(
     modelVersion: aiProposal?.modelVersion || "gemini-2.5-flash",
     createdAt: now,
   };
-  await createEvaluationFeedback(evaluationFeedback);
 
-  // 5. Emit teacher_assessment_published telemetry
-  recordTelemetryEvent({
+  const publication = await commitHomeworkPublication({
+    expectedSubmission: submission,
+    teacherAssessment,
+    publishedAssessment,
+    evaluationFeedback,
+  });
+  if (publication.kind === "not_found") {
+    throw new NotFoundError("Không tìm thấy bài nộp được yêu cầu.");
+  }
+  if (publication.kind === "no_transition") {
+    const alreadyPublished =
+      getTeacherReviewAvailability(publication.submission.status) ===
+      "terminal";
+    throw new ConflictError(
+      alreadyPublished
+        ? "Bài nộp này đã được xuất bản kết quả chính thức trước đó."
+        : "Bài nộp đã thay đổi. Vui lòng tải lại trước khi công bố.",
+      { status: publication.submission.status },
+      alreadyPublished
+        ? "SUBMISSION_ALREADY_PUBLISHED"
+        : "SUBMISSION_STATE_CHANGED"
+    );
+  }
+
+  if (aiProposal?.status === "ready") {
+    // Telemetry for proposal accept/reject
+    observePublication({
+      userId: teacherId,
+      eventName: aiProposalAccepted
+        ? "teacher_ai_proposal_accepted"
+        : "teacher_ai_proposal_rejected",
+      userRole: "teacher",
+      contextType: "homework",
+      contextId: submission.id,
+      properties: {
+        aiProposalId: aiProposal.id,
+        scoreDeltas,
+        aiProposalAccepted,
+      },
+    });
+  }
+
+  // Observe only after the official business commit.
+  observePublication({
     userId: teacherId,
     eventName: "teacher_assessment_published",
     userRole: "teacher",
@@ -405,12 +419,23 @@ export async function publishTeacherAssessment(
       overallBand,
       attemptNumber,
     },
-  }).catch(() => {});
+  });
 
   return {
-    submission: updatedSubmission,
+    submission: publication.submission,
     teacherAssessment,
     publishedAssessment,
     evaluationFeedback,
   };
+}
+
+/** Observation must never invalidate a committed publication, even on a synchronous throw. */
+function observePublication(
+  event: Parameters<typeof recordTelemetryEvent>[0]
+): void {
+  try {
+    void recordTelemetryEvent(event).catch(() => {});
+  } catch {
+    // Best-effort telemetry.
+  }
 }

@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
     "test": "bun test --path-ignore-patterns e2e",
+    "test:homework:integration": "bun run scripts/test-homework-publication.ts",
     "test:unit": "bun test --path-ignore-patterns e2e",
     "test:storybook": "vitest --project=storybook --run",
     "test:visual": "docker run --rm --ipc=host -v $(pwd):/work -w /work mcr.microsoft.com/playwright:v1.62.1-noble ./node_modules/.bin/playwright test -c playwright.visual.config.ts",

@@ -45,7 +45,7 @@ export class SubmissionIntegrityError extends Error {
   }
 }
 
-function mapRowToSubmission(
+export function mapRowToSubmission(
   r: typeof homeworkSubmissions.$inferSelect
 ): HomeworkSubmission {
   const status = r.status;

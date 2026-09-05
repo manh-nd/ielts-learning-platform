@@ -1,3 +1,5 @@
+import * as assessmentRepository from "../infrastructure/homework-assessment-repository";
+import * as telemetryRepository from "@/modules/telemetry/infrastructure/telemetry-repository";
 import * as submissionRepository from "../infrastructure/homework-submission-repository";
 import { describe, it, expect, beforeEach, spyOn } from "bun:test";
 import {
@@ -234,6 +236,201 @@ describe("Homework Review Service (Issue #76, ADR-0008, ADR-0009, Ticket #51, #5
       ).rejects.toThrow(ConflictError);
     });
   });
+
+  const publishInput = {
+    fluencyCoherence: 7,
+    lexicalResource: 7,
+    grammaticalRangeAccuracy: 7,
+    pronunciation: 7,
+    overallFeedback: "Teacher feedback",
+    activeReviewDurationMs: 1000,
+  };
+
+  it("publishes directly with one atomic call and missing AI calibration defaults", async () => {
+    const commit = spyOn(assessmentRepository, "commitHomeworkPublication");
+    try {
+      const result = await publishTeacherAssessment(
+        teacherId,
+        submissionId,
+        publishInput
+      );
+      expect(commit).toHaveBeenCalledTimes(1);
+      expect(result.submission.reviewedAttemptNumber).toBe(1);
+      expect(result.evaluationFeedback.aiProposalId).toBeNull();
+      expect(result.evaluationFeedback.aiProposalAccepted).toBe(false);
+      expect(result.evaluationFeedback.scoreDeltas.overallBand).toBe(0);
+    } finally {
+      commit.mockRestore();
+    }
+  });
+
+  it("publishes manually when the AI proposal failed without changing it", async () => {
+    const proposal = {
+      id: crypto.randomUUID(),
+      submissionId,
+      attemptId,
+      attemptNumber: 1,
+      status: "failed" as const,
+      scores: {
+        fluencyAndCoherence: 0,
+        lexicalResource: 0,
+        grammaticalRangeAndAccuracy: 0,
+        pronunciation: 0,
+      },
+      overallBand: 0,
+      feedbackSummary: null,
+      strengths: [],
+      improvements: [],
+      actionPlan: [],
+      pronunciationNotes: [],
+      rawProposalJson: null,
+      modelVersion: "test-model",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    await saveAiProposal(proposal);
+    const result = await publishTeacherAssessment(
+      teacherId,
+      submissionId,
+      publishInput
+    );
+    expect(result.evaluationFeedback.aiProposalId).toBe(proposal.id);
+    expect(result.evaluationFeedback.aiProposalAccepted).toBe(false);
+    expect(
+      result.evaluationFeedback.teacherModifications?.modifiedCriteria
+    ).toEqual([]);
+    expect(
+      await assessmentRepository.findAiProposalByAttemptId(attemptId)
+    ).toEqual(proposal);
+  });
+
+  it("maps a disappeared submission from the atomic operation to 404", async () => {
+    const commit = spyOn(
+      assessmentRepository,
+      "commitHomeworkPublication"
+    ).mockResolvedValue({ kind: "not_found" });
+    try {
+      await expect(
+        publishTeacherAssessment(teacherId, submissionId, publishInput)
+      ).rejects.toMatchObject({ statusCode: 404 });
+    } finally {
+      commit.mockRestore();
+    }
+  });
+
+  it("publishes the ReviewedAttempt even when CurrentAttempt is newer", async () => {
+    await startTeacherReview(teacherId, submissionId);
+    const existing = submissionRepository.devSubmissionCache.get(submissionId)!;
+    submissionRepository.devSubmissionCache.set(submissionId, {
+      ...existing,
+      currentAttemptNumber: 2,
+    });
+    const result = await publishTeacherAssessment(
+      teacherId,
+      submissionId,
+      publishInput
+    );
+    expect(result.teacherAssessment.attemptNumber).toBe(1);
+    expect(result.publishedAssessment.attemptNumber).toBe(1);
+    expect(result.evaluationFeedback.attemptNumber).toBe(1);
+    expect(result.submission.currentAttemptNumber).toBe(2);
+  });
+
+  for (const status of ["submitted", "published"] as const) {
+    it(
+      "maps a competing " + status + " state and emits no telemetry",
+      async () => {
+        const existing =
+          submissionRepository.devSubmissionCache.get(submissionId)!;
+        const commit = spyOn(
+          assessmentRepository,
+          "commitHomeworkPublication"
+        ).mockResolvedValue({
+          kind: "no_transition",
+          submission: { ...existing, status, currentAttemptNumber: 2 },
+        });
+        const telemetry = spyOn(telemetryRepository, "recordTelemetryEvent");
+        try {
+          await expect(
+            publishTeacherAssessment(teacherId, submissionId, publishInput)
+          ).rejects.toMatchObject({
+            code:
+              status === "published"
+                ? "SUBMISSION_ALREADY_PUBLISHED"
+                : "SUBMISSION_STATE_CHANGED",
+            statusCode: 409,
+          });
+          expect(telemetry).not.toHaveBeenCalled();
+        } finally {
+          commit.mockRestore();
+          telemetry.mockRestore();
+        }
+      }
+    );
+  }
+
+  it("validates input and attempt existence before committing", async () => {
+    const commit = spyOn(assessmentRepository, "commitHomeworkPublication");
+    try {
+      await expect(
+        publishTeacherAssessment(teacherId, submissionId, {
+          ...publishInput,
+          fluencyCoherence: 10,
+        })
+      ).rejects.toThrow(ValidationError);
+      submissionRepository.devAttemptCache.clear();
+      await expect(
+        publishTeacherAssessment(teacherId, submissionId, publishInput)
+      ).rejects.toMatchObject({ statusCode: 404 });
+      expect(commit).not.toHaveBeenCalled();
+    } finally {
+      commit.mockRestore();
+    }
+  });
+
+  it("does not emit telemetry when persistence fails", async () => {
+    const commit = spyOn(
+      assessmentRepository,
+      "commitHomeworkPublication"
+    ).mockRejectedValue(new Error("DB failure"));
+    const telemetry = spyOn(telemetryRepository, "recordTelemetryEvent");
+    try {
+      await expect(
+        publishTeacherAssessment(teacherId, submissionId, publishInput)
+      ).rejects.toThrow("DB failure");
+      expect(telemetry).not.toHaveBeenCalled();
+    } finally {
+      commit.mockRestore();
+      telemetry.mockRestore();
+    }
+  });
+
+  for (const synchronous of [true, false]) {
+    it(
+      "preserves committed success when telemetry " +
+        (synchronous ? "throws" : "rejects"),
+      async () => {
+        const telemetry = spyOn(
+          telemetryRepository,
+          "recordTelemetryEvent"
+        ).mockImplementation(() => {
+          if (synchronous) throw new Error("telemetry failed");
+          return Promise.reject(new Error("telemetry failed"));
+        });
+        try {
+          const result = await publishTeacherAssessment(
+            teacherId,
+            submissionId,
+            publishInput
+          );
+          expect(result.submission.status).toBe("published");
+          expect(telemetry).toHaveBeenCalledTimes(1);
+        } finally {
+          telemetry.mockRestore();
+        }
+      }
+    );
+  }
 
   describe("Atomic Publish & Calibration Persistence", () => {
     it("should validate IELTS criteria completeness and bounds", async () => {

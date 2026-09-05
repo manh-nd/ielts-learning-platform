@@ -1,11 +1,13 @@
 import { db } from "@/lib/db";
 import {
+  homeworkSubmissions,
   aiAssessmentProposals,
   teacherAssessments,
   publishedAssessments,
   evaluationFeedbacks,
 } from "./homework-schema";
 import type {
+  HomeworkSubmission,
   AiAssessmentProposal,
   TeacherAssessment,
   PublishedAssessment,
@@ -14,7 +16,12 @@ import type {
   SpeakingCriteriaFeedback,
   SpeakingReviewAnnotationItem,
 } from "../domain/homework-types";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, ne, and, desc, isNull } from "drizzle-orm";
+
+import {
+  devSubmissionCache,
+  mapRowToSubmission,
+} from "./homework-submission-repository";
 
 // In-memory cache for development and test isolation
 const globalForAssessment = globalThis as unknown as {
@@ -244,7 +251,10 @@ export async function saveTeacherAssessment(
 export async function findTeacherAssessmentBySubmission(
   submissionId: string
 ): Promise<TeacherAssessment | null> {
-  if (devTeacherAssessmentCache.has(submissionId)) {
+  if (
+    !process.env.DATABASE_URL &&
+    devTeacherAssessmentCache.has(submissionId)
+  ) {
     return devTeacherAssessmentCache.get(submissionId) || null;
   }
 
@@ -343,7 +353,10 @@ export async function createPublishedAssessment(
 export async function findPublishedAssessmentBySubmission(
   submissionId: string
 ): Promise<PublishedAssessment | null> {
-  if (devPublishedAssessmentCache.has(submissionId)) {
+  if (
+    !process.env.DATABASE_URL &&
+    devPublishedAssessmentCache.has(submissionId)
+  ) {
     return devPublishedAssessmentCache.get(submissionId) || null;
   }
 
@@ -397,7 +410,11 @@ export async function findPublishedAssessmentByAssignmentAndLearner(
   learnerId: string
 ): Promise<PublishedAssessment | null> {
   for (const p of devPublishedAssessmentCache.values()) {
-    if (p.assignmentId === assignmentId && p.learnerId === learnerId) {
+    if (
+      !process.env.DATABASE_URL &&
+      p.assignmentId === assignmentId &&
+      p.learnerId === learnerId
+    ) {
       return p;
     }
   }
@@ -501,7 +518,7 @@ export async function listEvaluationFeedbacksBySubmissionId(
   submissionId: string
 ): Promise<EvaluationFeedback[]> {
   const cached = devEvaluationFeedbackCache.get(submissionId);
-  if (cached && cached.length > 0) {
+  if (!process.env.DATABASE_URL && cached && cached.length > 0) {
     return cached;
   }
 
@@ -540,4 +557,109 @@ export async function listEvaluationFeedbacksBySubmissionId(
   }
 
   return [];
+}
+
+export interface CommitHomeworkPublicationInput {
+  expectedSubmission: Pick<
+    HomeworkSubmission,
+    "id" | "status" | "currentAttemptNumber" | "reviewedAttemptNumber"
+  >;
+  teacherAssessment: TeacherAssessment;
+  publishedAssessment: PublishedAssessment;
+  evaluationFeedback: EvaluationFeedback;
+}
+
+export type CommitHomeworkPublicationResult =
+  | { kind: "committed"; submission: HomeworkSubmission }
+  | { kind: "no_transition"; submission: HomeworkSubmission }
+  | { kind: "not_found" };
+
+/** Claim and persist the complete official publication using one transaction. */
+export async function commitHomeworkPublication(
+  input: CommitHomeworkPublicationInput
+): Promise<CommitHomeworkPublicationResult> {
+  const {
+    expectedSubmission: expected,
+    teacherAssessment,
+    publishedAssessment,
+    evaluationFeedback,
+  } = input;
+  const changes = {
+    status: "published" as const,
+    reviewedAttemptNumber: teacherAssessment.attemptNumber,
+    updatedAt: teacherAssessment.updatedAt,
+  };
+  if (process.env.DATABASE_URL) {
+    const result = await db.transaction(
+      async (tx): Promise<CommitHomeworkPublicationResult> => {
+        const rows = await tx
+          .update(homeworkSubmissions)
+          .set(changes)
+          .where(
+            and(
+              eq(homeworkSubmissions.id, expected.id),
+              eq(homeworkSubmissions.status, expected.status),
+              ne(homeworkSubmissions.status, "published"),
+              eq(
+                homeworkSubmissions.currentAttemptNumber,
+                expected.currentAttemptNumber
+              ),
+              expected.reviewedAttemptNumber === null
+                ? isNull(homeworkSubmissions.reviewedAttemptNumber)
+                : eq(
+                    homeworkSubmissions.reviewedAttemptNumber,
+                    expected.reviewedAttemptNumber
+                  )
+            )
+          )
+          .returning();
+        if (!rows[0]) {
+          const current = await tx
+            .select()
+            .from(homeworkSubmissions)
+            .where(eq(homeworkSubmissions.id, expected.id))
+            .limit(1);
+          return current[0]
+            ? {
+                kind: "no_transition",
+                submission: mapRowToSubmission(current[0]),
+              }
+            : { kind: "not_found" };
+        }
+        await tx.insert(teacherAssessments).values(teacherAssessment);
+        await tx.insert(publishedAssessments).values(publishedAssessment);
+        await tx.insert(evaluationFeedbacks).values(evaluationFeedback);
+        return { kind: "committed", submission: mapRowToSubmission(rows[0]) };
+      }
+    );
+    if (result.kind === "committed") {
+      devSubmissionCache.delete(expected.id);
+      devTeacherAssessmentCache.delete(expected.id);
+      devPublishedAssessmentCache.delete(expected.id);
+      devEvaluationFeedbackCache.delete(expected.id);
+    }
+    return result;
+  }
+
+  // No await between observing the expected state and committing all four stores.
+  const existing = devSubmissionCache.get(expected.id);
+  if (!existing) return { kind: "not_found" };
+  if (
+    existing.status === "published" ||
+    existing.status !== expected.status ||
+    existing.currentAttemptNumber !== expected.currentAttemptNumber ||
+    existing.reviewedAttemptNumber !== expected.reviewedAttemptNumber
+  ) {
+    return { kind: "no_transition", submission: existing };
+  }
+  const submission = { ...existing, ...changes };
+  const feedbacks = [
+    ...(devEvaluationFeedbackCache.get(expected.id) || []),
+    evaluationFeedback,
+  ];
+  devSubmissionCache.set(expected.id, submission);
+  devTeacherAssessmentCache.set(expected.id, teacherAssessment);
+  devPublishedAssessmentCache.set(expected.id, publishedAssessment);
+  devEvaluationFeedbackCache.set(expected.id, feedbacks);
+  return { kind: "committed", submission };
 }
