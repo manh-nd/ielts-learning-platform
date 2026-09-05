@@ -56,11 +56,19 @@ test.describe("Protected Routes & Role Authorization", () => {
       // Verify dashboard content
       await expect(page.locator("h1")).toContainText("Xin chào");
       await expect(
-        page.getByText("IELTS Speaking Live AI Examiner")
+        page.getByRole("heading", { name: "IELTS Speaking Practice" })
       ).toBeVisible();
       await expect(
-        page.getByText("IELTS Writing Essay Assessment")
+        page.locator("#speaking a[href='/learner/speaking/live']")
       ).toBeVisible();
+
+      // Negative assertions: no Writing card, no fake band scores, no fake history
+      await expect(
+        page.getByText("IELTS Writing Essay Assessment")
+      ).not.toBeVisible();
+      await expect(page.getByText("Mục tiêu Band")).not.toBeVisible();
+      await expect(page.getByText("Tổng quan Kỹ năng")).not.toBeVisible();
+      await expect(page.getByText("Lịch sử Luyện tập")).not.toBeVisible();
     });
 
     test("should handle user dropdown menu and trigger logout", async ({

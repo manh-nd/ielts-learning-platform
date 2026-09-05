@@ -7,7 +7,6 @@ import {
   GraduationCapIcon,
   SparklesIcon,
   MicIcon,
-  BookOpenIcon,
   PenToolIcon,
   SchoolIcon,
 } from "lucide-react";
@@ -70,14 +69,9 @@ export function ProtectedHeader({ user }: ProtectedHeaderProps) {
           icon: SparklesIcon,
         },
         {
-          href: "/learner/dashboard#speaking",
-          label: "Luyện Speaking AI",
+          href: "/learner/speaking/live",
+          label: "Speaking Practice",
           icon: MicIcon,
-        },
-        {
-          href: "/learner/dashboard#writing",
-          label: "Luyện Writing",
-          icon: BookOpenIcon,
         },
       ];
 
