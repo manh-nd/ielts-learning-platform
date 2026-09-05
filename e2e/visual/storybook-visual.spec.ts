@@ -176,5 +176,19 @@ test.describe("Storybook Visual Regression Suite", () => {
         "app-shell-teacher-default.png"
       );
     });
+
+    test("Desktop Collapsed App Shell", async ({ page }) => {
+      await loadStory(page, "product-layout-appshell--desktop-collapsed");
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "app-shell-desktop-collapsed.png"
+      );
+    });
+
+    test("Mobile Off Canvas Open", async ({ page }) => {
+      await loadStory(page, "product-layout-appshell--mobile-off-canvas-open");
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "app-shell-mobile-off-canvas-open.png"
+      );
+    });
   });
 });

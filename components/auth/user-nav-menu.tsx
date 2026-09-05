@@ -44,25 +44,38 @@ export function UserNavMenu({
   const isTeacher = user.role === "teacher";
 
   return (
-    <div className={cn("inline-flex items-center", className)}>
+    <div className={cn("w-full", className)}>
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <button
               type="button"
-              className="group flex items-center gap-2 rounded-full p-1 pr-2 group-data-[collapsible=icon]:p-1 group-data-[collapsible=icon]:pr-1 transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring select-none"
+              className={cn(
+                "group/user flex w-full items-center gap-2.5 rounded-lg p-2 text-left text-xs outline-none transition-[width,height,padding]",
+                "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring select-none",
+                "data-open:bg-sidebar-accent data-open:text-sidebar-accent-foreground",
+                "group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
+              )}
               aria-label="Menu tài khoản"
             >
-              <Avatar size="sm" className="ring-1 ring-border">
+              <Avatar
+                size="sm"
+                className="size-8 rounded-lg shrink-0 ring-1 ring-border/40"
+              >
                 {user.image && <AvatarImage src={user.image} alt={user.name} />}
-                <AvatarFallback className="text-[0.65rem] font-bold bg-primary text-primary-foreground">
+                <AvatarFallback className="rounded-lg text-xs font-bold bg-primary text-primary-foreground">
                   {getInitials(user.name)}
                 </AvatarFallback>
               </Avatar>
-              <span className="max-w-[120px] truncate text-xs font-medium text-foreground text-left hidden sm:inline-block group-data-[collapsible=icon]:hidden">
-                {user.name}
-              </span>
-              <ChevronDownIcon className="size-3 text-muted-foreground transition-transform group-data-open:rotate-180 group-data-[collapsible=icon]:hidden" />
+              <div className="grid flex-1 text-left text-xs leading-tight group-data-[collapsible=icon]:hidden min-w-0">
+                <span className="truncate font-semibold text-foreground">
+                  {user.name}
+                </span>
+                <span className="truncate text-[0.68rem] text-muted-foreground">
+                  {isTeacher ? "Giáo viên" : "Học viên"}
+                </span>
+              </div>
+              <ChevronDownIcon className="ml-auto size-3.5 text-muted-foreground transition-transform group-data-open:rotate-180 group-data-[collapsible=icon]:hidden shrink-0" />
             </button>
           }
         />

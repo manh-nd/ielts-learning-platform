@@ -32,6 +32,7 @@ export interface AppShellProps {
   children: React.ReactNode;
   className?: string;
   defaultOpen?: boolean;
+  defaultOpenMobile?: boolean;
 }
 
 export function AppShell({
@@ -39,6 +40,7 @@ export function AppShell({
   children,
   className,
   defaultOpen,
+  defaultOpenMobile,
 }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -78,7 +80,11 @@ export function AppShell({
     defaultOpen !== undefined ? defaultOpen : !isImmersive;
 
   return (
-    <SidebarProvider defaultOpen={resolvedDefaultOpen} className={className}>
+    <SidebarProvider
+      defaultOpen={resolvedDefaultOpen}
+      defaultOpenMobile={defaultOpenMobile}
+      className={className}
+    >
       <ImmersiveRouteController isImmersive={isImmersive} />
       <AppSidebar
         user={user}

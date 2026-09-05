@@ -226,3 +226,51 @@ export const ClientSideTransitionToImmersive: Story = {
     ).toBeInTheDocument();
   },
 };
+
+export const DesktopCollapsed: Story = {
+  args: {
+    user: mockTeacher,
+    defaultOpen: false,
+  },
+  parameters: {
+    nextjs: {
+      navigation: {
+        pathname: "/teacher/review",
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", {
+      name: /đóng\/mở thanh điều hướng/i,
+    });
+    expect(trigger).toBeInTheDocument();
+  },
+};
+
+export const MobileOffCanvasOpen: Story = {
+  args: {
+    user: mockLearner,
+    defaultOpenMobile: true,
+  },
+  parameters: {
+    viewport: {
+      defaultViewport: "mobile1",
+    },
+    nextjs: {
+      navigation: {
+        pathname: "/learner/dashboard",
+      },
+    },
+    a11y: {
+      config: {
+        rules: [{ id: "aria-hidden-focus", enabled: false }],
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const body = within(canvasElement.ownerDocument.body);
+    expect(body.getByText("Nguyễn Minh Anh")).toBeVisible();
+    expect(body.getByText("Học viên")).toBeVisible();
+  },
+};

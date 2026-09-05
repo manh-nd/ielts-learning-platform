@@ -23,8 +23,11 @@ export function AppHeader({ title, className, children }: AppHeaderProps) {
         <SidebarTrigger className="-ml-1 text-muted-foreground hover:text-foreground" />
         {title && (
           <>
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <h2 className="text-xs sm:text-sm font-medium text-foreground truncate">
+            <Separator
+              orientation="vertical"
+              className="h-4 self-center shrink-0"
+            />
+            <h2 className="text-xs sm:text-sm font-medium text-foreground truncate leading-none">
               {title}
             </h2>
           </>

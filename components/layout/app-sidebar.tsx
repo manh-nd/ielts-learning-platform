@@ -46,10 +46,11 @@ export function AppSidebar({
       className={cn("border-r border-sidebar-border", className)}
       {...props}
     >
-      <SidebarHeader className="h-14 border-b border-sidebar-border/50 px-3 flex flex-row items-center justify-between">
+      <SidebarHeader className="h-14 border-b border-sidebar-border/50 px-3 flex flex-row items-center justify-between group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:justify-center">
         <Link
           href={isTeacher ? "/teacher/review" : "/learner/dashboard"}
-          className="flex items-center gap-2 text-sm font-semibold tracking-tight transition-opacity hover:opacity-90 overflow-hidden"
+          aria-label="Chilly IELTS"
+          className="flex items-center gap-2.5 text-sm font-semibold tracking-tight transition-opacity hover:opacity-90 overflow-hidden group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
         >
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
             <GraduationCapIcon className="size-5" />
@@ -60,7 +61,7 @@ export function AppSidebar({
         </Link>
       </SidebarHeader>
 
-      <SidebarContent className="px-2 py-2">
+      <SidebarContent className="px-2 py-2 group-data-[collapsible=icon]:px-0">
         <SidebarGroup>
           <SidebarGroupLabel className="text-[0.68rem] tracking-wider text-muted-foreground uppercase group-data-[collapsible=icon]:hidden">
             Điều hướng
@@ -93,13 +94,16 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border/50 p-2 flex items-center justify-between group-data-[collapsible=icon]:justify-center">
-        <UserNavMenu
-          user={user}
-          onSignOut={onSignOut}
-          isSigningOut={isSigningOut}
-          className="w-full group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:justify-center"
-        />
+      <SidebarFooter className="border-t border-sidebar-border/50 p-2 group-data-[collapsible=icon]:p-2 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <UserNavMenu
+              user={user}
+              onSignOut={onSignOut}
+              isSigningOut={isSigningOut}
+            />
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
 
       <SidebarRail />
