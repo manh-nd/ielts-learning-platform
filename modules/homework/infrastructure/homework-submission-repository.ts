@@ -6,6 +6,10 @@ import type {
   AudioResponseClip,
   HomeworkSubmissionStatus,
 } from "../domain/homework-types";
+import {
+  canLearnerResubmit,
+  getTeacherReviewAvailability,
+} from "../domain/homework-submission-lifecycle";
 import { eq, and, desc, asc } from "drizzle-orm";
 
 // In-memory cache for development and test isolation
@@ -67,87 +71,43 @@ function mapRowToSubmission(
   };
 }
 
-/**
- * Finds a homework submission by assignment ID and learner ID.
- */
+/** Database reads deliberately bypass the development store. */
 export async function findSubmissionByAssignmentAndLearner(
   assignmentId: string,
   learnerId: string
 ): Promise<HomeworkSubmission | null> {
-  // Check in-memory cache first
-  for (const s of devSubmissionCache.values()) {
-    if (s.assignmentId === assignmentId && s.learnerId === learnerId) {
-      return s;
-    }
-  }
-
   if (process.env.DATABASE_URL) {
-    try {
-      const rows = await db
-        .select()
-        .from(homeworkSubmissions)
-        .where(
-          and(
-            eq(homeworkSubmissions.assignmentId, assignmentId),
-            eq(homeworkSubmissions.learnerId, learnerId)
-          )
+    const rows = await db
+      .select()
+      .from(homeworkSubmissions)
+      .where(
+        and(
+          eq(homeworkSubmissions.assignmentId, assignmentId),
+          eq(homeworkSubmissions.learnerId, learnerId)
         )
-        .limit(1);
-
-      if (rows.length > 0) {
-        const record = mapRowToSubmission(rows[0]);
-        devSubmissionCache.set(record.id, record);
-        return record;
-      }
-    } catch (err) {
-      if (err instanceof SubmissionIntegrityError) {
-        throw err;
-      }
-      console.warn(
-        "[HomeworkSubmissionRepo] findSubmissionByAssignmentAndLearner DB warning:",
-        err
-      );
-    }
+      )
+      .limit(1);
+    return rows[0] ? mapRowToSubmission(rows[0]) : null;
   }
-
-  return null;
+  return (
+    [...devSubmissionCache.values()].find(
+      (s) => s.assignmentId === assignmentId && s.learnerId === learnerId
+    ) || null
+  );
 }
 
-/**
- * Finds a homework submission by ID.
- */
 export async function findSubmissionById(
   id: string
 ): Promise<HomeworkSubmission | null> {
-  if (devSubmissionCache.has(id)) {
-    return devSubmissionCache.get(id) || null;
-  }
-
   if (process.env.DATABASE_URL) {
-    try {
-      const rows = await db
-        .select()
-        .from(homeworkSubmissions)
-        .where(eq(homeworkSubmissions.id, id))
-        .limit(1);
-
-      if (rows.length > 0) {
-        const record = mapRowToSubmission(rows[0]);
-        devSubmissionCache.set(record.id, record);
-        return record;
-      }
-    } catch (err) {
-      if (err instanceof SubmissionIntegrityError) {
-        throw err;
-      }
-      console.warn(
-        "[HomeworkSubmissionRepo] findSubmissionById DB warning:",
-        err
-      );
-    }
+    const rows = await db
+      .select()
+      .from(homeworkSubmissions)
+      .where(eq(homeworkSubmissions.id, id))
+      .limit(1);
+    return rows[0] ? mapRowToSubmission(rows[0]) : null;
   }
-
-  return null;
+  return devSubmissionCache.get(id) || null;
 }
 
 /**
@@ -184,122 +144,152 @@ export async function createInitialSubmissionWithAttempt(data: {
   };
 
   if (process.env.DATABASE_URL) {
-    try {
-      await db.transaction(async (tx) => {
-        await tx.insert(homeworkSubmissions).values({
-          id: submission.id,
-          assignmentId: submission.assignmentId,
-          learnerId: submission.learnerId,
-          status: submission.status,
-          currentAttemptNumber: submission.currentAttemptNumber,
-          reviewedAttemptNumber: submission.reviewedAttemptNumber,
-          createdAt: submission.createdAt,
-          updatedAt: submission.updatedAt,
-        });
-
-        await tx.insert(submissionAttempts).values({
-          id: attempt.id,
-          submissionId: attempt.submissionId,
-          attemptNumber: attempt.attemptNumber,
-          audioResponses: attempt.audioResponses,
-          submittedAt: attempt.submittedAt,
-        });
-      });
-    } catch (err) {
-      console.warn(
-        "[HomeworkSubmissionRepo] createInitialSubmissionWithAttempt DB warning:",
-        err
-      );
-      if (
-        process.env.NODE_ENV === "production" &&
-        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
-      ) {
-        throw err;
-      }
-    }
+    await db.transaction(async (tx) => {
+      await tx.insert(homeworkSubmissions).values(submission);
+      await tx.insert(submissionAttempts).values(attempt);
+    });
+  } else {
+    devSubmissionCache.set(submission.id, submission);
+    devAttemptCache.set(submission.id, [attempt]);
   }
-
-  devSubmissionCache.set(submission.id, submission);
-  devAttemptCache.set(submission.id, [attempt]);
-
   return { submission, attempt };
 }
 
-/**
- * Creates a subsequent immutable attempt snapshot (Resubmission: attempt #2, #3, etc.)
- * Increments currentAttemptNumber on homeworkSubmissions.
- */
-export async function createSubsequentAttempt(
-  submissionId: string,
-  audioResponses: AudioResponseClip[]
-): Promise<{ submission: HomeworkSubmission; attempt: SubmissionAttempt }> {
-  const existing = await findSubmissionById(submissionId);
-  if (!existing) {
-    throw new Error(`Submission ${submissionId} not found.`);
-  }
+type NoSubmissionTransition =
+  | { kind: "no_transition"; submission: HomeworkSubmission }
+  | { kind: "not_found" };
 
-  const nextAttemptNumber = existing.currentAttemptNumber + 1;
-  const attemptId = crypto.randomUUID();
+export type CommitResubmissionResult =
+  | NoSubmissionTransition
+  | {
+      kind: "committed";
+      submission: HomeworkSubmission;
+      attempt: SubmissionAttempt;
+    };
+export type ClaimTeacherReviewResult =
+  | NoSubmissionTransition
+  | {
+      kind: "claimed";
+      submission: HomeworkSubmission;
+    };
+
+function noTransition(
+  submission: HomeworkSubmission | null
+): NoSubmissionTransition {
+  return submission
+    ? { kind: "no_transition", submission }
+    : { kind: "not_found" };
+}
+
+/** The conditional row update and immutable attempt insert form one business commit. */
+export async function commitResubmission(data: {
+  submissionId: string;
+  expectedCurrentAttemptNumber: number;
+  audioResponses: AudioResponseClip[];
+}): Promise<CommitResubmissionResult> {
+  const { submissionId, expectedCurrentAttemptNumber, audioResponses } = data;
   const now = new Date();
-
-  const updatedSubmission: HomeworkSubmission = {
-    ...existing,
-    status: "submitted",
-    currentAttemptNumber: nextAttemptNumber,
-    updatedAt: now,
-  };
-
-  const newAttempt: SubmissionAttempt = {
-    id: attemptId,
+  const attempt: SubmissionAttempt = {
+    id: crypto.randomUUID(),
     submissionId,
-    attemptNumber: nextAttemptNumber,
+    attemptNumber: expectedCurrentAttemptNumber + 1,
     audioResponses,
     submittedAt: now,
   };
-
   if (process.env.DATABASE_URL) {
-    try {
-      await db.transaction(async (tx) => {
-        await tx
-          .update(homeworkSubmissions)
-          .set({
-            status: updatedSubmission.status,
-            currentAttemptNumber: updatedSubmission.currentAttemptNumber,
-            updatedAt: updatedSubmission.updatedAt,
-          })
-          .where(eq(homeworkSubmissions.id, submissionId));
-
-        await tx.insert(submissionAttempts).values({
-          id: newAttempt.id,
-          submissionId: newAttempt.submissionId,
-          attemptNumber: newAttempt.attemptNumber,
-          audioResponses: newAttempt.audioResponses,
-          submittedAt: newAttempt.submittedAt,
-        });
-      });
-    } catch (err) {
-      console.warn(
-        "[HomeworkSubmissionRepo] createSubsequentAttempt DB warning:",
-        err
-      );
-      if (
-        process.env.NODE_ENV === "production" &&
-        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
-      ) {
-        throw err;
+    return db.transaction(async (tx): Promise<CommitResubmissionResult> => {
+      const rows = await tx
+        .update(homeworkSubmissions)
+        .set({
+          currentAttemptNumber: attempt.attemptNumber,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(homeworkSubmissions.id, submissionId),
+            eq(homeworkSubmissions.status, "submitted"),
+            eq(
+              homeworkSubmissions.currentAttemptNumber,
+              expectedCurrentAttemptNumber
+            )
+          )
+        )
+        .returning();
+      if (!rows[0]) {
+        const current = await tx
+          .select()
+          .from(homeworkSubmissions)
+          .where(eq(homeworkSubmissions.id, submissionId))
+          .limit(1);
+        return noTransition(current[0] ? mapRowToSubmission(current[0]) : null);
       }
-    }
+      const submission = mapRowToSubmission(rows[0]);
+      // Throwing here must escape the callback so postgres-js rolls back the update.
+      await tx.insert(submissionAttempts).values(attempt);
+      return { kind: "committed", submission, attempt };
+    });
   }
 
-  devSubmissionCache.set(submissionId, updatedSubmission);
-  const attempts = devAttemptCache.get(submissionId) || [];
-  devAttemptCache.set(submissionId, [...attempts, newAttempt]);
+  // No await between observing state and committing both in-memory records.
+  const existing = devSubmissionCache.get(submissionId);
+  if (!existing) return { kind: "not_found" };
+  if (
+    !canLearnerResubmit(existing.status) ||
+    existing.currentAttemptNumber !== expectedCurrentAttemptNumber
+  ) {
+    return noTransition(existing);
+  }
+  const submission = {
+    ...existing,
+    currentAttemptNumber: attempt.attemptNumber,
+    updatedAt: now,
+  };
+  const attempts = [...(devAttemptCache.get(submissionId) || []), attempt];
+  devSubmissionCache.set(submissionId, submission);
+  devAttemptCache.set(submissionId, attempts);
+  return { kind: "committed", submission, attempt };
+}
 
-  return { submission: updatedSubmission, attempt: newAttempt };
+/** Capture the database's CurrentAttempt, never an application snapshot. */
+export async function claimTeacherReview(
+  submissionId: string
+): Promise<ClaimTeacherReviewResult> {
+  const now = new Date();
+  if (process.env.DATABASE_URL) {
+    const rows = await db
+      .update(homeworkSubmissions)
+      .set({
+        status: "in_review",
+        reviewedAttemptNumber: homeworkSubmissions.currentAttemptNumber,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(homeworkSubmissions.id, submissionId),
+          eq(homeworkSubmissions.status, "submitted")
+        )
+      )
+      .returning();
+    if (rows[0])
+      return { kind: "claimed", submission: mapRowToSubmission(rows[0]) };
+    return noTransition(await findSubmissionById(submissionId));
+  }
+  const existing = devSubmissionCache.get(submissionId);
+  if (!existing) return { kind: "not_found" };
+  if (getTeacherReviewAvailability(existing.status) !== "claimable")
+    return noTransition(existing);
+  const submission: HomeworkSubmission = {
+    ...existing,
+    status: "in_review",
+    reviewedAttemptNumber: existing.currentAttemptNumber,
+    updatedAt: now,
+  };
+  devSubmissionCache.set(submissionId, submission);
+  return { kind: "claimed", submission };
 }
 
 /**
- * Updates submission status and optionally reviewedAttemptNumber (for Teacher review lock/publish).
+ * Legacy publication write. Review claims must use claimTeacherReview instead.
  */
 export async function updateSubmissionStatus(
   submissionId: string,
@@ -323,71 +313,35 @@ export async function updateSubmissionStatus(
   };
 
   if (process.env.DATABASE_URL) {
-    try {
-      await db
-        .update(homeworkSubmissions)
-        .set({
-          status: updated.status,
-          reviewedAttemptNumber: updated.reviewedAttemptNumber,
-          updatedAt: updated.updatedAt,
-        })
-        .where(eq(homeworkSubmissions.id, submissionId));
-    } catch (err) {
-      console.warn(
-        "[HomeworkSubmissionRepo] updateSubmissionStatus DB warning:",
-        err
-      );
-      if (
-        process.env.NODE_ENV === "production" &&
-        process.env.ENABLE_E2E_MOCK_AUTH !== "true"
-      ) {
-        throw err;
-      }
-    }
+    const rows = await db
+      .update(homeworkSubmissions)
+      .set({
+        status: updated.status,
+        reviewedAttemptNumber: updated.reviewedAttemptNumber,
+        updatedAt: updated.updatedAt,
+      })
+      .where(eq(homeworkSubmissions.id, submissionId))
+      .returning();
+    if (!rows[0]) throw new Error(`Submission ${submissionId} not found.`);
+    return mapRowToSubmission(rows[0]);
   }
-
   devSubmissionCache.set(submissionId, updated);
   return updated;
 }
 
-/**
- * Lists all attempts for a given submission ID, sorted ascending by attemptNumber.
- */
 export async function listAttemptsBySubmissionId(
   submissionId: string
 ): Promise<SubmissionAttempt[]> {
-  const cached = devAttemptCache.get(submissionId);
-  if (cached && cached.length > 0) {
-    return [...cached].sort((a, b) => a.attemptNumber - b.attemptNumber);
-  }
-
   if (process.env.DATABASE_URL) {
-    try {
-      const rows = await db
-        .select()
-        .from(submissionAttempts)
-        .where(eq(submissionAttempts.submissionId, submissionId))
-        .orderBy(asc(submissionAttempts.attemptNumber));
-
-      const attempts: SubmissionAttempt[] = rows.map((r) => ({
-        id: r.id,
-        submissionId: r.submissionId,
-        attemptNumber: r.attemptNumber,
-        audioResponses: r.audioResponses as AudioResponseClip[],
-        submittedAt: r.submittedAt,
-      }));
-
-      devAttemptCache.set(submissionId, attempts);
-      return attempts;
-    } catch (err) {
-      console.warn(
-        "[HomeworkSubmissionRepo] listAttemptsBySubmissionId DB warning:",
-        err
-      );
-    }
+    return db
+      .select()
+      .from(submissionAttempts)
+      .where(eq(submissionAttempts.submissionId, submissionId))
+      .orderBy(asc(submissionAttempts.attemptNumber));
   }
-
-  return [];
+  return [...(devAttemptCache.get(submissionId) || [])].sort(
+    (a, b) => a.attemptNumber - b.attemptNumber
+  );
 }
 
 /**
@@ -407,37 +361,15 @@ export async function findAttemptByNumber(
 export async function listSubmissionsByAssignmentId(
   assignmentId: string
 ): Promise<HomeworkSubmission[]> {
-  const cachedSubmissions: HomeworkSubmission[] = [];
-  for (const s of devSubmissionCache.values()) {
-    if (s.assignmentId === assignmentId) {
-      cachedSubmissions.push(s);
-    }
-  }
-
   if (process.env.DATABASE_URL) {
-    try {
-      const rows = await db
-        .select()
-        .from(homeworkSubmissions)
-        .where(eq(homeworkSubmissions.assignmentId, assignmentId))
-        .orderBy(desc(homeworkSubmissions.createdAt));
-
-      const dbSubmissions: HomeworkSubmission[] = rows.map(mapRowToSubmission);
-
-      const merged = new Map<string, HomeworkSubmission>();
-      for (const s of dbSubmissions) merged.set(s.id, s);
-      for (const s of cachedSubmissions) merged.set(s.id, s);
-      return Array.from(merged.values());
-    } catch (err) {
-      if (err instanceof SubmissionIntegrityError) {
-        throw err;
-      }
-      console.warn(
-        "[HomeworkSubmissionRepo] listSubmissionsByAssignmentId DB warning:",
-        err
-      );
-    }
+    const rows = await db
+      .select()
+      .from(homeworkSubmissions)
+      .where(eq(homeworkSubmissions.assignmentId, assignmentId))
+      .orderBy(desc(homeworkSubmissions.createdAt));
+    return rows.map(mapRowToSubmission);
   }
-
-  return cachedSubmissions;
+  return [...devSubmissionCache.values()].filter(
+    (s) => s.assignmentId === assignmentId
+  );
 }

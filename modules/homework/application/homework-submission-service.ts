@@ -7,7 +7,7 @@ import {
 import {
   findSubmissionByAssignmentAndLearner,
   createInitialSubmissionWithAttempt,
-  createSubsequentAttempt,
+  commitResubmission,
   listAttemptsBySubmissionId,
   findAttemptByNumber,
 } from "../infrastructure/homework-submission-repository";
@@ -291,37 +291,26 @@ export async function submitLearnerHomeworkAttempt(
   if (existingSubmission) {
     // First-Committed-Wins Concurrency Lock: Only "submitted" status can be resubmitted
     if (!canLearnerResubmit(existingSubmission.status)) {
-      if (existingSubmission.status === "in_review") {
-        throw new ConflictError(
-          "Bài làm đã được Giáo viên tiếp nhận chấm, không thể nộp lại.",
-          { status: existingSubmission.status },
-          "SUBMISSION_UNDER_REVIEW"
-        );
-      }
-      if (existingSubmission.status === "published") {
-        throw new ConflictError(
-          "Bài làm đã được Giáo viên xuất bản kết quả đánh giá, không thể nộp lại.",
-          { status: existingSubmission.status },
-          "SUBMISSION_PUBLISHED"
-        );
-      }
-      throw new ConflictError(
-        `Không thể nộp lại bài làm khi đang ở trạng thái "${existingSubmission.status}".`,
-        { status: existingSubmission.status },
-        "SUBMISSION_INVALID_STATE"
-      );
+      throwResubmissionConflict(existingSubmission);
     }
 
     // Resubmission: Create immutable attempt #N
-    const result = await createSubsequentAttempt(
-      existingSubmission.id,
-      input.audioResponses
-    );
+    const result = await commitResubmission({
+      submissionId: existingSubmission.id,
+      expectedCurrentAttemptNumber: existingSubmission.currentAttemptNumber,
+      audioResponses: input.audioResponses,
+    });
+    if (result.kind === "not_found") {
+      throw new NotFoundError("Không tìm thấy bài nộp được yêu cầu.");
+    }
+    if (result.kind === "no_transition") {
+      throwResubmissionConflict(result.submission);
+    }
 
     // Asynchronous AI proposal trigger placeholder
     dispatchBackgroundAiEvaluation(result.submission.id, result.attempt.id);
 
-    return result;
+    return { submission: result.submission, attempt: result.attempt };
   }
 
   // Initial submission: Create attempt #1
@@ -336,6 +325,28 @@ export async function submitLearnerHomeworkAttempt(
   dispatchBackgroundAiEvaluation(result.submission.id, result.attempt.id);
 
   return result;
+}
+
+function throwResubmissionConflict(submission: HomeworkSubmission): never {
+  if (submission.status === "in_review") {
+    throw new ConflictError(
+      "Bài làm đã được Giáo viên tiếp nhận chấm, không thể nộp lại.",
+      { status: submission.status },
+      "SUBMISSION_UNDER_REVIEW"
+    );
+  }
+  if (submission.status === "published") {
+    throw new ConflictError(
+      "Bài làm đã được Giáo viên xuất bản kết quả đánh giá, không thể nộp lại.",
+      { status: submission.status },
+      "SUBMISSION_PUBLISHED"
+    );
+  }
+  throw new ConflictError(
+    `Không thể nộp lại bài làm khi đang ở trạng thái "${submission.status}".`,
+    { status: submission.status },
+    "SUBMISSION_INVALID_STATE"
+  );
 }
 
 /**

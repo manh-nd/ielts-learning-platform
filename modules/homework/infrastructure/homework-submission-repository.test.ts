@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import {
   createInitialSubmissionWithAttempt,
-  createSubsequentAttempt,
+  commitResubmission,
   findSubmissionByAssignmentAndLearner,
   findSubmissionById,
   listSubmissionsByAssignmentId,
@@ -80,15 +80,20 @@ describe("Homework Submission Repository (Issue #75, ADR-0009)", () => {
       }
     );
 
-    const { submission: updatedSub, attempt: attempt2 } =
-      await createSubsequentAttempt(initialSub.id, [
+    const result = await commitResubmission({
+      submissionId: initialSub.id,
+      expectedCurrentAttemptNumber: 1,
+      audioResponses: [
         {
           promptId: "p1",
           storageKey: "key_v2.webm",
           durationMs: 35000,
           audioBytes: 95000,
         },
-      ]);
+      ],
+    });
+    if (result.kind !== "committed") throw new Error("Expected commit");
+    const { submission: updatedSub, attempt: attempt2 } = result;
 
     expect(updatedSub.currentAttemptNumber).toBe(2);
     expect(attempt2.attemptNumber).toBe(2);
@@ -206,7 +211,8 @@ describe("Homework Submission Repository (Issue #75, ADR-0009)", () => {
         configurable: true,
         writable: true,
       });
-      process.env.DATABASE_URL = originalDatabaseUrl;
+      if (originalDatabaseUrl === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = originalDatabaseUrl;
     }
   });
 });

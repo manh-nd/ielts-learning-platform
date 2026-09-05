@@ -1,5 +1,6 @@
 import {
   findSubmissionById,
+  claimTeacherReview,
   updateSubmissionStatus,
   findAttemptByNumber,
 } from "../infrastructure/homework-submission-repository";
@@ -172,12 +173,18 @@ export async function startTeacherReview(
     );
   }
 
-  // Set in_review and lock reviewedAttemptNumber = currentAttemptNumber
-  const updated = await updateSubmissionStatus(
-    submission.id,
-    "in_review",
-    submission.currentAttemptNumber
-  );
+  const result = await claimTeacherReview(submission.id);
+  if (result.kind === "not_found") {
+    throw new NotFoundError("Không tìm thấy bài nộp được yêu cầu.");
+  }
+  if (getTeacherReviewAvailability(result.submission.status) === "terminal") {
+    throw new ConflictError(
+      "Bài nộp đã được xuất bản kết quả đánh giá chính thức, không thể mở lại chấm.",
+      { status: result.submission.status },
+      "SUBMISSION_ALREADY_PUBLISHED"
+    );
+  }
+  const updated = result.submission;
 
   recordTelemetryEvent({
     userId: teacherId,
@@ -188,7 +195,7 @@ export async function startTeacherReview(
     properties: {
       assignmentId: submission.assignmentId,
       learnerId: submission.learnerId,
-      reviewedAttemptNumber: submission.currentAttemptNumber,
+      reviewedAttemptNumber: updated.reviewedAttemptNumber,
     },
   }).catch(() => {});
 

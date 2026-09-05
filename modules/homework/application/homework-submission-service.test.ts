@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import * as submissionRepository from "../infrastructure/homework-submission-repository";
+import { describe, it, expect, beforeEach, spyOn } from "bun:test";
 import {
   getLearnerAssignmentDetails,
   submitLearnerHomeworkAttempt,
@@ -231,6 +232,52 @@ describe("Homework Submission Application Service (Issue #75, ADR-0008, ADR-0009
       expect(details.currentAttempt?.attemptNumber).toBe(1);
       expect(details.allAttempts).toHaveLength(1);
     });
+
+    for (const [status, code] of [
+      ["in_review", "SUBMISSION_UNDER_REVIEW"],
+      ["published", "SUBMISSION_PUBLISHED"],
+      ["submitted", "SUBMISSION_INVALID_STATE"],
+    ] as const) {
+      it(`maps a lost resubmission race to ${code} without dispatching AI`, async () => {
+        const { assignment } = await setupTestAssignment();
+        const input = {
+          audioResponses: [
+            makeClip(learnerId, assignment.id, "p1"),
+            makeClip(learnerId, assignment.id, "p2"),
+          ],
+        };
+        const { submission } = await submitLearnerHomeworkAttempt(
+          learnerId,
+          assignment.id,
+          input
+        );
+        const commit = spyOn(
+          submissionRepository,
+          "commitResubmission"
+        ).mockResolvedValue({
+          kind: "no_transition",
+          submission: { ...submission, status, currentAttemptNumber: 2 },
+        });
+        const log = spyOn(console, "info").mockImplementation(() => {});
+        try {
+          await expect(
+            submitLearnerHomeworkAttempt(learnerId, assignment.id, input)
+          ).rejects.toMatchObject({ code, statusCode: 409 });
+          expect(commit).toHaveBeenCalledWith({
+            submissionId: submission.id,
+            expectedCurrentAttemptNumber: 1,
+            audioResponses: input.audioResponses,
+          });
+          expect(log).not.toHaveBeenCalled();
+          expect(await listAttemptsBySubmissionId(submission.id)).toHaveLength(
+            1
+          );
+        } finally {
+          commit.mockRestore();
+          log.mockRestore();
+        }
+      });
+    }
 
     it("should allow resubmission (attempt #2) before deadline and preserve attempt #1 immutably", async () => {
       const { assignment } = await setupTestAssignment();

@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import * as submissionRepository from "../infrastructure/homework-submission-repository";
+import { describe, it, expect, beforeEach, spyOn } from "bun:test";
 import {
   clearDevHomeworkCache,
   createAssignment,
@@ -147,6 +148,61 @@ describe("Homework Review Service (Issue #76, ADR-0008, ADR-0009, Ticket #51, #5
   });
 
   describe("First-Committed-Wins Concurrency Lock (startTeacherReview vs Learner Resubmit)", () => {
+    it("opens the newly committed attempt even if ownership checked an older snapshot", async () => {
+      const originalClaim = submissionRepository.claimTeacherReview;
+      const claim = spyOn(
+        submissionRepository,
+        "claimTeacherReview"
+      ).mockImplementation(async (id) => {
+        await submissionRepository.commitResubmission({
+          submissionId: id,
+          expectedCurrentAttemptNumber: 1,
+          audioResponses: [],
+        });
+        return originalClaim(id);
+      });
+      try {
+        expect(await startTeacherReview(teacherId, submissionId)).toMatchObject(
+          {
+            currentAttemptNumber: 2,
+            reviewedAttemptNumber: 2,
+            status: "in_review",
+          }
+        );
+      } finally {
+        claim.mockRestore();
+      }
+      const reopened = await startTeacherReview(teacherId, submissionId);
+      expect(reopened.reviewedAttemptNumber).toBe(2);
+    });
+
+    it("maps a published conditional claim result to the existing conflict", async () => {
+      const submission =
+        await submissionRepository.findSubmissionById(submissionId);
+      if (!submission) throw new Error("Missing fixture");
+      const claim = spyOn(
+        submissionRepository,
+        "claimTeacherReview"
+      ).mockResolvedValue({
+        kind: "no_transition",
+        submission: {
+          ...submission,
+          status: "published",
+          reviewedAttemptNumber: 1,
+        },
+      });
+      try {
+        await expect(
+          startTeacherReview(teacherId, submissionId)
+        ).rejects.toMatchObject({
+          code: "SUBMISSION_ALREADY_PUBLISHED",
+          statusCode: 409,
+        });
+      } finally {
+        claim.mockRestore();
+      }
+    });
+
     it("should transition status to in_review and lock reviewedAttemptNumber", async () => {
       const updated = await startTeacherReview(teacherId, submissionId);
       expect(updated.status).toBe("in_review");
