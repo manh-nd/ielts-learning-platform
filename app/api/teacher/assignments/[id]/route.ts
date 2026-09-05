@@ -147,7 +147,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
 /**
  * DELETE /api/teacher/assignments/:id
- * Permanently deletes an unassigned draft assignment.
+ * Permanently deletes a draft assignment.
  */
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {

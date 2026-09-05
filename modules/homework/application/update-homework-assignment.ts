@@ -2,6 +2,7 @@ import { updateAssignment } from "../infrastructure/homework-assignment-reposito
 import { assertTeacherOwnsAssignment } from "./assert-teacher-owns-assignment";
 import {
   canEditHomeworkAssignment,
+  canEditHomeworkPrompts,
   canTransitionAssignmentStatus,
 } from "../domain/homework-assignment-lifecycle";
 import {
@@ -55,17 +56,19 @@ export async function updateHomeworkAssignment(
 
   const now = new Date();
 
-  // Prompts and Deadline validations based on current status
-  if (existing.status === "published") {
-    // 1. Prompts are IMMUTABLE once published
-    if (input.prompts !== undefined) {
+  // Prompts validation (governed by pure domain policy)
+  if (input.prompts !== undefined) {
+    if (!canEditHomeworkPrompts(existing.status)) {
       throw new ValidationError(
         "Không thể sửa đổi nội dung câu hỏi sau khi bài tập đã được giao/xuất bản."
       );
     }
+    updates.prompts = validateAndNormalizePrompts(input.prompts);
+  }
 
-    // 2. Deadline can only be EXTENDED
-    if (input.submissionDeadline !== undefined) {
+  // Deadline validation based on current status
+  if (input.submissionDeadline !== undefined) {
+    if (existing.status === "published") {
       const newDeadline = parseAndValidateDeadline(
         input.submissionDeadline,
         now,
@@ -79,14 +82,7 @@ export async function updateHomeworkAssignment(
         );
       }
       updates.submissionDeadline = newDeadline;
-    }
-  } else {
-    // Draft mode: prompts and deadlines can be edited
-    if (input.prompts !== undefined) {
-      updates.prompts = validateAndNormalizePrompts(input.prompts);
-    }
-
-    if (input.submissionDeadline !== undefined) {
+    } else {
       updates.submissionDeadline = parseAndValidateDeadline(
         input.submissionDeadline,
         now,

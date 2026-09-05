@@ -40,7 +40,7 @@ describe("deleteHomeworkDraft Use Case (Issue #95, ADR-0009)", () => {
     classroomAId = cls.id;
   });
 
-  it("should permit deleting an unassigned draft assignment", async () => {
+  it("should permit deleting a draft assignment", async () => {
     const draftHw = await createHomeworkAssignment(teacherA, classroomAId, {
       title: "Temporary Draft",
       prompts: [{ text: "Draft question", partNumber: 1 }],

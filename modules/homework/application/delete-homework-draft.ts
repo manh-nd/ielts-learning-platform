@@ -4,7 +4,7 @@ import { canDeleteHomeworkAssignment } from "../domain/homework-assignment-lifec
 import { ValidationError } from "@/lib/errors";
 
 /**
- * Permanently deletes an unassigned draft assignment.
+ * Permanently deletes a draft assignment.
  */
 export async function deleteHomeworkDraft(
   teacherId: string,

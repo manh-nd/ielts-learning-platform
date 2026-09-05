@@ -7,7 +7,7 @@ import type { HomeworkAssignmentStatus } from "./homework-types";
  * - HomeworkAssignmentStatus = draft | published | archived
  * - Archived assignments are frozen and cannot be edited or reopened.
  * - Prompts are immutable once published or archived (editable only in draft status).
- * - Only unassigned draft assignments may be permanently deleted.
+ * - Only draft assignments may be permanently deleted.
  * - Published assignments cannot transition back to draft status.
  * - Same-state transitions (draft -> draft, published -> published) are explicitly supported.
  *
