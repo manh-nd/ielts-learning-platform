@@ -21,7 +21,11 @@ export const metadata: Metadata = {
     "Nền tảng luyện thi IELTS thông minh kết hợp đàm thoại AI thời gian thực (Speaking), chẩn đoán lỗi đa tiêu chí (Writing) và không gian chấm chữa chuyên sâu từ Giảng viên.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"
