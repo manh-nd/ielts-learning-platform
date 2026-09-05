@@ -307,7 +307,7 @@ export const PublishedAssessmentReadonly: Story = {
       canvas.getByTestId("submission-published-banner")
     ).toBeInTheDocument();
     await expect(
-      canvas.getByText(/Đã công bố kết quả \(Khóa nộp lại\)/i)
+      canvas.getByText(/Đã có kết quả \(Khóa nộp lại\)/i)
     ).toBeInTheDocument();
     await expect(canvas.getByText(/Đã chấm xong/i)).toBeInTheDocument();
 

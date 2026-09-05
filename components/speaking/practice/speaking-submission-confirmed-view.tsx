@@ -121,7 +121,7 @@ export function SpeakingSubmissionConfirmedView({
             className="self-start sm:self-center bg-background/80 border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs py-1.5 px-3 font-medium shrink-0"
           >
             <Clock className="w-3.5 h-3.5 mr-1.5 text-amber-600 dark:text-amber-400" />
-            <span>Đang chờ Giáo viên duyệt</span>
+            <span>Đang chờ Giáo viên chấm</span>
           </Badge>
         </div>
 
@@ -170,11 +170,10 @@ export function SpeakingSubmissionConfirmedView({
             <span>Quy trình Chấm điểm & Trả bài (Teacher-in-the-loop)</span>
           </div>
           <p className="text-foreground/90 leading-relaxed">
-            Hệ thống AI đang tạo đề xuất chấm điểm sơ bộ (AiAssessmentProposal)
-            bao gồm bảng điểm 4 tiêu chí (FC, LR, GRA, PR) và ghim các mốc thời
-            gian lỗi phát âm. Giáo viên phụ trách ({teacherName}) sẽ trực tiếp
-            nghe lại bài nói, điều chỉnh điểm số và phê duyệt bản nhận xét cuối
-            cùng.
+            Hệ thống AI đang tạo đề xuất chấm điểm sơ bộ bao gồm bảng điểm 4
+            tiêu chí (FC, LR, GRA, PR) và ghi nhận các mốc thời gian phát âm cần
+            lưu ý. Giáo viên phụ trách ({teacherName}) sẽ trực tiếp nghe lại bài
+            nói, điều chỉnh điểm số và công bố kết quả chính thức.
           </p>
           <div className="flex items-center gap-1.5 text-xs text-foreground/80 pt-1 font-medium">
             <HelpCircle className="w-3.5 h-3.5 text-primary shrink-0" />

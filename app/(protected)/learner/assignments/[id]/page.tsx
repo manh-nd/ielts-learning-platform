@@ -41,7 +41,7 @@ export default async function LearnerAssignmentPage({
     if (err instanceof ForbiddenError) {
       forbiddenMessage =
         (err as Error)?.message ||
-        "Bạn không phải là thành viên của lớp học này hoặc bài tập chưa được giao.";
+        "Bạn không phải là học viên của lớp này hoặc bài tập chưa được giao.";
     } else {
       throw err;
     }

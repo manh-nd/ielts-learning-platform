@@ -253,7 +253,7 @@ export const InteractiveAudioWaveformTab: Story = {
 
     // 1. Click Audio tab
     const audioTabBtn = canvas.getByRole("tab", {
-      name: /Ghi âm & Gỡ băng/i,
+      name: /Ghi âm & Bản chép lời/i,
     });
     await userEvent.click(audioTabBtn);
 

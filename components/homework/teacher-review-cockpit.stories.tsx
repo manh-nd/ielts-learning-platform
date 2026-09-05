@@ -211,9 +211,7 @@ export const ProposalReady: Story = {
     ).toBeInTheDocument();
 
     // Verify AI proposal card exists with band 7.0
-    await expect(
-      canvas.getByText(/Đề Xuất Đánh Giá Tự Động Từ AI/i)
-    ).toBeInTheDocument();
+    await expect(canvas.getByText(/Đề xuất chấm từ AI/i)).toBeInTheDocument();
     await expect(canvas.getByTestId("ai-overall-band")).toHaveTextContent(
       "7.0"
     );
@@ -243,7 +241,7 @@ export const AiFailedFallback: Story = {
 
     // Verify AI failure alert is displayed gracefully
     await expect(
-      canvas.getByText(/Đề xuất tự động từ AI tạm thời không khả dụng/i)
+      canvas.getByText(/Đề xuất từ AI tạm thời không khả dụng/i)
     ).toBeInTheDocument();
 
     // Verify manual scoring sliders are still active and usable

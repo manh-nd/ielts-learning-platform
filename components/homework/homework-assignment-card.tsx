@@ -184,7 +184,7 @@ export function HomeworkAssignmentCard({
               onClick={() => onViewDetails(assignment)}
               className="h-7 text-xs gap-1"
             >
-              <span>Chi tiết & Nộp bài</span>
+              <span>Xem chi tiết & bài nộp</span>
               <ChevronRightIcon className="size-3" />
             </Button>
           )}

@@ -67,8 +67,8 @@ export default async function LearnerDashboardPage() {
             </h2>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Luyện phản xạ nói 1-on-1 với AI qua đàm thoại âm thanh hai chiều
-              theo các chủ đề Part 1, nhận nhận xét và gỡ băng chi tiết sau buổi
-              luyện.
+              theo các chủ đề Part 1, nhận nhận xét và bản chép lời chi tiết sau
+              buổi luyện.
             </p>
           </div>
 

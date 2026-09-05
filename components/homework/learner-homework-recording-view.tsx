@@ -673,7 +673,7 @@ export function LearnerHomeworkRecordingView({
         <Alert variant="info" data-testid="submission-published-banner">
           <CheckCircle2Icon className="size-4" />
           <AlertTitle className="font-bold">
-            Bài làm đã được Giáo viên đánh giá & công bố
+            Bài làm đã có kết quả chính thức
           </AlertTitle>
           <AlertDescription className="text-xs mt-1 leading-relaxed font-medium space-y-2">
             <p>
@@ -927,7 +927,7 @@ export function LearnerHomeworkRecordingView({
             {submission?.status === "published" ? (
               <Button disabled variant="outline" className="gap-1.5 text-xs">
                 <CheckCircle2Icon className="size-3.5 text-purple-600 dark:text-purple-400" />
-                <span>Đã công bố kết quả (Khóa nộp lại)</span>
+                <span>Đã có kết quả (Khóa nộp lại)</span>
               </Button>
             ) : isConflictLocked || submission?.status === "in_review" ? (
               <Button disabled variant="outline" className="gap-1.5 text-xs">

@@ -42,11 +42,11 @@ export default async function LearnerAssignmentResultPage({
     if (err instanceof ForbiddenError) {
       forbiddenMessage =
         (err as Error)?.message ||
-        "Bạn không phải là thành viên của lớp học này hoặc bài tập chưa được giao.";
+        "Bạn không phải là học viên của lớp này hoặc bài tập chưa được giao.";
     } else if (err instanceof ConflictError) {
       notPublishedMessage =
         (err as Error)?.message ||
-        "Bài làm chưa được Giáo viên xuất bản kết quả đánh giá.";
+        "Bài làm chưa có kết quả chính thức từ Giáo viên.";
     } else {
       throw err;
     }

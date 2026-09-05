@@ -218,7 +218,7 @@ export function TeacherReviewCockpit({
   const handlePublish = useCallback(async () => {
     if (!overallFeedback.trim()) {
       setErrorMessage(
-        "Vui lòng nhập nhận xét tổng quan của Giáo viên trước khi duyệt công bố."
+        "Vui lòng nhập nhận xét tổng quan của Giáo viên trước khi công bố kết quả."
       );
       return;
     }
@@ -255,9 +255,7 @@ export function TeacherReviewCockpit({
       }
 
       setSubmissionStatus("published");
-      setSuccessMessage(
-        "Đã xuất bản kết quả đánh giá chính thức thành công cho Học viên!"
-      );
+      setSuccessMessage("Đã công bố kết quả chính thức cho học viên.");
     } catch (err: unknown) {
       setErrorMessage((err as Error)?.message || "Không thể công bố bài chấm.");
     } finally {
@@ -449,7 +447,7 @@ export function TeacherReviewCockpit({
               >
                 <Send className="h-4 w-4" />
                 <span>
-                  {isPublishing ? "Đang xuất bản..." : "Duyệt & Công bố"}
+                  {isPublishing ? "Đang công bố..." : "Công bố kết quả"}
                 </span>
               </Button>
             )}
@@ -663,7 +661,7 @@ export function TeacherReviewCockpit({
                   </div>
                   <div>
                     <CardTitle className="text-xs font-bold text-foreground">
-                      Đề Xuất Đánh Giá Tự Động Từ AI
+                      Đề xuất chấm từ AI
                     </CardTitle>
                     <span className="text-[10px] text-muted-foreground font-mono">
                       Mô hình: {aiProposal.modelVersion}
@@ -757,7 +755,7 @@ export function TeacherReviewCockpit({
             >
               <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                <span>Đề xuất tự động từ AI tạm thời không khả dụng.</span>
+                <span>Đề xuất từ AI tạm thời không khả dụng.</span>
               </div>
               <p className="text-[11px] leading-relaxed pl-6">
                 Thầy/Cô vui lòng chấm điểm và ghi nhận xét trực tiếp cho học

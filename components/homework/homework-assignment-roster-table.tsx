@@ -48,7 +48,7 @@ export function HomeworkAssignmentRosterTable({
         return (
           <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 gap-1 text-[11px]">
             <CheckCircle2Icon className="size-3" />
-            <span>Đã duyệt</span>
+            <span>Đã công bố</span>
           </Badge>
         );
       case "in_review":

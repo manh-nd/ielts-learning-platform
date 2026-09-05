@@ -511,7 +511,7 @@ export function LiveSpeakingResultView({
             <CardHeader className="p-4 border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-1.5">
                 <Volume2 className="w-4 h-4 text-primary" />
-                <span>Bản ghi âm giọng bạn & Gỡ băng</span>
+                <span>Bản ghi âm & Bản chép lời</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
@@ -572,7 +572,7 @@ export function LiveSpeakingResultView({
               </div>
               <div className="space-y-1.5 pt-2">
                 <span className="font-semibold text-xs text-muted-foreground">
-                  Gỡ băng hội thoại trực tiếp:
+                  Bản chép lời hội thoại:
                 </span>
                 <div className="p-3 rounded-lg bg-muted/30 border space-y-2 max-h-60 overflow-y-auto text-xs">
                   {transcripts.map((t) => (
@@ -685,7 +685,7 @@ export function LiveSpeakingResultView({
           <TabsTrigger value="parts">
             Chi tiết từng Part ({partEvaluations.length})
           </TabsTrigger>
-          <TabsTrigger value="audio">Ghi âm & Gỡ băng</TabsTrigger>
+          <TabsTrigger value="audio">Ghi âm & Bản chép lời</TabsTrigger>
         </TabsList>
 
         {/* Tab 1: Overview Feedback */}
@@ -1232,13 +1232,13 @@ export function LiveSpeakingResultView({
           <Card className="shadow-xs border py-0 gap-0 overflow-hidden">
             <CardHeader className="p-4 border-b bg-muted/20 pb-3">
               <CardTitle className="text-sm font-bold">
-                Biên bản Hội thoại (Live Transcript)
+                Bản chép lời hội thoại
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-2.5 max-h-96 overflow-y-auto">
               {transcripts.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">
-                  Không có dữ liệu gỡ băng.
+                  Không có dữ liệu bản chép lời.
                 </p>
               ) : (
                 transcripts.map((item) => (

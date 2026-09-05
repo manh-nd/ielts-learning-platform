@@ -706,7 +706,7 @@ export function LiveSpeakingExaminerRoom({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs px-1">
             <span className="font-medium text-muted-foreground">
-              Phụ đề & Gỡ băng hội thoại trực tiếp:
+              Bản chép lời trực tiếp:
             </span>
             {mockMode && (
               <Badge

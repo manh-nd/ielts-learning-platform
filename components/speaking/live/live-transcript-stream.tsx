@@ -31,7 +31,7 @@ export function LiveTranscriptStream({
   transcripts,
   className,
   autoScroll = true,
-  emptyPlaceholder = "Bản gỡ băng hội thoại thời gian thực sẽ hiển thị tại đây khi buổi thi bắt đầu...",
+  emptyPlaceholder = "Bản chép lời hội thoại thời gian thực sẽ hiển thị tại đây khi buổi luyện bắt đầu...",
 }: LiveTranscriptStreamProps) {
   return (
     <MessageScrollerProvider autoScroll={autoScroll}>

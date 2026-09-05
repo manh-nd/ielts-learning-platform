@@ -394,8 +394,8 @@ export function ClassroomRosterTable({
               Bạn có chắc chắn muốn xóa học viên{" "}
               <strong>{memberToRemove?.learnerName}</strong> (
               {memberToRemove?.learnerEmail}) khỏi lớp học này? Hành động này sẽ
-              hủy tư cách thành viên nhưng vẫn giữ nguyên tài khoản và lịch sử
-              bài nộp của học viên.
+              xóa học viên khỏi danh sách lớp nhưng vẫn giữ nguyên tài khoản và
+              lịch sử bài nộp của học viên.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

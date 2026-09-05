@@ -89,7 +89,7 @@ export function FreeTierConsentNoticeModal({
           <div className="flex items-start gap-2">
             <CheckCircle2 className="w-4 h-4 text-indigo-700 dark:text-indigo-400 shrink-0 mt-0.5" />
             <span>
-              <strong>Xử lý AI:</strong> Âm thanh và văn bản gỡ băng được truyền
+              <strong>Xử lý AI:</strong> Âm thanh và bản chép lời được truyền
               tới Google Gemini API phục vụ phân tích 4 tiêu chí IELTS. Theo
               điều khoản Free Tier của Google, dữ liệu có thể được sử dụng để
               cải thiện chất lượng dịch vụ.

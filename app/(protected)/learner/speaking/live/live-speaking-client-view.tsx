@@ -142,8 +142,8 @@ export function LiveSpeakingClientView({
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed">
               Trải nghiệm đàm thoại giọng nói 1-on-1 thời gian thực với Giám
-              khảo AI bản ngữ chuẩn khảo thí. Hệ thống ghi âm thực, gỡ băng và
-              xuất nhận xét chi tiết sau buổi luyện.
+              khảo AI bản ngữ chuẩn khảo thí. Buổi luyện được ghi âm, tạo bản
+              chép lời và cung cấp nhận xét chi tiết sau buổi luyện.
             </p>
           </div>
 
