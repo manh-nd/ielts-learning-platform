@@ -35,9 +35,14 @@ export type ReviewAttempt =
     };
 
 /**
- * Evaluates whether a Learner is permitted to submit a subsequent SubmissionAttempt.
- * A learner may resubmit only while the submission is still in "submitted" status.
- * Once teacher review starts ("in_review") or is published ("published"), resubmission is prohibited.
+ * Evaluates whether a Learner's submission lifecycle status permits submitting a subsequent attempt.
+ *
+ * Checks lifecycle STATUS eligibility only:
+ * - "submitted" -> true (learner may resubmit before teacher review begins)
+ * - "in_review" | "published" -> false (review has started or assessment is finalized)
+ *
+ * NOTE: This policy checks status eligibility only. Whether the submission window is open
+ * must be verified separately via `hasSubmissionDeadlinePassed(deadline, now)`.
  */
 export function canLearnerResubmit(status: HomeworkSubmissionStatus): boolean {
   return status === "submitted";

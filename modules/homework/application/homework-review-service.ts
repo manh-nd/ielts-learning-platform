@@ -108,14 +108,15 @@ export async function getTeacherReviewCockpit(
     submissionId
   );
 
-  // Target attempt: If teacher already started review, use reviewedAttemptNumber; otherwise use currentAttemptNumber
+  // Before review, CurrentAttempt is the candidate; after review claim, ReviewedAttempt is authoritative
   const reviewAttempt = resolveAttemptForReview(submission);
-  const targetAttemptNumber = reviewAttempt.attemptNumber;
-
-  const attempt = await findAttemptByNumber(submission.id, targetAttemptNumber);
+  const attempt = await findAttemptByNumber(
+    submission.id,
+    reviewAttempt.attemptNumber
+  );
   if (!attempt) {
     throw new NotFoundError(
-      `Không tìm thấy dữ liệu lượt nộp #${targetAttemptNumber}.`
+      `Không tìm thấy dữ liệu lượt nộp #${reviewAttempt.attemptNumber}.`
     );
   }
 

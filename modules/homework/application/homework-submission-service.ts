@@ -178,11 +178,13 @@ export async function getLearnerPublishedAssessment(
   }
 
   const reviewAttempt = resolveAttemptForReview(submission);
-  const targetAttemptNumber = reviewAttempt.attemptNumber;
-  const attempt = await findAttemptByNumber(submission.id, targetAttemptNumber);
+  const attempt = await findAttemptByNumber(
+    submission.id,
+    reviewAttempt.attemptNumber
+  );
   if (!attempt) {
     throw new NotFoundError(
-      `Không tìm thấy dữ liệu lượt nộp #${targetAttemptNumber}.`
+      `Không tìm thấy dữ liệu lượt nộp #${reviewAttempt.attemptNumber}.`
     );
   }
 

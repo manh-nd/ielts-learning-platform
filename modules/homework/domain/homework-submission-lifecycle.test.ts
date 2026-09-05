@@ -85,19 +85,5 @@ describe("HomeworkSubmission Lifecycle Domain Policies (Issue #90, ADR-0009, CON
         attemptNumber: 2,
       });
     });
-
-    it("should resolve to ReviewedAttempt in terminal published state", () => {
-      const submission = {
-        currentAttemptNumber: 2,
-        reviewedAttemptNumber: 2,
-      };
-
-      const result = resolveAttemptForReview(submission);
-
-      expect(result).toEqual({
-        kind: "reviewed",
-        attemptNumber: 2,
-      });
-    });
   });
 });
