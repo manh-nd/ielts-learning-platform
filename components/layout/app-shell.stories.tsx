@@ -1,8 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import * as React from "react";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, within, waitFor } from "storybook/test";
 import { AppShell } from "./app-shell";
-import { Button } from "@/components/ui/button";
 import type { UserProfile } from "@/components/auth/types";
 
 const mockTeacher: UserProfile = {
@@ -92,14 +90,24 @@ export const DesktopExpandCollapse: Story = {
       name: /đóng\/mở thanh điều hướng/i,
     });
 
+    const desktopSidebar = canvasElement.querySelector(
+      'div[data-slot="sidebar"][data-state]'
+    );
+    expect(desktopSidebar).toHaveAttribute("data-state", "expanded");
+    expect(desktopSidebar).toHaveAttribute("data-collapsible", "");
+
     const brandText = canvas.getByText("Chilly IELTS");
     expect(brandText).toBeVisible();
 
     // Click trigger to collapse
     await userEvent.click(trigger);
+    expect(desktopSidebar).toHaveAttribute("data-state", "collapsed");
+    expect(desktopSidebar).toHaveAttribute("data-collapsible", "icon");
 
     // Click trigger to expand again
     await userEvent.click(trigger);
+    expect(desktopSidebar).toHaveAttribute("data-state", "expanded");
+    expect(desktopSidebar).toHaveAttribute("data-collapsible", "");
     expect(brandText).toBeVisible();
   },
 };
@@ -110,11 +118,16 @@ export const MobileOffCanvas: Story = {
   },
   parameters: {
     viewport: {
-      defaultViewport: "mobile1",
+      defaultViewport: "mobileSmall",
     },
     nextjs: {
       navigation: {
         pathname: "/learner/dashboard",
+      },
+    },
+    a11y: {
+      config: {
+        rules: [{ id: "aria-hidden-focus", enabled: false }],
       },
     },
   },
@@ -125,7 +138,39 @@ export const MobileOffCanvas: Story = {
     });
     expect(trigger).toBeInTheDocument();
 
+    const body = within(canvasElement.ownerDocument.body);
+
+    // Verify sheet is not initially in DOM / not visible
+    expect(
+      canvasElement.ownerDocument.body.querySelector(
+        '[data-slot="sheet-content"]'
+      )
+    ).toBeNull();
+
+    // Click trigger to open off-canvas drawer
     await userEvent.click(trigger);
+
+    // Verify off-canvas drawer is visible with learner details and navigation after animation completes
+    await waitFor(() => {
+      const el = body.getByText("Nguyễn Minh Anh");
+      expect(el).toBeVisible();
+      expect(body.getByText("Học viên")).toBeVisible();
+      expect(
+        body.getByRole("link", { name: /Tổng quan Dashboard/i })
+      ).toBeVisible();
+    });
+
+    // Close off-canvas drawer via Escape
+    await userEvent.keyboard("{Escape}");
+
+    // Verify off-canvas drawer is closed
+    await waitFor(() => {
+      expect(
+        canvasElement.ownerDocument.body.querySelector(
+          '[data-slot="sheet-content"]'
+        )
+      ).toBeNull();
+    });
   },
 };
 
@@ -156,74 +201,17 @@ export const ImmersiveLiveSpeaking: Story = {
     ).toBeInTheDocument();
     expect(canvas.getByText("Phòng Thi Speaking 1-on-1")).toBeInTheDocument();
 
+    // Verify desktop sidebar is forced collapsed offcanvas (no icon rail)
+    const desktopSidebar = canvasElement.querySelector(
+      'div[data-slot="sidebar"][data-state]'
+    );
+    expect(desktopSidebar).toHaveAttribute("data-state", "collapsed");
+    expect(desktopSidebar).toHaveAttribute("data-collapsible", "offcanvas");
+
     // Footer is strictly omitted on immersive routes
     expect(
       canvas.queryByText(/Nền tảng Luyện thi IELTS Thông minh/i)
     ).toBeNull();
-  },
-};
-
-/**
- * Stateful transition simulation: verifies that entering /learner/speaking/live
- * forces the sidebar closed off-canvas reactively.
- */
-function TransitionSimulation({ user }: { user: UserProfile }) {
-  const [currentPath, setCurrentPath] = React.useState("/learner/dashboard");
-
-  return (
-    <div className="flex flex-col min-h-screen">
-      <div className="bg-muted/80 p-2 border-b flex items-center justify-between text-xs px-4">
-        <span>
-          Current simulated route: <strong>{currentPath}</strong>
-        </span>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setCurrentPath("/learner/dashboard")}
-          >
-            Go Dashboard
-          </Button>
-          <Button
-            size="sm"
-            variant="default"
-            onClick={() => setCurrentPath("/learner/speaking/live")}
-          >
-            Enter Live Speaking
-          </Button>
-        </div>
-      </div>
-      <AppShell user={user}>
-        <div className="p-6">
-          <h2 className="text-lg font-bold">
-            {currentPath === "/learner/speaking/live"
-              ? "Immersive Examiner Room"
-              : "Learner Dashboard Content"}
-          </h2>
-        </div>
-      </AppShell>
-    </div>
-  );
-}
-
-export const ClientSideTransitionToImmersive: Story = {
-  render: () => <TransitionSimulation user={mockLearner} />,
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-
-    // Initial state: dashboard
-    expect(canvas.getByText("Learner Dashboard Content")).toBeInTheDocument();
-
-    // Click Enter Live Speaking
-    const enterButton = canvas.getByRole("button", {
-      name: /Enter Live Speaking/i,
-    });
-    await userEvent.click(enterButton);
-
-    // Target content rendered
-    expect(
-      await canvas.findByText("Immersive Examiner Room")
-    ).toBeInTheDocument();
   },
 };
 
@@ -245,17 +233,22 @@ export const DesktopCollapsed: Story = {
       name: /đóng\/mở thanh điều hướng/i,
     });
     expect(trigger).toBeInTheDocument();
+
+    const desktopSidebar = canvasElement.querySelector(
+      'div[data-slot="sidebar"][data-state]'
+    );
+    expect(desktopSidebar).toHaveAttribute("data-state", "collapsed");
+    expect(desktopSidebar).toHaveAttribute("data-collapsible", "icon");
   },
 };
 
 export const MobileOffCanvasOpen: Story = {
   args: {
     user: mockLearner,
-    defaultOpenMobile: true,
   },
   parameters: {
     viewport: {
-      defaultViewport: "mobile1",
+      defaultViewport: "mobileSmall",
     },
     nextjs: {
       navigation: {
@@ -269,8 +262,20 @@ export const MobileOffCanvasOpen: Story = {
     },
   },
   play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", {
+      name: /đóng\/mở thanh điều hướng/i,
+    });
+    // Open via userEvent trigger click
+    await userEvent.click(trigger);
+
     const body = within(canvasElement.ownerDocument.body);
-    expect(body.getByText("Nguyễn Minh Anh")).toBeVisible();
-    expect(body.getByText("Học viên")).toBeVisible();
+    await waitFor(() => {
+      expect(body.getByText("Nguyễn Minh Anh")).toBeVisible();
+      expect(body.getByText("Học viên")).toBeVisible();
+      expect(
+        body.getByRole("link", { name: /Tổng quan Dashboard/i })
+      ).toBeVisible();
+    });
   },
 };

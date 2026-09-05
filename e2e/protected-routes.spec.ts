@@ -71,6 +71,37 @@ test.describe("Protected Routes & Role Authorization", () => {
       await expect(page.getByText("Lịch sử Luyện tập")).not.toBeVisible();
     });
 
+    test("should force sidebar closed off-canvas upon client-side transition to /learner/speaking/live", async ({
+      page,
+    }) => {
+      await mockAuthenticatedUser(page, MOCK_LEARNER);
+      await page.goto("/learner/dashboard");
+
+      // Verify desktop sidebar is initially expanded with icon collapsible mode
+      const sidebar = page.locator("div[data-slot='sidebar'][data-state]");
+      await expect(sidebar).toHaveAttribute("data-state", "expanded");
+      await expect(sidebar).toHaveAttribute("data-collapsible", "");
+
+      // Click link to enter Live Speaking
+      const liveSpeakingLink = page.locator(
+        "#speaking a[href='/learner/speaking/live']"
+      );
+      await expect(liveSpeakingLink).toBeVisible();
+      await liveSpeakingLink.click();
+
+      // Verify client-side route navigation completed
+      await expect(page).toHaveURL(/\/learner\/speaking\/live/);
+
+      // Verify sidebar is reactively forced closed with offcanvas mode (no icon rail)
+      await expect(sidebar).toHaveAttribute("data-state", "collapsed");
+      await expect(sidebar).toHaveAttribute("data-collapsible", "offcanvas");
+
+      // Verify footer is omitted in immersive mode
+      await expect(
+        page.getByText(/Nền tảng Luyện thi IELTS Thông minh/i)
+      ).not.toBeVisible();
+    });
+
     test("should handle user dropdown menu and trigger logout", async ({
       page,
     }) => {

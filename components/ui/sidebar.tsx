@@ -47,15 +47,7 @@ const SidebarContext = React.createContext<SidebarContextProps | null>(null);
 function useSidebar() {
   const context = React.useContext(SidebarContext);
   if (!context) {
-    return {
-      state: "expanded" as const,
-      open: true,
-      setOpen: () => {},
-      openMobile: false,
-      setOpenMobile: () => {},
-      isMobile: false,
-      toggleSidebar: () => {},
-    };
+    throw new Error("useSidebar must be used within a SidebarProvider.");
   }
 
   return context;
@@ -63,37 +55,19 @@ function useSidebar() {
 
 function SidebarProvider({
   defaultOpen = true,
-  defaultOpenMobile = false,
   open: openProp,
   onOpenChange: setOpenProp,
-  openMobile: openMobileProp,
-  onOpenMobileChange: setOpenMobileProp,
   className,
   style,
   children,
   ...props
 }: React.ComponentProps<"div"> & {
   defaultOpen?: boolean;
-  defaultOpenMobile?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  openMobile?: boolean;
-  onOpenMobileChange?: (open: boolean) => void;
 }) {
   const isMobile = useIsMobile();
-  const [_openMobile, _setOpenMobile] = React.useState(defaultOpenMobile);
-  const openMobile = openMobileProp ?? _openMobile;
-  const setOpenMobile = React.useCallback(
-    (value: boolean | ((value: boolean) => boolean)) => {
-      const openState = typeof value === "function" ? value(openMobile) : value;
-      if (setOpenMobileProp) {
-        setOpenMobileProp(openState);
-      } else {
-        _setOpenMobile(openState);
-      }
-    },
-    [setOpenMobileProp, openMobile]
-  );
+  const [openMobile, setOpenMobile] = React.useState(false);
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
