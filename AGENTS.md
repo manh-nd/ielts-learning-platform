@@ -70,6 +70,21 @@ Infrastructure adapters (modules/*/infrastructure, lib/*)
   - Implements persistence, storage, AI SDK communication, and external integrations.
   - Depends inward on Application and Domain interfaces; must never leak technical ORM or storage mechanics into UI components.
 
+### Automated Architecture Guardrails (Issue #86)
+
+Before finishing any architecture-sensitive task, run the canonical boundary checker:
+
+```bash
+bun run check:architecture
+```
+
+Enforced boundaries:
+
+- **Domain Purity**: `modules/*/domain/**` must never import React, Next.js, database/ORM (`drizzle-orm`, `lib/db`), storage (`lib/storage`, `@aws-sdk`), AI models (`lib/gemini`, `@google/genai`), UI, or infrastructure adapters.
+- **UI Infrastructure Isolation**: Cleaned UI surfaces (`components/speaking`, `components/homework`, `components/classroom`, and cleaned pilot protected routes in `app/(protected)`) must not import database, storage, Gemini evaluators, or infrastructure repositories. (Single documented exception: `components/speaking/live/live-speaking-examiner-room.tsx` importing `speaking-practice-browser-adapter`).
+- **Anti-Laundering Re-export Rule**: Application modules (`modules/*/application/**`) may import infrastructure internally for use-case orchestration, but must **never re-export** infrastructure implementations (`export { ... } from "../infrastructure/..."`) to serve as proxies for UI or domain.
+- **Route Handler Hygiene**: API route handlers (`app/api/**`) must not import React or UI components.
+
 ### Canonical Domain Vocabulary & Invariants
 
 Preserve canonical domain language and distinctions across all tasks:

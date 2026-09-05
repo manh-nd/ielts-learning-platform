@@ -1,4 +1,5 @@
 bunx lint-staged
 bun run typecheck
+bun run check:architecture
 bun run test:unit
 
