@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
-import { submitLearnerHomeworkAttempt } from "@/modules/homework/application/homework-submission-service";
+import { submitLearnerHomeworkAttempt } from "@/modules/homework/application/submit-homework-attempt";
 import { toErrorResponse, AppError } from "@/lib/errors";
 
 export const runtime = "nodejs";

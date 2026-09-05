@@ -161,7 +161,7 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
   describe("Seam 3: UI -> Application (Valid)", () => {
     it("passes when UI imports from application read-models and use cases", () => {
       const code = `
-        import { getLearnerAssignmentDetails } from "@/modules/homework/application/homework-submission-service";
+        import { getLearnerAssignmentDetails } from "@/modules/homework/application/get-learner-homework";
         import type { TeacherReviewCockpitData } from "@/modules/homework/application/homework-read-models";
         import type { HomeworkAssignment } from "@/modules/homework/domain/homework-types";
         export function Cockpit() { return null; }
@@ -182,7 +182,7 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
         export function calculateOverall(scores: number[]) { return 7.0; }
       `;
       const violations = checkSourceFile(
-        "modules/homework/application/homework-submission-service.ts",
+        "modules/homework/application/submit-homework-attempt.ts",
         code
       );
       expect(violations.length).toBe(0);
@@ -226,7 +226,7 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
         }
       `;
       const violations = checkSourceFile(
-        "modules/homework/application/homework-submission-service.ts",
+        "modules/homework/application/submit-homework-attempt.ts",
         code
       );
       expect(violations.length).toBe(0);
@@ -238,7 +238,7 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
         export { db } from "@/lib/db";
       `;
       const violations = checkSourceFile(
-        "modules/homework/application/homework-submission-service.ts",
+        "modules/homework/application/submit-homework-attempt.ts",
         code
       );
       expect(violations.length).toBe(2);
@@ -262,7 +262,7 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
         export default defaultStorage;
       `;
       const violations = checkSourceFile(
-        "modules/homework/application/homework-submission-service.ts",
+        "modules/homework/application/submit-homework-attempt.ts",
         code
       );
       expect(violations.length).toBe(3);

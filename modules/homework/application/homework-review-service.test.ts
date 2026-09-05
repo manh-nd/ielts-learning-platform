@@ -24,7 +24,7 @@ import {
   startTeacherReview,
   publishTeacherAssessment,
 } from "./homework-review-service";
-import { submitLearnerHomeworkAttempt } from "./homework-submission-service";
+import { submitLearnerHomeworkAttempt } from "./submit-homework-attempt";
 import { ForbiddenError, ConflictError, ValidationError } from "@/lib/errors";
 
 describe("Homework Review Service (Issue #76, ADR-0008, ADR-0009, Ticket #51, #58)", () => {

@@ -1,9 +1,7 @@
 import * as submissionRepository from "../infrastructure/homework-submission-repository";
 import { describe, it, expect, beforeEach, spyOn } from "bun:test";
-import {
-  getLearnerAssignmentDetails,
-  submitLearnerHomeworkAttempt,
-} from "./homework-submission-service";
+import { getLearnerAssignmentDetails } from "./get-learner-homework";
+import { submitLearnerHomeworkAttempt } from "./submit-homework-attempt";
 import {
   createAssignment,
   clearDevHomeworkCache,
@@ -19,14 +17,9 @@ import {
   clearDevClassroomCache,
   registerDevUser,
 } from "@/modules/classroom/infrastructure/classroom-repository";
-import {
-  ValidationError,
-  ForbiddenError,
-  ConflictError,
-  NotFoundError,
-} from "@/lib/errors";
+import { ValidationError, ForbiddenError, ConflictError } from "@/lib/errors";
 
-describe("Homework Submission Application Service (Issue #75, ADR-0008, ADR-0009)", () => {
+describe("Submit Homework attempt", () => {
   const teacherId = "teacher_sub_test";
   const learnerId = "learner_sub_test";
   const nonMemberLearnerId = "learner_non_member";
@@ -89,53 +82,6 @@ describe("Homework Submission Application Service (Issue #75, ADR-0008, ADR-0009
     return { classroom, assignment };
   }
 
-  describe("getLearnerAssignmentDetails", () => {
-    it("should throw NotFoundError when assignment does not exist", async () => {
-      expect(
-        getLearnerAssignmentDetails(learnerId, "non_existent_id")
-      ).rejects.toThrow(NotFoundError);
-    });
-
-    it("should throw ForbiddenError when learner is not enrolled in the classroom", async () => {
-      const { assignment } = await setupTestAssignment();
-
-      expect(
-        getLearnerAssignmentDetails(nonMemberLearnerId, assignment.id)
-      ).rejects.toThrow(ForbiddenError);
-    });
-
-    it("should throw ForbiddenError when assignment is still a draft", async () => {
-      const { classroom } = await setupTestAssignment();
-      const draftAssignment = await createAssignment({
-        classroomId: classroom.id,
-        teacherId,
-        title: "Draft Assignment",
-        prompts: [{ promptId: "p_d", text: "Question", partNumber: 1 }],
-        submissionDeadline: new Date(Date.now() + 3600000),
-        status: "draft",
-      });
-
-      expect(
-        getLearnerAssignmentDetails(learnerId, draftAssignment.id)
-      ).rejects.toThrow(ForbiddenError);
-    });
-
-    it("should return assignment details and null submission when learner has not submitted", async () => {
-      const { assignment, classroom } = await setupTestAssignment();
-
-      const details = await getLearnerAssignmentDetails(
-        learnerId,
-        assignment.id
-      );
-
-      expect(details.assignment.id).toBe(assignment.id);
-      expect(details.classroom.id).toBe(classroom.id);
-      expect(details.submission).toBeNull();
-      expect(details.currentAttempt).toBeNull();
-      expect(details.allAttempts).toHaveLength(0);
-    });
-  });
-
   function makeClip(
     lId: string,
     aId: string,
@@ -153,11 +99,90 @@ describe("Homework Submission Application Service (Issue #75, ADR-0008, ADR-0009
   }
 
   describe("submitLearnerHomeworkAttempt", () => {
+    it("rejects a non-member before accepting an attempt", async () => {
+      const { assignment } = await setupTestAssignment();
+      await expect(
+        submitLearnerHomeworkAttempt(nonMemberLearnerId, assignment.id, {
+          audioResponses: [
+            makeClip(nonMemberLearnerId, assignment.id, "p1"),
+            makeClip(nonMemberLearnerId, assignment.id, "p2"),
+          ],
+        })
+      ).rejects.toBeInstanceOf(ForbiddenError);
+    });
+
+    for (const invalidKey of [
+      "not-a-homework-key",
+      "homework/learner_sub_test/other-assignment/audio.webm",
+      "homework/learner_sub_test/../audio.webm",
+    ]) {
+      it(`rejects invalid or foreign assignment storage key: ${invalidKey}`, async () => {
+        const { assignment } = await setupTestAssignment();
+        await expect(
+          submitLearnerHomeworkAttempt(learnerId, assignment.id, {
+            audioResponses: [
+              {
+                ...makeClip(learnerId, assignment.id, "p1"),
+                storageKey: invalidKey,
+              },
+              makeClip(learnerId, assignment.id, "p2"),
+            ],
+          })
+        ).rejects.toMatchObject({
+          statusCode: 400,
+          message:
+            "Khóa lưu trữ âm thanh không hợp lệ hoặc không thuộc về học viên.",
+        });
+      });
+    }
+
+    it("rejects extra audio for a foreign prompt even when all required prompts are present", async () => {
+      const { assignment } = await setupTestAssignment();
+      await expect(
+        submitLearnerHomeworkAttempt(learnerId, assignment.id, {
+          audioResponses: [
+            makeClip(learnerId, assignment.id, "p1"),
+            makeClip(learnerId, assignment.id, "p2"),
+            makeClip(learnerId, assignment.id, "foreign"),
+          ],
+        })
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Có clip âm thanh không thuộc đề bài này.",
+      });
+    });
+    it("commits initial and subsequent attempts without claiming evaluation was queued", async () => {
+      const { assignment } = await setupTestAssignment();
+      const input = {
+        audioResponses: [
+          makeClip(learnerId, assignment.id, "p1"),
+          makeClip(learnerId, assignment.id, "p2"),
+        ],
+      };
+      const log = spyOn(console, "info").mockImplementation(() => {});
+      try {
+        const first = await submitLearnerHomeworkAttempt(
+          learnerId,
+          assignment.id,
+          input
+        );
+        const second = await submitLearnerHomeworkAttempt(
+          learnerId,
+          assignment.id,
+          input
+        );
+        expect(first.attempt.attemptNumber).toBe(1);
+        expect(second.attempt.attemptNumber).toBe(2);
+        expect(log).not.toHaveBeenCalled();
+      } finally {
+        log.mockRestore();
+      }
+    });
     it("should reject submission when deadline has passed", async () => {
       // Assignment expired 10 minutes ago
       const { assignment } = await setupTestAssignment(-600000);
 
-      expect(
+      await expect(
         submitLearnerHomeworkAttempt(learnerId, assignment.id, {
           audioResponses: [
             makeClip(learnerId, assignment.id, "p1"),
@@ -171,7 +196,7 @@ describe("Homework Submission Application Service (Issue #75, ADR-0008, ADR-0009
       const { assignment } = await setupTestAssignment();
 
       // Only provided prompt p1, missing p2
-      expect(
+      await expect(
         submitLearnerHomeworkAttempt(learnerId, assignment.id, {
           audioResponses: [makeClip(learnerId, assignment.id, "p1")],
         })
@@ -181,7 +206,7 @@ describe("Homework Submission Application Service (Issue #75, ADR-0008, ADR-0009
     it("should reject submission with storageKey owned by another learner", async () => {
       const { assignment } = await setupTestAssignment();
 
-      expect(
+      await expect(
         submitLearnerHomeworkAttempt(learnerId, assignment.id, {
           audioResponses: [
             {
@@ -368,7 +393,7 @@ describe("Homework Submission Application Service (Issue #75, ADR-0008, ADR-0009
 
       await updateSubmissionStatus(submission.id, "published", 1);
 
-      expect(
+      await expect(
         submitLearnerHomeworkAttempt(learnerId, assignment.id, {
           audioResponses: [
             makeClip(learnerId, assignment.id, "p1", 40000, 70000, "_v2"),

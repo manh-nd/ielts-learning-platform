@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRoleOrRedirect } from "@/lib/authorization";
-import { getLearnerAssignmentDetails } from "@/modules/homework/application/homework-submission-service";
+import { getLearnerAssignmentDetails } from "@/modules/homework/application/get-learner-homework";
 import { LearnerHomeworkRecordingView } from "@/components/homework/learner-homework-recording-view";
 import { NotFoundError, ForbiddenError } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
