@@ -107,6 +107,8 @@ export function AudioWaveformVisualizer({
     const width = canvas.width / dpr;
     const canvasHeight = canvas.height / dpr;
 
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     // Resolve semantic theme tokens via getComputedStyle on container
     let mutedFgColor = "oklch(0.556 0 0)";
     if (typeof window !== "undefined" && containerRef.current) {
