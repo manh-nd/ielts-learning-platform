@@ -12,7 +12,7 @@ import { Bubble, BubbleContent } from "./bubble";
 import { User, Sparkles, Bot } from "lucide-react";
 
 const meta: Meta<typeof Message> = {
-  title: "Patterns/Chat/Message",
+  title: "Product/Speaking/Message",
   component: Message,
   tags: ["autodocs"],
   parameters: {

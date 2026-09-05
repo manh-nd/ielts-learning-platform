@@ -19,7 +19,7 @@ const mockTeacherScores: AssessmentScores = {
 };
 
 const meta: Meta<typeof AssessmentScorecard> = {
-  title: "Patterns/Assessment/AssessmentScorecard",
+  title: "Product/Writing/AssessmentScorecard",
   component: AssessmentScorecard,
   tags: ["autodocs"],
   parameters: {

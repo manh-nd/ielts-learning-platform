@@ -68,7 +68,7 @@ function EmbeddedTiptapEditorDemo() {
 }
 
 const meta: Meta<typeof EmbeddedTiptapEditorDemo> = {
-  title: "Patterns/Assessment/AssessmentScorecardNode",
+  title: "Product/Writing/AssessmentScorecardNode",
   component: EmbeddedTiptapEditorDemo,
   tags: ["autodocs"],
   parameters: {

@@ -3,7 +3,7 @@ import { expect, within } from "storybook/test";
 import { Bubble, BubbleContent, BubbleGroup } from "./bubble";
 
 const meta: Meta<typeof Bubble> = {
-  title: "Patterns/Chat/Bubble",
+  title: "Product/Speaking/Bubble",
   component: Bubble,
   tags: ["autodocs"],
   parameters: {

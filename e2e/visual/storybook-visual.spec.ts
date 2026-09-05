@@ -36,7 +36,7 @@ test.describe("Storybook Visual Regression Suite", () => {
     test("AI Pre-Graded State", async ({ page }) => {
       await loadStory(
         page,
-        "patterns-review-teacherreviewannotator--ai-pre-graded"
+        "product-writing-teacherreviewannotator--ai-pre-graded"
       );
       await expect(page.locator("#storybook-root")).toHaveScreenshot(
         "teacher-review-annotator-ai-pregraded.png"
@@ -46,7 +46,7 @@ test.describe("Storybook Visual Regression Suite", () => {
     test("Teacher Edits AI Suggestion", async ({ page }) => {
       await loadStory(
         page,
-        "patterns-review-teacherreviewannotator--teacher-edits-ai-suggestion"
+        "product-writing-teacherreviewannotator--teacher-edits-ai-suggestion"
       );
       await expect(page.locator("#storybook-root")).toHaveScreenshot(
         "teacher-review-annotator-teacher-edits.png"
@@ -80,7 +80,7 @@ test.describe("Storybook Visual Regression Suite", () => {
     test("Interactive Teacher Review Scorecard", async ({ page }) => {
       await loadStory(
         page,
-        "patterns-assessment-assessmentscorecard--interactive-teacher-review"
+        "product-writing-assessmentscorecard--interactive-teacher-review"
       );
       await expect(page.locator("#storybook-root")).toHaveScreenshot(
         "assessment-scorecard-interactive.png"
@@ -134,28 +134,28 @@ test.describe("Storybook Visual Regression Suite", () => {
 
   test.describe("6. Chat Primitives & Alert", () => {
     test("Message Inbound Assistant", async ({ page }) => {
-      await loadStory(page, "patterns-chat-message--inbound-assistant");
+      await loadStory(page, "product-speaking-message--inbound-assistant");
       await expect(page.locator("#storybook-root")).toHaveScreenshot(
         "chat-message-inbound.png"
       );
     });
 
     test("Bubble Variants", async ({ page }) => {
-      await loadStory(page, "patterns-chat-bubble--variants");
+      await loadStory(page, "product-speaking-bubble--variants");
       await expect(page.locator("#storybook-root")).toHaveScreenshot(
         "chat-bubble-variants.png"
       );
     });
 
     test("Marker Default", async ({ page }) => {
-      await loadStory(page, "patterns-chat-marker--default");
+      await loadStory(page, "product-speaking-marker--default");
       await expect(page.locator("#storybook-root")).toHaveScreenshot(
         "chat-marker-default.png"
       );
     });
 
     test("Message Scroller Default", async ({ page }) => {
-      await loadStory(page, "patterns-chat-messagescroller--default");
+      await loadStory(page, "product-speaking-messagescroller--default");
       await expect(page.locator("#storybook-root")).toHaveScreenshot(
         "chat-messagescroller-default.png"
       );

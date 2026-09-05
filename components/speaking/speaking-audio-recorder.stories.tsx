@@ -9,11 +9,17 @@ import {
 } from "../../.storybook/mocks/audio-api.mock";
 
 const meta: Meta<typeof SpeakingAudioRecorder> = {
-  title: "Patterns/Audio/SpeakingAudioRecorder",
+  title: "Product/Speaking/SpeakingAudioRecorder (Prototype)",
   component: SpeakingAudioRecorder,
-  tags: ["autodocs"],
+  tags: ["autodocs", "prototype"],
   parameters: {
     layout: "padded",
+    docs: {
+      description: {
+        component:
+          "Prototype standalone audio recorder component retained for audio player/recorder extraction in Issue #100/#101.",
+      },
+    },
   },
   beforeEach: () => {
     resetAudioMocks();

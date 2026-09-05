@@ -62,7 +62,7 @@ const mockDiffItems: FeedbackDiffItem[] = [
 ];
 
 const meta: Meta<typeof FeedbackDiffViewer> = {
-  title: "Patterns/Assessment/FeedbackDiffViewer",
+  title: "Product/Writing/FeedbackDiffViewer",
   component: FeedbackDiffViewer,
   tags: ["autodocs"],
   parameters: {

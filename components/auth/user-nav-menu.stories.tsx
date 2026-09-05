@@ -18,7 +18,7 @@ const mockTeacher: UserProfile = {
 };
 
 const meta: Meta<typeof UserNavMenu> = {
-  title: "Patterns/Navigation/UserNavMenu",
+  title: "Product/Auth/UserNavMenu",
   component: UserNavMenu,
   parameters: {
     layout: "centered",

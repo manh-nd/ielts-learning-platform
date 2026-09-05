@@ -11,7 +11,7 @@ const mockStudent = {
 };
 
 const meta: Meta<typeof ReviewHeader> = {
-  title: "Patterns/Navigation/ReviewHeader",
+  title: "Product/Writing/ReviewHeader",
   component: ReviewHeader,
   parameters: {
     layout: "fullscreen",

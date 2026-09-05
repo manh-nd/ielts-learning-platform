@@ -3,7 +3,7 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { ReviewPromptBanner } from "./review-prompt-banner";
 
 const meta: Meta<typeof ReviewPromptBanner> = {
-  title: "Patterns/Review/ReviewPromptBanner",
+  title: "Product/Writing/ReviewPromptBanner",
   component: ReviewPromptBanner,
   parameters: {
     layout: "padded",
