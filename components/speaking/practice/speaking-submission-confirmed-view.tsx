@@ -102,9 +102,6 @@ export function SpeakingSubmissionConfirmedView({
                   <FileCheck2 className="w-3.5 h-3.5 mr-1" />
                   Đã nộp bài tập
                 </Badge>
-                <Badge variant="outline" className="text-xs font-mono">
-                  Homework Submission
-                </Badge>
               </div>
               <CardTitle className="text-xl sm:text-2xl font-bold tracking-tight text-foreground mt-1.5">
                 Nộp Bài Tập Speaking Thành Công!
@@ -167,7 +164,7 @@ export function SpeakingSubmissionConfirmedView({
         <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 space-y-2 text-xs">
           <div className="flex items-center gap-2 font-bold text-foreground">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span>Quy trình Chấm điểm & Trả bài (Teacher-in-the-loop)</span>
+            <span>Quy trình chấm điểm & trả bài</span>
           </div>
           <p className="text-foreground/90 leading-relaxed">
             Hệ thống AI đang tạo đề xuất chấm điểm sơ bộ bao gồm bảng điểm 4
