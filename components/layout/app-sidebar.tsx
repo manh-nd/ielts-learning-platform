@@ -76,6 +76,7 @@ export function AppSidebar({
                     <SidebarMenuButton
                       isActive={isActive}
                       tooltip={item.title}
+                      aria-label={item.title}
                       render={<Link href={item.href} />}
                       className={cn(
                         "transition-colors",
@@ -84,7 +85,9 @@ export function AppSidebar({
                       )}
                     >
                       <Icon className="size-4 shrink-0" />
-                      <span className="truncate">{item.title}</span>
+                      <span className="truncate group-data-[collapsible=icon]:sr-only">
+                        {item.title}
+                      </span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
