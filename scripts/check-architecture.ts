@@ -40,73 +40,6 @@ export function normalizeModuleSpecifier(
   return cleanSpecifier.replace(/\\/g, "/");
 }
 
-/**
- * Parses a TypeScript source file with the TypeScript compiler AST and extracts
- * all static imports, re-exports (`export ... from ...`), and dynamic `import(...)`.
- */
-export function extractModuleStatements(
-  fileName: string,
-  sourceText: string
-): ExtractedStatement[] {
-  const statements: ExtractedStatement[] = [];
-  const sourceFile = ts.createSourceFile(
-    fileName,
-    sourceText,
-    ts.ScriptTarget.Latest,
-    true
-  );
-
-  function getLine(pos: number): number {
-    return sourceFile.getLineAndCharacterOfPosition(pos).line + 1;
-  }
-
-  function visit(node: ts.Node) {
-    // Static import: import ... from 'specifier';
-    if (
-      ts.isImportDeclaration(node) &&
-      ts.isStringLiteral(node.moduleSpecifier)
-    ) {
-      statements.push({
-        statementType: "import",
-        specifier: node.moduleSpecifier.text,
-        line: getLine(node.getStart(sourceFile)),
-      });
-    }
-
-    // Static re-export: export ... from 'specifier';
-    if (
-      ts.isExportDeclaration(node) &&
-      node.moduleSpecifier &&
-      ts.isStringLiteral(node.moduleSpecifier)
-    ) {
-      statements.push({
-        statementType: "export",
-        specifier: node.moduleSpecifier.text,
-        line: getLine(node.getStart(sourceFile)),
-      });
-    }
-
-    // Dynamic import: import('specifier')
-    if (
-      ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length > 0 &&
-      ts.isStringLiteral(node.arguments[0])
-    ) {
-      statements.push({
-        statementType: "dynamic_import",
-        specifier: (node.arguments[0] as ts.StringLiteral).text,
-        line: getLine(node.getStart(sourceFile)),
-      });
-    }
-
-    ts.forEachChild(node, visit);
-  }
-
-  visit(sourceFile);
-  return statements;
-}
-
 function isTestOrStoryFile(normalizedPath: string): boolean {
   return (
     normalizedPath.includes(".test.") ||
@@ -161,6 +94,19 @@ function isInfrastructureTarget(target: string): boolean {
   );
 }
 
+export function isForbiddenApplicationTarget(target: string): boolean {
+  return (
+    isInfrastructureTarget(target) ||
+    target.startsWith("lib/db") ||
+    isPackageOrSubpath(target, "drizzle-orm") ||
+    isPackageOrSubpath(target, "postgres") ||
+    target.startsWith("lib/storage") ||
+    isPackageOrSubpath(target, "@aws-sdk") ||
+    target.startsWith("lib/gemini") ||
+    isPackageOrSubpath(target, "@google/genai")
+  );
+}
+
 /**
  * Checks a single source file content against architectural boundary rules.
  */
@@ -171,13 +117,162 @@ export function checkSourceFile(
   const normalizedFile = filePath.replace(/\\/g, "/").replace(/^\.\//, "");
   const violations: ArchitectureViolation[] = [];
 
-  const statements = extractModuleStatements(normalizedFile, sourceText);
+  const sourceFile = ts.createSourceFile(
+    normalizedFile,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true
+  );
 
-  for (const stmt of statements) {
-    const target = normalizeModuleSpecifier(normalizedFile, stmt.specifier);
+  function getLine(pos: number): number {
+    return sourceFile.getLineAndCharacterOfPosition(pos).line + 1;
+  }
 
+  // Map to track local bindings imported from forbidden infrastructure/DB/storage/AI targets in application files
+  const forbiddenApplicationBindings = new Map<
+    string,
+    { target: string; specifier: string; line: number }
+  >();
+
+  function visit(node: ts.Node) {
+    // Static import: import ... from 'specifier';
+    if (
+      ts.isImportDeclaration(node) &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      const specifier = node.moduleSpecifier.text;
+      const line = getLine(node.getStart(sourceFile));
+      const target = normalizeModuleSpecifier(normalizedFile, specifier);
+
+      // In application files, track local bindings imported from forbidden targets to catch 2-step re-exports
+      if (isApplicationSource(normalizedFile)) {
+        if (isForbiddenApplicationTarget(target) && node.importClause) {
+          // Default import: import repo from '...'
+          if (node.importClause.name) {
+            forbiddenApplicationBindings.set(node.importClause.name.text, {
+              target,
+              specifier,
+              line: getLine(node.importClause.name.getStart(sourceFile)),
+            });
+          }
+          // Named or namespace bindings: import { repo as r } or import * as r
+          if (node.importClause.namedBindings) {
+            if (ts.isNamedImports(node.importClause.namedBindings)) {
+              for (const el of node.importClause.namedBindings.elements) {
+                forbiddenApplicationBindings.set(el.name.text, {
+                  target,
+                  specifier,
+                  line: getLine(el.name.getStart(sourceFile)),
+                });
+              }
+            } else if (ts.isNamespaceImport(node.importClause.namedBindings)) {
+              forbiddenApplicationBindings.set(
+                node.importClause.namedBindings.name.text,
+                {
+                  target,
+                  specifier,
+                  line: getLine(
+                    node.importClause.namedBindings.name.getStart(sourceFile)
+                  ),
+                }
+              );
+            }
+          }
+        }
+      }
+
+      checkStatement(normalizedFile, "import", specifier, target, line);
+    }
+
+    // Static re-export with module specifier: export ... from 'specifier';
+    if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      const specifier = node.moduleSpecifier.text;
+      const line = getLine(node.getStart(sourceFile));
+      const target = normalizeModuleSpecifier(normalizedFile, specifier);
+
+      checkStatement(normalizedFile, "export", specifier, target, line);
+    }
+
+    // Two-step re-export without module specifier: export { persistenceRepo as repo };
+    if (
+      ts.isExportDeclaration(node) &&
+      !node.moduleSpecifier &&
+      isApplicationSource(normalizedFile)
+    ) {
+      if (node.exportClause && ts.isNamedExports(node.exportClause)) {
+        for (const el of node.exportClause.elements) {
+          const localName = el.propertyName
+            ? el.propertyName.text
+            : el.name.text;
+          if (forbiddenApplicationBindings.has(localName)) {
+            const sourceInfo = forbiddenApplicationBindings.get(localName)!;
+            const line = getLine(el.getStart(sourceFile));
+            violations.push({
+              file: normalizedFile,
+              line,
+              statementType: "export",
+              specifier: sourceInfo.specifier,
+              normalizedTarget: sourceInfo.target,
+              ruleName: "Application Anti-Laundering Re-export",
+              message: `Application modules must not re-export infrastructure implementations (two-step re-export of '${localName}' imported from '${sourceInfo.specifier}').\nApplication may orchestrate infrastructure internally, but must not act as a re-export proxy to bypass UI boundary checks.\nExpected direction: UI -> Application -> Domain`,
+            });
+          }
+        }
+      }
+    }
+
+    // Default export assignment in application files: export default persistenceRepo;
+    if (
+      ts.isExportAssignment(node) &&
+      ts.isIdentifier(node.expression) &&
+      isApplicationSource(normalizedFile)
+    ) {
+      const localName = node.expression.text;
+      if (forbiddenApplicationBindings.has(localName)) {
+        const sourceInfo = forbiddenApplicationBindings.get(localName)!;
+        const line = getLine(node.getStart(sourceFile));
+        violations.push({
+          file: normalizedFile,
+          line,
+          statementType: "export",
+          specifier: sourceInfo.specifier,
+          normalizedTarget: sourceInfo.target,
+          ruleName: "Application Anti-Laundering Re-export",
+          message: `Application modules must not re-export infrastructure implementations (default export of '${localName}' imported from '${sourceInfo.specifier}').\nApplication may orchestrate infrastructure internally, but must not act as a re-export proxy to bypass UI boundary checks.\nExpected direction: UI -> Application -> Domain`,
+        });
+      }
+    }
+
+    // Dynamic import: import('specifier')
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments.length > 0 &&
+      ts.isStringLiteral(node.arguments[0])
+    ) {
+      const specifier = (node.arguments[0] as ts.StringLiteral).text;
+      const line = getLine(node.getStart(sourceFile));
+      const target = normalizeModuleSpecifier(normalizedFile, specifier);
+
+      checkStatement(normalizedFile, "dynamic_import", specifier, target, line);
+    }
+
+    ts.forEachChild(node, visit);
+  }
+
+  function checkStatement(
+    file: string,
+    statementType: "import" | "export" | "dynamic_import",
+    specifier: string,
+    target: string,
+    line: number
+  ) {
     // Rule 1: Domain Purity
-    if (isDomainSource(normalizedFile)) {
+    if (isDomainSource(file)) {
       const isReact =
         isPackageOrSubpath(target, "react") ||
         isPackageOrSubpath(target, "react-dom");
@@ -210,10 +305,10 @@ export function checkSourceFile(
         isInfra
       ) {
         violations.push({
-          file: normalizedFile,
-          line: stmt.line,
-          statementType: stmt.statementType,
-          specifier: stmt.specifier,
+          file,
+          line,
+          statementType,
+          specifier,
           normalizedTarget: target,
           ruleName: "Domain Purity",
           message:
@@ -223,11 +318,10 @@ export function checkSourceFile(
     }
 
     // Rule 2: Cleaned Shipped Pilot UI Infrastructure Hygiene
-    if (isCleanedPilotUiSource(normalizedFile)) {
+    if (isCleanedPilotUiSource(file)) {
       // Correction #1: EXACT single source-target exception
       const isExactBrowserAdapterException =
-        normalizedFile ===
-          "components/speaking/live/live-speaking-examiner-room.tsx" &&
+        file === "components/speaking/live/live-speaking-examiner-room.tsx" &&
         (target ===
           "modules/speaking/infrastructure/browser/speaking-practice-browser-adapter" ||
           target ===
@@ -256,10 +350,10 @@ export function checkSourceFile(
         isAiEvaluator
       ) {
         violations.push({
-          file: normalizedFile,
-          line: stmt.line,
-          statementType: stmt.statementType,
-          specifier: stmt.specifier,
+          file,
+          line,
+          statementType,
+          specifier,
           normalizedTarget: target,
           ruleName: "UI Infrastructure Isolation",
           message:
@@ -268,29 +362,15 @@ export function checkSourceFile(
       }
     }
 
-    // Rule 3: Application Anti-Laundering Re-export Rule (Correction #3)
-    if (isApplicationSource(normalizedFile)) {
-      // Application code may IMPORT infrastructure for orchestration,
-      // but must NOT RE-EXPORT infrastructure implementations to UI or domain.
-      if (stmt.statementType === "export") {
-        const isInfra = isInfrastructureTarget(target);
-        const isDb =
-          target.startsWith("lib/db") ||
-          isPackageOrSubpath(target, "drizzle-orm") ||
-          isPackageOrSubpath(target, "postgres");
-        const isStorage =
-          target.startsWith("lib/storage") ||
-          isPackageOrSubpath(target, "@aws-sdk");
-        const isAi =
-          target.startsWith("lib/gemini") ||
-          isPackageOrSubpath(target, "@google/genai");
-
-        if (isInfra || isDb || isStorage || isAi) {
+    // Rule 3: Application Anti-Laundering Re-export Rule (Direct re-export)
+    if (isApplicationSource(file)) {
+      if (statementType === "export") {
+        if (isForbiddenApplicationTarget(target)) {
           violations.push({
-            file: normalizedFile,
-            line: stmt.line,
-            statementType: stmt.statementType,
-            specifier: stmt.specifier,
+            file,
+            line,
+            statementType,
+            specifier,
             normalizedTarget: target,
             ruleName: "Application Anti-Laundering Re-export",
             message:
@@ -300,28 +380,31 @@ export function checkSourceFile(
       }
     }
 
-    // Rule 4: Route Handler Adapter Hygiene (Correction #4)
-    if (isRouteHandlerSource(normalizedFile)) {
+    // Rule 4: Route Handler Adapter Hygiene (Correction #4 & Route UI rejection)
+    if (isRouteHandlerSource(file)) {
       const isReact =
         isPackageOrSubpath(target, "react") ||
         isPackageOrSubpath(target, "react-dom");
       const isUiComponent = target.startsWith("components/");
+      const isAppUi =
+        target.startsWith("app/") && !target.startsWith("app/api/");
 
-      if (isReact || isUiComponent) {
+      if (isReact || isUiComponent || isAppUi) {
         violations.push({
-          file: normalizedFile,
-          line: stmt.line,
-          statementType: stmt.statementType,
-          specifier: stmt.specifier,
+          file,
+          line,
+          statementType,
+          specifier,
           normalizedTarget: target,
           ruleName: "Route Adapter Hygiene",
           message:
-            "Route handlers are HTTP transport adapters and must not import React or UI components.\nExpected direction: UI -> Application (or HTTP Route -> Application Use Case)",
+            "Route handlers are HTTP transport adapters and must not import React, UI components, or App pages/views.\nExpected direction: UI -> Application (or HTTP Route -> Application Use Case)",
         });
       }
     }
   }
 
+  visit(sourceFile);
   return violations;
 }
 

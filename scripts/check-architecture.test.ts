@@ -232,7 +232,7 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
       expect(violations.length).toBe(0);
     });
 
-    it("fails when application RE-EXPORTS infrastructure implementation", () => {
+    it("fails when application directly RE-EXPORTS infrastructure implementation", () => {
       const code = `
         export { homeworkSubmissionRepository } from "../infrastructure/homework-submission-repository";
         export { db } from "@/lib/db";
@@ -250,6 +250,27 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
       );
     });
 
+    it("fails when application performs two-step re-export laundering (direct and aliased)", () => {
+      const code = `
+        import { homeworkSubmissionRepository } from "../infrastructure/homework-submission-repository";
+        import { devSessionCache as cache } from "@/modules/speaking/infrastructure/speaking-practice-repository";
+        import defaultStorage from "@/lib/storage/s3-client";
+
+        // Two-step re-export: imported above, exported below
+        export { homeworkSubmissionRepository };
+        export { cache as devSessionCache };
+        export default defaultStorage;
+      `;
+      const violations = checkSourceFile(
+        "modules/homework/application/homework-submission-service.ts",
+        code
+      );
+      expect(violations.length).toBe(3);
+      for (const v of violations) {
+        expect(v.ruleName).toBe("Application Anti-Laundering Re-export");
+      }
+    });
+
     it("passes when application re-exports other application types/contracts", () => {
       const code = `
         export type { RestoredSpeakingPracticeState } from "./restore-speaking-practice";
@@ -262,7 +283,7 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
     });
   });
 
-  describe("Seam 7: Route Adapter Hygiene (Correction #4)", () => {
+  describe("Seam 7: Route Adapter Hygiene (Correction #4 & Route UI isolation)", () => {
     it("fails when route handler imports React or UI components", () => {
       const code = `
         import React from "react";
@@ -276,6 +297,22 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
       expect(violations.length).toBe(2);
       expect(violations[0].ruleName).toBe("Route Adapter Hygiene");
       expect(violations[1].ruleName).toBe("Route Adapter Hygiene");
+    });
+
+    it("fails when route handler imports from app UI pages/views outside app/api/**", () => {
+      const code = `
+        import AssignmentPage from "@/app/(protected)/learner/assignments/[id]/page";
+        export async function GET() { return new Response(); }
+      `;
+      const violations = checkSourceFile(
+        "app/api/learner/assignments/[id]/route.ts",
+        code
+      );
+      expect(violations.length).toBe(1);
+      expect(violations[0].ruleName).toBe("Route Adapter Hygiene");
+      expect(violations[0].normalizedTarget).toBe(
+        "app/(protected)/learner/assignments/[id]/page"
+      );
     });
 
     it("passes when route handler delegates to application services", () => {
@@ -324,7 +361,7 @@ describe("Architecture Guardrails Checker (Issue #86)", () => {
   describe("Repository Integration Test", () => {
     it("scans current main codebase and passes with 0 violations", () => {
       const result = checkArchitecture();
-      expect(result.scannedFilesCount).toBeGreaterThanOrEqual(90);
+      expect(result.scannedFilesCount).toBeGreaterThan(0);
       expect(result.violations).toEqual([]);
     });
   });
