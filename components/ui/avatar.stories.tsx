@@ -9,7 +9,7 @@ import {
 } from "./avatar";
 
 const meta: Meta<typeof Avatar> = {
-  title: "UI/Avatar",
+  title: "Design System/Primitives/Avatar",
   component: Avatar,
   tags: ["autodocs"],
   argTypes: {

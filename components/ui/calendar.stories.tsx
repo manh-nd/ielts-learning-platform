@@ -3,7 +3,7 @@ import * as React from "react";
 import { Calendar } from "./calendar";
 
 const meta: Meta<typeof Calendar> = {
-  title: "UI/Calendar",
+  title: "Design System/Primitives/Calendar",
   component: Calendar,
   tags: ["autodocs"],
   parameters: {

@@ -3,7 +3,7 @@ import { MicPermissionDeniedDialog } from "./mic-permission-denied-dialog";
 import { fn, expect, userEvent, within } from "storybook/test";
 
 const meta = {
-  title: "Speaking/Live/MicPermissionDeniedDialog",
+  title: "Product/Speaking/MicPermissionDeniedDialog",
   component: MicPermissionDeniedDialog,
   parameters: {
     layout: "centered",

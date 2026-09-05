@@ -3,7 +3,7 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { TiptapEditor } from "./tiptap-editor";
 
 const meta: Meta<typeof TiptapEditor> = {
-  title: "UI/TiptapEditor",
+  title: "Patterns/Editor/TiptapEditor",
   component: TiptapEditor,
   tags: ["autodocs"],
   parameters: {

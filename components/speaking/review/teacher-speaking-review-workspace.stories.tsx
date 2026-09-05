@@ -133,7 +133,7 @@ const mockAiScores: SpeakingCriteriaScores = {
 };
 
 const meta: Meta<typeof TeacherSpeakingReviewWorkspace> = {
-  title: "Speaking/Review/TeacherSpeakingReviewWorkspace",
+  title: "Product/Speaking/TeacherSpeakingReviewWorkspace (Prototype)",
   component: TeacherSpeakingReviewWorkspace,
   parameters: {
     layout: "fullscreen",
@@ -144,7 +144,7 @@ const meta: Meta<typeof TeacherSpeakingReviewWorkspace> = {
       },
     },
   },
-  tags: ["autodocs"],
+  tags: ["autodocs", "prototype"],
   args: {
     student: mockStudent,
     assignmentTitle: "Speaking Assignment #03 - Environment & Modern Society",

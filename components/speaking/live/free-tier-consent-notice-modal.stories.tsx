@@ -3,7 +3,7 @@ import { FreeTierConsentNoticeModal } from "./free-tier-consent-notice-modal";
 import { fn, expect, userEvent, within, waitFor } from "storybook/test";
 
 const meta = {
-  title: "Speaking/Live/FreeTierConsentNoticeModal",
+  title: "Product/Speaking/FreeTierConsentNoticeModal",
   component: FreeTierConsentNoticeModal,
   parameters: {
     layout: "centered",

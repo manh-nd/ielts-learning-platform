@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { AudioWaveformVisualizer } from "./audio-waveform-visualizer";
 
 const meta: Meta<typeof AudioWaveformVisualizer> = {
-  title: "IELTS/Speaking/AudioWaveformVisualizer",
+  title: "Patterns/Audio/AudioWaveformVisualizer",
   component: AudioWaveformVisualizer,
   tags: ["autodocs"],
   parameters: {

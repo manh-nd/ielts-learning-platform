@@ -3,7 +3,7 @@ import { fn, expect, userEvent, within } from "storybook/test";
 import { LiveSessionControls } from "./live-session-controls";
 
 const meta = {
-  title: "Speaking/Live/LiveSessionControls",
+  title: "Product/Speaking/LiveSessionControls",
   component: LiveSessionControls,
   parameters: {
     layout: "centered",

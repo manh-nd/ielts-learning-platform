@@ -3,7 +3,7 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { HomeworkAssignmentCreationDialog } from "./homework-assignment-creation-dialog";
 
 const meta: Meta<typeof HomeworkAssignmentCreationDialog> = {
-  title: "Homework/HomeworkAssignmentCreationDialog",
+  title: "Product/Homework/HomeworkAssignmentCreationDialog",
   component: HomeworkAssignmentCreationDialog,
   tags: ["autodocs"],
   parameters: {

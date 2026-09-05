@@ -4,7 +4,7 @@ import { Marker, MarkerContent, MarkerIcon } from "./marker";
 import { Clock, Info, CheckCircle2 } from "lucide-react";
 
 const meta: Meta<typeof Marker> = {
-  title: "UI/Chat/Marker",
+  title: "Patterns/Chat/Marker",
   component: Marker,
   tags: ["autodocs"],
   parameters: {

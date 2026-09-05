@@ -58,6 +58,26 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
+    options: {
+      storySort: {
+        order: [
+          "Design System",
+          ["Foundations", "Primitives", "Components"],
+          "Patterns",
+          [
+            "Audio",
+            "Assessment",
+            "Chat",
+            "Editor",
+            "Forms",
+            "Navigation",
+            "Review",
+          ],
+          "Product",
+          ["Auth", "Classroom", "Homework", "Speaking", "Writing"],
+        ],
+      },
+    },
     a11y: {
       test: "error",
     },

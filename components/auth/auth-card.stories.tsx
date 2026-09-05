@@ -4,7 +4,7 @@ import { LoginForm } from "./login-form";
 import { SignUpForm } from "./sign-up-form";
 
 const meta: Meta<typeof AuthCard> = {
-  title: "IELTS/Auth/AuthCard",
+  title: "Product/Auth/AuthCard",
   component: AuthCard,
   parameters: {
     layout: "centered",

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { LiveTranscriptStream } from "./live-transcript-stream";
 
 const meta = {
-  title: "Speaking/Live/LiveTranscriptStream",
+  title: "Product/Speaking/LiveTranscriptStream",
   component: LiveTranscriptStream,
   parameters: {
     layout: "padded",

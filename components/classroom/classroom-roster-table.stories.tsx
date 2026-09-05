@@ -48,7 +48,7 @@ const mockMembers: ClassroomRosterItem[] = [
 ];
 
 const meta: Meta<typeof ClassroomRosterTable> = {
-  title: "Classroom/ClassroomRosterTable",
+  title: "Product/Classroom/ClassroomRosterTable",
   component: ClassroomRosterTable,
   tags: ["autodocs"],
   parameters: {

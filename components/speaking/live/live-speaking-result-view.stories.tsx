@@ -177,7 +177,7 @@ const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
 };
 
 const meta = {
-  title: "Speaking/Live/LiveSpeakingResultView",
+  title: "Product/Speaking/LiveSpeakingResultView",
   component: LiveSpeakingResultView,
   parameters: {
     layout: "padded",

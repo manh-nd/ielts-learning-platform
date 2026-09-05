@@ -3,7 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { Textarea } from "./textarea";
 
 const meta: Meta<typeof Textarea> = {
-  title: "UI/Textarea",
+  title: "Design System/Primitives/Textarea",
   component: Textarea,
   tags: ["autodocs"],
   args: {

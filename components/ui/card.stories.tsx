@@ -13,7 +13,7 @@ import { Badge } from "./badge";
 import { Sparkles, ArrowRight } from "lucide-react";
 
 const meta: Meta<typeof Card> = {
-  title: "UI/Card",
+  title: "Design System/Primitives/Card",
   component: Card,
   tags: ["autodocs"],
   argTypes: {

@@ -11,7 +11,7 @@ const mockStudent = {
 };
 
 const meta: Meta<typeof ReviewHeader> = {
-  title: "IELTS/Review/ReviewHeader",
+  title: "Patterns/Navigation/ReviewHeader",
   component: ReviewHeader,
   parameters: {
     layout: "fullscreen",

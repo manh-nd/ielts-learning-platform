@@ -44,7 +44,7 @@ const mockAssignmentDetail: LearnerHomeworkDetail = {
 };
 
 const meta = {
-  title: "Homework/LearnerHomeworkRecordingView",
+  title: "Product/Homework/LearnerHomeworkRecordingView",
   component: LearnerHomeworkRecordingView,
   parameters: {
     layout: "padded",

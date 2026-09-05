@@ -13,7 +13,7 @@ import {
 import { Button } from "./button";
 
 const meta: Meta<typeof Dialog> = {
-  title: "UI/Dialog",
+  title: "Design System/Primitives/Dialog",
   component: Dialog,
   tags: ["autodocs"],
   parameters: {

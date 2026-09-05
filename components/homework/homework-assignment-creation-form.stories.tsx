@@ -3,7 +3,7 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { HomeworkAssignmentCreationForm } from "./homework-assignment-creation-form";
 
 const meta: Meta<typeof HomeworkAssignmentCreationForm> = {
-  title: "Homework/HomeworkAssignmentCreationForm",
+  title: "Product/Homework/HomeworkAssignmentCreationForm",
   component: HomeworkAssignmentCreationForm,
   tags: ["autodocs"],
   parameters: {

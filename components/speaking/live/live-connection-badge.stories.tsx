@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { LiveConnectionBadge } from "./live-connection-badge";
 
 const meta = {
-  title: "Speaking/Live/LiveConnectionBadge",
+  title: "Product/Speaking/LiveConnectionBadge",
   component: LiveConnectionBadge,
   parameters: {
     layout: "centered",

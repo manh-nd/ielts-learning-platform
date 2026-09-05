@@ -62,7 +62,7 @@ const mockDiffItems: FeedbackDiffItem[] = [
 ];
 
 const meta: Meta<typeof FeedbackDiffViewer> = {
-  title: "IELTS/Review/FeedbackDiffViewer",
+  title: "Patterns/Assessment/FeedbackDiffViewer",
   component: FeedbackDiffViewer,
   tags: ["autodocs"],
   parameters: {

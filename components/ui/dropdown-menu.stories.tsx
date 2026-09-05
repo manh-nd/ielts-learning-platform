@@ -13,7 +13,7 @@ import { Button } from "./button";
 import { UserIcon, SettingsIcon, LogOutIcon, BookOpenIcon } from "lucide-react";
 
 const meta: Meta = {
-  title: "UI/DropdownMenu",
+  title: "Design System/Primitives/DropdownMenu",
   parameters: {
     layout: "centered",
   },

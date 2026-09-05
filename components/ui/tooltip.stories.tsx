@@ -10,7 +10,7 @@ import { Button } from "./button";
 import { Info } from "lucide-react";
 
 const meta: Meta<typeof Tooltip> = {
-  title: "UI/Tooltip",
+  title: "Design System/Primitives/Tooltip",
   component: Tooltip,
   tags: ["autodocs"],
   decorators: [

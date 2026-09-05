@@ -75,7 +75,7 @@ const mockEssayPlainText =
   "In today's society, crime remains one of the most pressing issues that governments worldwide must address. While some people advocate for longer prison sentences as the most effective deterrent, others argue that alternative approaches, such as education and rehabilitation programmes, can be more effective in reducing crime rates.\n\nOn the other hand, there is compelling evidence that rehabilitation is successful.";
 
 const meta: Meta<typeof TeacherReviewWorkspace> = {
-  title: "IELTS/Review/TeacherReviewWorkspace",
+  title: "Product/Writing/TeacherReviewWorkspace",
   component: TeacherReviewWorkspace,
   parameters: {
     layout: "fullscreen",

@@ -30,7 +30,7 @@ const mockAssignment: HomeworkAssignment = {
 };
 
 const meta: Meta<typeof HomeworkAssignmentCard> = {
-  title: "Homework/HomeworkAssignmentCard",
+  title: "Product/Homework/HomeworkAssignmentCard",
   component: HomeworkAssignmentCard,
   tags: ["autodocs"],
   parameters: {

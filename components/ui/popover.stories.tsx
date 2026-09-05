@@ -13,7 +13,7 @@ import { Badge } from "./badge";
 import { AlertCircle, Check } from "lucide-react";
 
 const meta: Meta<typeof Popover> = {
-  title: "UI/Popover",
+  title: "Design System/Primitives/Popover",
   component: Popover,
   tags: ["autodocs"],
 };

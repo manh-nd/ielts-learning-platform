@@ -15,7 +15,7 @@ const mockClassroom: ClassroomWithMemberCount = {
 };
 
 const meta: Meta<typeof ClassroomCard> = {
-  title: "Classroom/ClassroomCard",
+  title: "Product/Classroom/ClassroomCard",
   component: ClassroomCard,
   tags: ["autodocs"],
   parameters: {

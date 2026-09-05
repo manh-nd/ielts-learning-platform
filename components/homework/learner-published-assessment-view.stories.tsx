@@ -118,7 +118,7 @@ const mockPublishedDataMinimalFeedback: LearnerPublishedAssessmentData = {
 };
 
 const meta = {
-  title: "Homework/LearnerPublishedAssessmentView",
+  title: "Product/Homework/LearnerPublishedAssessmentView",
   component: LearnerPublishedAssessmentView,
   parameters: {
     layout: "padded",

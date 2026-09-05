@@ -18,7 +18,7 @@ import { Bubble, BubbleContent } from "./bubble";
 import { Sparkles, User } from "lucide-react";
 
 const meta: Meta<typeof MessageScroller> = {
-  title: "UI/Chat/MessageScroller",
+  title: "Patterns/Chat/MessageScroller",
   component: MessageScroller,
   tags: ["autodocs"],
   parameters: {

@@ -4,7 +4,7 @@ import { LiveSpeakingExaminerRoom } from "./live-speaking-examiner-room";
 import { SPEAKING_PRACTICE_TOPICS } from "@/lib/data/speaking-practice-topics";
 
 const meta = {
-  title: "Speaking/Live/LiveSpeakingExaminerRoom",
+  title: "Product/Speaking/LiveSpeakingExaminerRoom",
   component: LiveSpeakingExaminerRoom,
   parameters: {
     layout: "padded",

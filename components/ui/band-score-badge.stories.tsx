@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { BandScoreBadge } from "./band-score-badge";
 
 const meta: Meta<typeof BandScoreBadge> = {
-  title: "UI/BandScoreBadge",
+  title: "Design System/Components/BandScoreBadge",
   component: BandScoreBadge,
   tags: ["autodocs"],
   parameters: {

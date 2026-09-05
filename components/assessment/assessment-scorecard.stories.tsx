@@ -19,7 +19,7 @@ const mockTeacherScores: AssessmentScores = {
 };
 
 const meta: Meta<typeof AssessmentScorecard> = {
-  title: "IELTS/Assessment/AssessmentScorecard",
+  title: "Patterns/Assessment/AssessmentScorecard",
   component: AssessmentScorecard,
   tags: ["autodocs"],
   parameters: {

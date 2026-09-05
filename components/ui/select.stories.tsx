@@ -12,7 +12,7 @@ import {
 } from "./select";
 
 const meta: Meta<typeof Select> = {
-  title: "UI/Select",
+  title: "Design System/Primitives/Select",
   component: Select,
   tags: ["autodocs"],
 };

@@ -3,7 +3,7 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { CreateClassroomDialog } from "./create-classroom-dialog";
 
 const meta: Meta<typeof CreateClassroomDialog> = {
-  title: "Classroom/CreateClassroomDialog",
+  title: "Product/Classroom/CreateClassroomDialog",
   component: CreateClassroomDialog,
   tags: ["autodocs"],
   parameters: {

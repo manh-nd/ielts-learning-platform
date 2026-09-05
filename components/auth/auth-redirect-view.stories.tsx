@@ -3,7 +3,7 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { AuthRedirectView } from "./auth-redirect-view";
 
 const meta: Meta<typeof AuthRedirectView> = {
-  title: "IELTS/Auth/AuthRedirectView",
+  title: "Product/Auth/AuthRedirectView",
   component: AuthRedirectView,
   parameters: {
     layout: "centered",

@@ -3,7 +3,7 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { OAuthGoogleButton } from "./oauth-google-button";
 
 const meta: Meta<typeof OAuthGoogleButton> = {
-  title: "IELTS/Auth/OAuthGoogleButton",
+  title: "Product/Auth/OAuthGoogleButton",
   component: OAuthGoogleButton,
   parameters: {
     layout: "centered",

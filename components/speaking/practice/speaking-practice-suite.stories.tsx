@@ -102,12 +102,12 @@ const mockTestConfig: SpeakingTestConfig = {
 };
 
 const meta = {
-  title: "Speaking/Practice/SpeakingPracticeSuite",
+  title: "Product/Speaking/SpeakingPracticeSuite (Prototype)",
   component: SpeakingPracticeSuite,
   parameters: {
     layout: "padded",
   },
-  tags: ["autodocs"],
+  tags: ["autodocs", "prototype"],
   args: {
     config: mockTestConfig,
     initialStep: "part1",

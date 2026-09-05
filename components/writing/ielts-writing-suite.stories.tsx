@@ -43,9 +43,9 @@ const mockSampleDraft: WritingDraft = {
 };
 
 const meta: Meta<typeof IeltsWritingSuite> = {
-  title: "IELTS/Writing/IeltsWritingSuite",
+  title: "Product/Writing/IeltsWritingSuite (Prototype)",
   component: IeltsWritingSuite,
-  tags: ["autodocs"],
+  tags: ["autodocs", "prototype"],
   parameters: {
     layout: "padded",
   },

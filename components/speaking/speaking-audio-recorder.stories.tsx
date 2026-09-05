@@ -9,7 +9,7 @@ import {
 } from "../../.storybook/mocks/audio-api.mock";
 
 const meta: Meta<typeof SpeakingAudioRecorder> = {
-  title: "IELTS/Speaking/SpeakingAudioRecorder",
+  title: "Patterns/Audio/SpeakingAudioRecorder",
   component: SpeakingAudioRecorder,
   tags: ["autodocs"],
   parameters: {

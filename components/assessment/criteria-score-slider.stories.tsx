@@ -5,7 +5,7 @@ import { CriteriaScoreSlider } from "./criteria-score-slider";
 import { WRITING_CRITERIA_ORDER, WritingCriterion } from "./types";
 
 const meta: Meta<typeof CriteriaScoreSlider> = {
-  title: "IELTS/Assessment/CriteriaScoreSlider",
+  title: "Patterns/Assessment/CriteriaScoreSlider",
   component: CriteriaScoreSlider,
   tags: ["autodocs"],
   parameters: {

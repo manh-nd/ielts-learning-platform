@@ -175,7 +175,7 @@ const mockCockpitDataPublished: TeacherReviewCockpitData = {
 };
 
 const meta = {
-  title: "Homework/TeacherReviewCockpit",
+  title: "Product/Homework/TeacherReviewCockpit",
   component: TeacherReviewCockpit,
   parameters: {
     layout: "padded",

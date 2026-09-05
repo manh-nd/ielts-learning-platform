@@ -50,7 +50,7 @@ const mockMembersCls1: ClassroomRosterItem[] = [
 ];
 
 const meta: Meta<typeof ClassroomManager> = {
-  title: "Classroom/ClassroomManager",
+  title: "Product/Classroom/ClassroomManager",
   component: ClassroomManager,
   tags: ["autodocs"],
   parameters: {

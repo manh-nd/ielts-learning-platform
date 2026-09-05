@@ -3,7 +3,7 @@ import { Badge } from "./badge";
 import { Sparkles, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 const meta: Meta<typeof Badge> = {
-  title: "UI/Badge",
+  title: "Design System/Primitives/Badge",
   component: Badge,
   tags: ["autodocs"],
   parameters: {

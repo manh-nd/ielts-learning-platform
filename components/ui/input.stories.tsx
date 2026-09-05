@@ -3,7 +3,7 @@ import { expect, userEvent, within } from "storybook/test";
 import { Input } from "./input";
 
 const meta: Meta<typeof Input> = {
-  title: "UI/Input",
+  title: "Design System/Primitives/Input",
   component: Input,
   parameters: {
     layout: "centered",

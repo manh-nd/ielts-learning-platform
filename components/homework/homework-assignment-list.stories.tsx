@@ -62,7 +62,7 @@ const mockAssignments: HomeworkAssignment[] = [
 ];
 
 const meta: Meta<typeof HomeworkAssignmentList> = {
-  title: "Homework/HomeworkAssignmentList",
+  title: "Product/Homework/HomeworkAssignmentList",
   component: HomeworkAssignmentList,
   tags: ["autodocs"],
   parameters: {

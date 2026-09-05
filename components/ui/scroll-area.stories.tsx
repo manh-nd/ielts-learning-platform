@@ -3,7 +3,7 @@ import { expect, within } from "storybook/test";
 import { ScrollArea } from "./scroll-area";
 
 const meta: Meta<typeof ScrollArea> = {
-  title: "UI/ScrollArea",
+  title: "Design System/Primitives/ScrollArea",
   component: ScrollArea,
   tags: ["autodocs"],
   parameters: {

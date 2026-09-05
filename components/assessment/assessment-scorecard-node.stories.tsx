@@ -68,7 +68,7 @@ function EmbeddedTiptapEditorDemo() {
 }
 
 const meta: Meta<typeof EmbeddedTiptapEditorDemo> = {
-  title: "IELTS/Assessment/AssessmentScorecardNode (TipTap Extension)",
+  title: "Patterns/Assessment/AssessmentScorecardNode",
   component: EmbeddedTiptapEditorDemo,
   tags: ["autodocs"],
   parameters: {

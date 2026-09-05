@@ -3,7 +3,7 @@ import { LiveSpeakingCueCardModal } from "./live-speaking-cue-card-modal";
 import { fn } from "storybook/test";
 
 const meta = {
-  title: "Speaking/Live/LiveSpeakingCueCardModal",
+  title: "Product/Speaking/LiveSpeakingCueCardModal",
   component: LiveSpeakingCueCardModal,
   parameters: {
     layout: "padded",

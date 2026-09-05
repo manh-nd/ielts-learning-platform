@@ -3,7 +3,7 @@ import { expect, userEvent, within, fn } from "storybook/test";
 import { LoginForm } from "./login-form";
 
 const meta: Meta<typeof LoginForm> = {
-  title: "IELTS/Auth/LoginForm",
+  title: "Product/Auth/LoginForm",
   component: LoginForm,
   parameters: {
     layout: "centered",

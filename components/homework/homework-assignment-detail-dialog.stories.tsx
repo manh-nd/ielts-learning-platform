@@ -66,7 +66,7 @@ const mockStudents: HomeworkAssignmentStudentRosterItem[] = [
 ];
 
 const meta: Meta<typeof HomeworkAssignmentDetailDialog> = {
-  title: "Homework/HomeworkAssignmentDetailDialog",
+  title: "Product/Homework/HomeworkAssignmentDetailDialog",
   component: HomeworkAssignmentDetailDialog,
   tags: ["autodocs"],
   parameters: {

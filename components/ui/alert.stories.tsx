@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 const meta: Meta<typeof Alert> = {
-  title: "UI/Alert",
+  title: "Design System/Primitives/Alert",
   component: Alert,
   tags: ["autodocs"],
   parameters: {

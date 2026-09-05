@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Slider } from "./slider";
 
 const meta: Meta<typeof Slider> = {
-  title: "UI/Slider",
+  title: "Design System/Primitives/Slider",
   component: Slider,
   tags: ["autodocs"],
   parameters: {
