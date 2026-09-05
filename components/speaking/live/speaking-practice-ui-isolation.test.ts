@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect, mock, beforeEach } from "bun:test";
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { LiveSpeakingClientView } from "@/app/(protected)/learner/speaking/live/live-speaking-client-view";
@@ -28,6 +28,15 @@ mock.module("next/navigation", () => ({
 }));
 
 describe("Issue #83: SpeakingPractice UI Isolation from Full Mock Prototype", () => {
+  beforeEach(() => {
+    if (typeof window !== "undefined") {
+      delete (global as Record<string, unknown>).window;
+    }
+    if (typeof sessionStorage !== "undefined") {
+      delete (global as Record<string, unknown>).sessionStorage;
+    }
+  });
+
   it("Seam 1: Practice route renders without Full Mock switch or Full Mock CTA", () => {
     const html = renderToString(
       React.createElement(LiveSpeakingClientView, {

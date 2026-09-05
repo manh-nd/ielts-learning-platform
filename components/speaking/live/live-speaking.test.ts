@@ -424,37 +424,52 @@ describe("Speaking Practice Failure Recovery & Resilience (#70)", () => {
   });
 
   it("should clean up active speaking session from storage and url via clearActiveSpeakingSession", () => {
-    // Setup mock window & sessionStorage
-    const storage = new Map<string, string>();
-    storage.set(ACTIVE_SPEAKING_SESSION_STORAGE_KEY, "test_session_123");
+    const originalWindow = global.window;
+    const originalSessionStorage = global.sessionStorage;
+    try {
+      // Setup mock window & sessionStorage
+      const storage = new Map<string, string>();
+      storage.set(ACTIVE_SPEAKING_SESSION_STORAGE_KEY, "test_session_123");
 
-    global.sessionStorage = {
-      getItem: (key: string) => storage.get(key) || null,
-      setItem: (key: string, val: string) => storage.set(key, val),
-      removeItem: (key: string) => storage.delete(key),
-      clear: () => storage.clear(),
-      key: () => null,
-      length: storage.size,
-    } as unknown as Storage;
+      global.sessionStorage = {
+        getItem: (key: string) => storage.get(key) || null,
+        setItem: (key: string, val: string) => storage.set(key, val),
+        removeItem: (key: string) => storage.delete(key),
+        clear: () => storage.clear(),
+        key: () => null,
+        length: storage.size,
+      } as unknown as Storage;
 
-    let replacedUrl = "";
-    global.window = {
-      location: {
-        href: "http://localhost:3000/learner/speaking/live?sessionId=test_session_123",
-        pathname: "/learner/speaking/live",
-        search: "?sessionId=test_session_123",
-      },
-      history: {
-        replaceState: (_data: unknown, _title: string, url: string) => {
-          replacedUrl = url;
+      let replacedUrl = "";
+      global.window = {
+        location: {
+          href: "http://localhost:3000/learner/speaking/live?sessionId=test_session_123",
+          pathname: "/learner/speaking/live",
+          search: "?sessionId=test_session_123",
         },
-      },
-    } as unknown as Window & typeof globalThis;
+        history: {
+          replaceState: (_data: unknown, _title: string, url: string) => {
+            replacedUrl = url;
+          },
+        },
+      } as unknown as Window & typeof globalThis;
 
-    clearActiveSpeakingSession();
+      clearActiveSpeakingSession();
 
-    expect(storage.has(ACTIVE_SPEAKING_SESSION_STORAGE_KEY)).toBe(false);
-    expect(replacedUrl).toBe("/learner/speaking/live");
+      expect(storage.has(ACTIVE_SPEAKING_SESSION_STORAGE_KEY)).toBe(false);
+      expect(replacedUrl).toBe("/learner/speaking/live");
+    } finally {
+      if (originalWindow !== undefined) {
+        global.window = originalWindow;
+      } else {
+        delete (global as Record<string, unknown>).window;
+      }
+      if (originalSessionStorage !== undefined) {
+        global.sessionStorage = originalSessionStorage;
+      } else {
+        delete (global as Record<string, unknown>).sessionStorage;
+      }
+    }
   });
 
   it("should discriminate Part 1 practiceFeedback from Full Mock Exam evaluationResult", () => {
