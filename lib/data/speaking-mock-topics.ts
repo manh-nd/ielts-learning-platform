@@ -1,3 +1,9 @@
+/**
+ * Speaking Mock Topic Fixtures (Full Mock Prototype)
+ *
+ * Isolated Full Mock prototype data containing Part 1, 2, and 3 aggregate shapes.
+ * Shipped learner SpeakingPractice uses SpeakingPracticeTopic from speaking-practice-topics.ts (SpeakingPractice != MockTest).
+ */
 export interface SpeakingMockTopic {
   id: string;
   title: string;

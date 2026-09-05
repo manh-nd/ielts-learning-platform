@@ -17,6 +17,11 @@ import {
   getRandomMockTopic,
 } from "@/lib/data/speaking-mock-topics";
 import {
+  SPEAKING_PRACTICE_TOPICS,
+  getPracticeTopicById,
+  getRandomPracticeTopic,
+} from "@/lib/data/speaking-practice-topics";
+import {
   dispatchPracticeStarted,
   dispatchPracticeAudioRecorded,
   dispatchPracticeFeedbackReady,
@@ -53,6 +58,47 @@ describe("Live Speaking Prototype Engine", () => {
     expect(SPEAKING_MOCK_TOPICS.some((t) => t.id === randomTopic.id)).toBe(
       true
     );
+  });
+
+  it("should provide valid IELTS Speaking practice topics strictly scoped to Part 1 (SpeakingPractice != MockTest)", () => {
+    expect(SPEAKING_PRACTICE_TOPICS.length).toBeGreaterThanOrEqual(4);
+
+    for (const topic of SPEAKING_PRACTICE_TOPICS) {
+      expect(topic.id).toBeDefined();
+      expect(topic.title).toBeDefined();
+      expect(topic.part1.questions.length).toBeGreaterThanOrEqual(3);
+      // Invariant: Practice topics must NEVER contain Part 2 or Part 3 mock data
+      expect(
+        (topic as unknown as Record<string, unknown>).part2
+      ).toBeUndefined();
+      expect(
+        (topic as unknown as Record<string, unknown>).part3
+      ).toBeUndefined();
+    }
+
+    const retrieved = getPracticeTopicById("tech-ai-future");
+    expect(retrieved.id).toBe("tech-ai-future");
+    expect(retrieved.part1.theme).toBe("Technology in Everyday Life");
+
+    const random = getRandomPracticeTopic();
+    expect(random).toBeDefined();
+    expect(SPEAKING_PRACTICE_TOPICS.some((t) => t.id === random.id)).toBe(true);
+  });
+
+  it("should format examiner system instruction for Part 1 practice only when targetPart is 'part_1'", () => {
+    const topic = SPEAKING_MOCK_TOPICS[0];
+    const instruction = buildExaminerSystemInstruction(
+      "Test Learner",
+      topic,
+      "part_1"
+    );
+
+    expect(instruction).toContain("PART 1 PRACTICE ONLY");
+    expect(instruction).toContain(topic.part1.theme);
+    expect(instruction).not.toContain("display_cue_card");
+    expect(instruction).not.toContain("start_part_3");
+    expect(instruction).not.toContain("PART 2 CUE CARD");
+    expect(instruction).not.toContain("PART 3:");
   });
 
   it("should format examiner system instruction with candidate name and topic", () => {

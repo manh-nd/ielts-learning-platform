@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, within, userEvent } from "storybook/test";
 import { LiveSpeakingExaminerRoom } from "./live-speaking-examiner-room";
-import { SPEAKING_MOCK_TOPICS } from "@/lib/data/speaking-mock-topics";
+import { SPEAKING_PRACTICE_TOPICS } from "@/lib/data/speaking-practice-topics";
 
 const meta = {
   title: "Speaking/Live/LiveSpeakingExaminerRoom",
@@ -11,11 +11,10 @@ const meta = {
   },
   tags: ["autodocs"],
   args: {
-    title: "Phòng Thi Thử IELTS Speaking Trực Tiếp",
+    title: "Phòng Luyện Tập IELTS Speaking Trực Tiếp",
     subtitle: "Đối thoại thời gian thực 1-on-1 với Giám khảo AI (Examiner)",
     candidateName: "Nguyễn Văn Mạnh",
-    topic: SPEAKING_MOCK_TOPICS[0],
-    targetPart: "full",
+    topic: SPEAKING_PRACTICE_TOPICS[0],
     mockMode: true,
     hasConsent: true,
   },
@@ -24,18 +23,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const DefaultMockSimulation: Story = {
+export const DefaultPracticeSimulation: Story = {
   args: {
     mockMode: true,
-    topic: SPEAKING_MOCK_TOPICS[0],
+    topic: SPEAKING_PRACTICE_TOPICS[0],
     hasConsent: true,
   },
 };
 
+export const DefaultMockSimulation: Story = DefaultPracticeSimulation;
+
 export const ConsentGateRequired: Story = {
   args: {
     mockMode: true,
-    topic: SPEAKING_MOCK_TOPICS[0],
+    topic: SPEAKING_PRACTICE_TOPICS[0],
     hasConsent: false,
   },
   play: async ({ canvasElement }) => {
@@ -79,7 +80,7 @@ export const ConsentGateRequired: Story = {
 export const LiveSessionInteractiveTest: Story = {
   args: {
     mockMode: true,
-    topic: SPEAKING_MOCK_TOPICS[0],
+    topic: SPEAKING_PRACTICE_TOPICS[0],
     hasConsent: true,
   },
   play: async ({ canvasElement }) => {

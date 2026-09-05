@@ -24,10 +24,10 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import {
-  SPEAKING_MOCK_TOPICS,
-  SpeakingMockTopic,
-  getRandomMockTopic,
-} from "@/lib/data/speaking-mock-topics";
+  SPEAKING_PRACTICE_TOPICS,
+  SpeakingPracticeTopic,
+  getRandomPracticeTopic,
+} from "@/lib/data/speaking-practice-topics";
 import { LiveSpeakingExaminerRoom } from "@/components/speaking/live";
 import {
   ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
@@ -47,10 +47,9 @@ export function LiveSpeakingClientView({
   initialHasConsent = false,
 }: LiveSpeakingClientViewProps) {
   const router = useRouter();
-  const [selectedTopic, setSelectedTopic] = useState<SpeakingMockTopic>(() =>
-    getRandomMockTopic()
+  const [selectedTopic, setSelectedTopic] = useState<SpeakingPracticeTopic>(
+    () => getRandomPracticeTopic()
   );
-  const [targetPart, setTargetPart] = useState<"part1" | "full">("part1");
   const [hasLocalConsent, setHasLocalConsent] = useState<boolean>(false);
   const hasConsent = Boolean(initialHasConsent || hasLocalConsent);
 
@@ -78,7 +77,7 @@ export function LiveSpeakingClientView({
   });
 
   const handleRandomTopic = () => {
-    const random = getRandomMockTopic();
+    const random = getRandomPracticeTopic();
     setSelectedTopic(random);
   };
 
@@ -98,13 +97,12 @@ export function LiveSpeakingClientView({
           className="gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Quay lại Chọn Đề Thi</span>
+          <span>Quay lại Chọn Chủ Đề Luyện Tập</span>
         </Button>
 
         <LiveSpeakingExaminerRoom
           candidateName={candidateName}
           topic={selectedTopic}
-          targetPart={targetPart}
           hasConsent={hasConsent}
           onConsentGranted={() => setHasLocalConsent(true)}
           initialSessionId={activeSessionId}
@@ -134,20 +132,13 @@ export function LiveSpeakingClientView({
               </Badge>
               <Badge
                 variant="secondary"
-                className={cn(
-                  "text-xs border",
-                  targetPart === "part1"
-                    ? "bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
-                    : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20"
-                )}
+                className="text-xs border bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/30"
               >
-                {targetPart === "part1"
-                  ? "Luyện tập Part 1 (~3-5 câu)"
-                  : "Full Test (Part 1 - 3)"}
+                Luyện tập Part 1 (~3-5 câu)
               </Badge>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Phòng Luyện Thi IELTS Speaking Trực Tiếp AI
+              Phòng Luyện Tập IELTS Speaking Part 1 Trực Tiếp AI
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl leading-relaxed">
               Trải nghiệm đàm thoại giọng nói 1-on-1 thời gian thực với Giám
@@ -157,45 +148,14 @@ export function LiveSpeakingClientView({
           </div>
 
           <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
-            {/* Practice Mode Selector Switch */}
-            <div className="flex items-center gap-1 p-1 bg-background/80 rounded-lg border shadow-xs">
-              <Button
-                size="sm"
-                variant={targetPart === "part1" ? "default" : "ghost"}
-                onClick={() => setTargetPart("part1")}
-                className={cn(
-                  "h-8 text-xs font-medium cursor-pointer",
-                  targetPart === "part1" &&
-                    "bg-indigo-600 hover:bg-indigo-700 text-white"
-                )}
-              >
-                Luyện Part 1 (3-5 câu)
-              </Button>
-              <Button
-                size="sm"
-                variant={targetPart === "full" ? "default" : "ghost"}
-                onClick={() => setTargetPart("full")}
-                className={cn(
-                  "h-8 text-xs font-medium cursor-pointer",
-                  targetPart === "full" &&
-                    "bg-indigo-600 hover:bg-indigo-700 text-white"
-                )}
-              >
-                Full Mock Test
-              </Button>
-            </div>
-
             <Button
               size="lg"
               onClick={() => setIsInRoom(true)}
               className="gap-2 font-semibold shadow-md bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer w-full sm:w-auto"
+              data-testid="start-practice-btn"
             >
               <Sparkles className="size-4" />
-              <span>
-                {targetPart === "part1"
-                  ? "Bắt đầu Luyện Part 1"
-                  : "Vào Phòng Thi Toàn Diện"}
-              </span>
+              <span>Bắt đầu Luyện Part 1</span>
               <ArrowRight className="size-4" />
             </Button>
           </div>
@@ -224,11 +184,11 @@ export function LiveSpeakingClientView({
           <div>
             <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
               <Layers className="size-4 text-primary" />
-              <span>Chọn Bộ Đề Thi Mẫu</span>
+              <span>Chọn Chủ Đề Luyện Tập Part 1</span>
             </h2>
             <p className="text-xs text-muted-foreground">
-              Chọn chủ đề bạn muốn luyện tập hoặc bấm &ldquo;Chọn Đề Ngẫu
-              nhiên&rdquo;.
+              Chọn chủ đề bạn muốn luyện tập hoặc bấm &ldquo;Chọn Chủ Đề Ngẫu
+              Nhiên&rdquo;.
             </p>
           </div>
 
@@ -239,12 +199,12 @@ export function LiveSpeakingClientView({
             className="gap-1.5 text-xs font-medium cursor-pointer"
           >
             <Shuffle className="size-3.5" />
-            <span>Chọn Đề Ngẫu nhiên</span>
+            <span>Chọn Chủ Đề Ngẫu Nhiên</span>
           </Button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {SPEAKING_MOCK_TOPICS.map((topic) => {
+          {SPEAKING_PRACTICE_TOPICS.map((topic) => {
             const isSelected = selectedTopic.id === topic.id;
 
             return (
@@ -302,7 +262,7 @@ export function LiveSpeakingClientView({
                 <CardContent className="px-5 py-3 border-t bg-muted/10 space-y-2 text-xs">
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="font-semibold text-foreground/90">
-                      Part 1 Theme:
+                      Chủ đề Part 1:
                     </span>
                     <span className="text-foreground/80 truncate max-w-[200px]">
                       {topic.part1.theme}
@@ -310,18 +270,10 @@ export function LiveSpeakingClientView({
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
                     <span className="font-semibold text-foreground/90">
-                      Part 2 Cue Card:
+                      Số câu hỏi phỏng vấn:
                     </span>
-                    <span className="text-foreground/80 truncate max-w-[200px]">
-                      {topic.part2.topicTitle}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span className="font-semibold text-foreground/90">
-                      Part 3 Discussion:
-                    </span>
-                    <span className="text-foreground/80 truncate max-w-[200px]">
-                      {topic.part3.theme}
+                    <span className="text-foreground/80">
+                      {topic.part1.questions.length} câu hỏi
                     </span>
                   </div>
                 </CardContent>
@@ -342,7 +294,7 @@ export function LiveSpeakingClientView({
                     )}
                   >
                     <Mic className="size-3.5" />
-                    <span>Bắt đầu thi đề này</span>
+                    <span>Bắt đầu luyện tập</span>
                   </Button>
                 </CardFooter>
               </Card>

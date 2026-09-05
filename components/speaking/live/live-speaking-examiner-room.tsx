@@ -30,12 +30,13 @@ import { FreeTierConsentNoticeModal } from "./free-tier-consent-notice-modal";
 import { MicPermissionDeniedDialog } from "./mic-permission-denied-dialog";
 import { useGeminiLive } from "./use-gemini-live";
 import {
-  LiveSpeakingConfig,
   CandidateTurnMarker,
   RecordedAudioData,
   ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
   clearActiveSpeakingSession,
 } from "./types";
+import { SpeakingPracticeTopic } from "@/lib/data/speaking-practice-topics";
+import { SpeakingMockTopic } from "@/lib/data/speaking-mock-topics";
 import {
   IeltsSpeakingEvaluationResult,
   PracticeFeedback,
@@ -49,7 +50,10 @@ import {
   dispatchPracticeAgainStarted,
   dispatchPracticeAudioError,
 } from "@/lib/telemetry/telemetry-client";
-import { normalizeSpeakingPracticeScope } from "@/modules/speaking/domain";
+import {
+  CANONICAL_SPEAKING_PRACTICE_SCOPE,
+  normalizeSpeakingPracticeScope,
+} from "@/modules/speaking/domain";
 import {
   finishSpeakingPracticeWorkflow,
   retrySpeakingPracticeEvaluationWorkflow,
@@ -60,9 +64,47 @@ import {
 } from "@/modules/speaking/application/speaking-practice-workflow";
 import { createSpeakingPracticeBrowserPorts } from "@/modules/speaking/infrastructure/browser/speaking-practice-browser-adapter";
 
-export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
+/**
+ * Internal Compatibility Debt:
+ * Adapts SpeakingPracticeTopic to satisfy legacy useGeminiLive engine's topic shape requirement.
+ *
+ * CRITICAL INVARIANTS:
+ * - private/internal only
+ * - placeholder Part 2/3 MUST never be exposed to Practice UI
+ * - MUST never be interpreted as real Mock content
+ * - targetPart="part_1" (CANONICAL_SPEAKING_PRACTICE_SCOPE) guarantees these placeholder fields are unreachable
+ * - do not export this as a reusable Practice/Mock abstraction
+ */
+function adaptPracticeTopicToLiveEngine(
+  topic?: SpeakingPracticeTopic
+): SpeakingMockTopic | undefined {
+  if (!topic) return undefined;
+  return {
+    id: topic.id,
+    title: topic.title,
+    category: topic.category,
+    description: topic.description,
+    difficulty: topic.difficulty,
+    part1: topic.part1,
+    // Technical placeholder debt for legacy engine only; unreachable in Part 1 practice
+    part2: {
+      topicTitle: "",
+      cueCardPrompt: "",
+      bulletPoints: [],
+    },
+    part3: {
+      theme: "",
+      questions: [],
+    },
+  };
+}
+
+export interface LiveSpeakingExaminerRoomProps {
   title?: string;
   subtitle?: string;
+  candidateName?: string;
+  topic?: SpeakingPracticeTopic;
+  mockMode?: boolean;
   className?: string;
   hasConsent?: boolean;
   onConsentGranted?: () => void;
@@ -74,11 +116,10 @@ export interface LiveSpeakingExaminerRoomProps extends LiveSpeakingConfig {
 }
 
 export function LiveSpeakingExaminerRoom({
-  title = "Phòng Thi Thử IELTS Speaking Trực Tiếp",
+  title = "Phòng Luyện Tập IELTS Speaking Trực Tiếp",
   subtitle = "Đối thoại thời gian thực 1-on-1 với Giám khảo AI (Examiner)",
   candidateName = "Thí sinh",
   topic,
-  targetPart = "full",
   mockMode = false,
   className,
   hasConsent = false,
@@ -88,7 +129,6 @@ export function LiveSpeakingExaminerRoom({
   onBackToDashboard,
   onRestart,
   workflowPorts,
-  ...config
 }: LiveSpeakingExaminerRoomProps) {
   const finishExamActionRef = useRef<() => void>(() => {});
   const defaultWorkflowPorts = useMemo(
@@ -96,6 +136,7 @@ export function LiveSpeakingExaminerRoom({
     []
   );
   const effectiveWorkflowPorts = workflowPorts || defaultWorkflowPorts;
+  const targetPart = CANONICAL_SPEAKING_PRACTICE_SCOPE;
 
   const {
     status,
@@ -119,13 +160,12 @@ export function LiveSpeakingExaminerRoom({
     finishPart2PrepEarly,
   } = useGeminiLive({
     candidateName,
-    topic,
+    topic: adaptPracticeTopicToLiveEngine(topic),
     targetPart,
     mockMode,
     onExamCompleted: () => {
       finishExamActionRef.current?.();
     },
-    ...config,
   });
 
   const [activeSessionId, setActiveSessionId] = useState<string>(
@@ -315,7 +355,7 @@ export function LiveSpeakingExaminerRoom({
 
         const payload = {
           sessionId: resolvedSessionId,
-          topicTitle: topic?.title || "General IELTS Speaking Mock Test",
+          topicTitle: topic?.title || "General IELTS Speaking Practice",
           candidateName,
           practiceMode: isPart1Practice ? "part_1" : undefined,
           targetPart: isPart1Practice ? "part_1" : "full",
@@ -331,8 +371,8 @@ export function LiveSpeakingExaminerRoom({
           turnMarkers: markers || turnMarkers,
           part1Question:
             topic?.part1.questions[0] || "Introduction and interview questions",
-          part2Topic: topic?.part2.topicTitle || "Individual long turn topic",
-          part3Theme: topic?.part3.theme || "Two-way discussion topic",
+          part2Topic: "Individual long turn topic",
+          part3Theme: "Two-way discussion topic",
           storageKey: resolvedStorageKey,
           audioBase64: resolvedBase64,
           durationSeconds:
