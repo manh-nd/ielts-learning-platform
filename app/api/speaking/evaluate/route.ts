@@ -466,7 +466,7 @@ export async function GET(req: NextRequest) {
         success: true,
         session: practiceSession,
         responses,
-        restoredState,
+        ...(restoredState ? { restoredState } : {}),
       });
     } catch (practiceErr) {
       if (practiceErr instanceof NotFoundError) {

@@ -15,6 +15,7 @@ import { mapSpeakingPracticePersistenceToDomain } from "./retry-practice-evaluat
 import {
   checkPracticeEvaluationRetryEligibility,
   isFeedbackAvailable,
+  normalizeSpeakingPracticeScope,
 } from "../domain";
 
 export type RestoredSpeakingPracticeState =
@@ -51,7 +52,7 @@ export interface RestoreSpeakingPracticeInput {
 }
 
 export interface RestoreSpeakingPracticeResult {
-  restoredState: RestoredSpeakingPracticeState;
+  restoredState: RestoredSpeakingPracticeState | null;
   session: SpeakingPracticeRecord;
   responses: SpeakingResponseRecord[];
 }
@@ -165,6 +166,20 @@ export async function restoreSpeakingPractice(
     authenticatedUserId,
     sessionId,
   });
+
+  // Guard: strictly only SpeakingPractice sessions (part_1) produce RestoredSpeakingPracticeState.
+  // Full Mock tests (e.g. targetPart === "full") or invalid scopes never produce practice restoredState,
+  // preserving SpeakingPractice != MockTest distinction.
+  const isSpeakingPractice =
+    normalizeSpeakingPracticeScope(session.targetPart) !== null;
+
+  if (!isSpeakingPractice) {
+    return {
+      restoredState: null,
+      session,
+      responses,
+    };
+  }
 
   // 2. Resolve and verify authoritative OriginalAudio
   const existingResponse = responses[0];

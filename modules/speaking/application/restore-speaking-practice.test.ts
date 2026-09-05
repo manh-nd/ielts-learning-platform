@@ -87,13 +87,15 @@ describe("restoreSpeakingPractice Use Case & Critical Test Seams (#82)", () => {
       sessionId,
     });
 
-    expect(result.restoredState.status).toBe("ended_feedback_ready");
-    if (result.restoredState.status === "ended_feedback_ready") {
-      expect(result.restoredState.sessionId).toBe(sessionId);
-      expect(result.restoredState.feedback).toEqual(
+    expect(result.restoredState).not.toBeNull();
+    const restoredState1 = result.restoredState!;
+    expect(restoredState1.status).toBe("ended_feedback_ready");
+    if (restoredState1.status === "ended_feedback_ready") {
+      expect(restoredState1.sessionId).toBe(sessionId);
+      expect(restoredState1.feedback).toEqual(
         mockFeedback as unknown as PracticeFeedback
       );
-      expect(result.restoredState.trace).toEqual({
+      expect(restoredState1.trace).toEqual({
         model: "gemini-3.7-flash",
         latencyMs: 1200,
       } as unknown as SpeakingEvaluationTrace);
@@ -153,15 +155,13 @@ describe("restoreSpeakingPractice Use Case & Critical Test Seams (#82)", () => {
       sessionId,
     });
 
-    expect(result.restoredState.status).toBe(
-      "ended_evaluation_failed_retryable"
-    );
-    if (result.restoredState.status === "ended_evaluation_failed_retryable") {
-      expect(result.restoredState.sessionId).toBe(sessionId);
-      expect(result.restoredState.canRetry).toBe(true);
-      expect(result.restoredState.error).toBe(
-        "AI model temporary overload 503"
-      );
+    expect(result.restoredState).not.toBeNull();
+    const restoredState2 = result.restoredState!;
+    expect(restoredState2.status).toBe("ended_evaluation_failed_retryable");
+    if (restoredState2.status === "ended_evaluation_failed_retryable") {
+      expect(restoredState2.sessionId).toBe(sessionId);
+      expect(restoredState2.canRetry).toBe(true);
+      expect(restoredState2.error).toBe("AI model temporary overload 503");
     }
   });
 
@@ -214,11 +214,13 @@ describe("restoreSpeakingPractice Use Case & Critical Test Seams (#82)", () => {
       sessionId,
     });
 
-    expect(result.restoredState.status).toBe("ended_audio_unavailable");
-    if (result.restoredState.status === "ended_audio_unavailable") {
-      expect(result.restoredState.sessionId).toBe(sessionId);
-      expect(result.restoredState.canRetry).toBe(false);
-      expect(result.restoredState.error).toContain(
+    expect(result.restoredState).not.toBeNull();
+    const restoredState3a = result.restoredState!;
+    expect(restoredState3a.status).toBe("ended_audio_unavailable");
+    if (restoredState3a.status === "ended_audio_unavailable") {
+      expect(restoredState3a.sessionId).toBe(sessionId);
+      expect(restoredState3a.canRetry).toBe(false);
+      expect(restoredState3a.error).toContain(
         "Không tìm thấy hoặc bản thu âm gốc đã hết hạn lưu trữ"
       );
     }
@@ -251,9 +253,11 @@ describe("restoreSpeakingPractice Use Case & Critical Test Seams (#82)", () => {
       sessionId,
     });
 
-    expect(result.restoredState.status).toBe("ended_audio_unavailable");
-    if (result.restoredState.status === "ended_audio_unavailable") {
-      expect(result.restoredState.canRetry).toBe(false);
+    expect(result.restoredState).not.toBeNull();
+    const restoredState3b = result.restoredState!;
+    expect(restoredState3b.status).toBe("ended_audio_unavailable");
+    if (restoredState3b.status === "ended_audio_unavailable") {
+      expect(restoredState3b.canRetry).toBe(false);
     }
   });
 
@@ -314,9 +318,11 @@ describe("restoreSpeakingPractice Use Case & Critical Test Seams (#82)", () => {
       sessionId,
     });
 
-    expect(result.restoredState.status).toBe("ended_evaluating");
-    if (result.restoredState.status === "ended_evaluating") {
-      expect(result.restoredState.sessionId).toBe(sessionId);
+    expect(result.restoredState).not.toBeNull();
+    const restoredState5 = result.restoredState!;
+    expect(restoredState5.status).toBe("ended_evaluating");
+    if (restoredState5.status === "ended_evaluating") {
+      expect(restoredState5.sessionId).toBe(sessionId);
     }
   });
 
@@ -345,8 +351,10 @@ describe("restoreSpeakingPractice Use Case & Critical Test Seams (#82)", () => {
       sessionId,
     });
 
-    expect(result.restoredState.status).toBe("in_progress");
-    expect(result.restoredState.sessionId).toBe(sessionId);
+    expect(result.restoredState).not.toBeNull();
+    const restoredState6 = result.restoredState!;
+    expect(restoredState6.status).toBe("in_progress");
+    expect(restoredState6.sessionId).toBe(sessionId);
   });
 
   it("should map abandoned practice to ended_audio_unavailable state", async () => {
@@ -363,5 +371,136 @@ describe("restoreSpeakingPractice Use Case & Critical Test Seams (#82)", () => {
       expect(state.canRetry).toBe(false);
       expect(state.error).toBe("Phiên luyện tập đã bị hủy bỏ.");
     }
+  });
+
+  it("Full Mock Guard: restoreSpeakingPractice for Full Mock (targetPart='full') returns session/responses but restoredState is null", async () => {
+    const sessionId = "ses_full_mock_evaluated";
+    const userId = "learner_owner_full";
+    const now = new Date();
+
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId,
+      candidateName: "Full Mock Candidate",
+      topicTitle: "Full Mock Exam",
+      status: "evaluated",
+      targetPart: "full",
+      durationSeconds: 900,
+      overallBand: 7.5,
+      scorecardJson: {
+        overallScorecard: { overallBand: 7.5 },
+      },
+      evidenceJson: {
+        trace: { model: "gemini-3.7-flash" },
+      },
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    devResponseCache.set(sessionId, [
+      {
+        id: `resp_${sessionId}_p1_0`,
+        sessionId,
+        partNumber: 1,
+        itemIndex: 0,
+        promptQuestion: "Full Mock Part 1",
+        storageKey: `speaking/${userId}/${sessionId}/p1.webm`,
+        audioUrl: "/api/speaking/audio.webm",
+        mimeType: "audio/webm",
+        startMs: 0,
+        endMs: 300000,
+        durationSeconds: 300,
+        liveTranscript: "Part 1 speech",
+        verifiedTranscript: "Part 1 speech",
+        createdAt: now,
+      },
+    ]);
+
+    const result = await restoreSpeakingPractice({
+      authenticatedUserId: userId,
+      sessionId,
+    });
+
+    // Full Mock data is preserved for exam simulation
+    expect(result.session.id).toBe(sessionId);
+    expect(result.session.targetPart).toBe("full");
+    expect(result.responses.length).toBe(1);
+
+    // Strictly NO SpeakingPractice restoredState is emitted (SpeakingPractice != MockTest)
+    expect(result.restoredState).toBeNull();
+  });
+
+  it("Full Mock Guard: GET /api/speaking/evaluate preserves legacy session/responses and does NOT return restoredState for Full Mock", async () => {
+    const { GET } = await import("@/app/api/speaking/evaluate/route");
+    const { NextRequest } = await import("next/server");
+
+    const sessionId = "ses_full_mock_get_api";
+    const userId = "learner_mock_api_user";
+    const now = new Date();
+
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId,
+      candidateName: "Candidate",
+      topicTitle: "Full Exam",
+      status: "evaluated",
+      targetPart: "full",
+      durationSeconds: 600,
+      overallBand: 7.0,
+      scorecardJson: { overallScorecard: { overallBand: 7.0 } },
+      evidenceJson: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    devResponseCache.set(sessionId, [
+      {
+        id: `resp_${sessionId}_0`,
+        sessionId,
+        partNumber: 1,
+        itemIndex: 0,
+        promptQuestion: "Part 1",
+        storageKey: `speaking/${userId}/${sessionId}/audio.webm`,
+        audioUrl: "/api/speaking/audio.webm",
+        mimeType: "audio/webm",
+        startMs: 0,
+        endMs: 60000,
+        durationSeconds: 60,
+        liveTranscript: "Hello",
+        verifiedTranscript: null,
+        createdAt: now,
+      },
+    ]);
+
+    const sessionPayload = {
+      user: { id: userId, role: "learner" },
+      session: {
+        id: `sess_${userId}`,
+        userId,
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    };
+    const req = new NextRequest(
+      `http://localhost:3000/api/speaking/evaluate?sessionId=${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          cookie: `e2e_mock_session=${encodeURIComponent(JSON.stringify(sessionPayload))}`,
+          "content-type": "application/json",
+        },
+      }
+    );
+
+    const res = await GET(req);
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.session.id).toBe(sessionId);
+    expect(data.session.targetPart).toBe("full");
+    expect(data.responses.length).toBe(1);
+
+    // Critical invariant: restoredState MUST NOT be emitted for Full Mock
+    expect(data.restoredState).toBeUndefined();
   });
 });
