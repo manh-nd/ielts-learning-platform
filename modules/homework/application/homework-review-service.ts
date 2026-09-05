@@ -23,6 +23,10 @@ import {
   type PublishedAssessment,
   type EvaluationFeedback,
 } from "../domain/homework-types";
+import {
+  getTeacherReviewAvailability,
+  resolveAttemptForReview,
+} from "../domain/homework-submission-lifecycle";
 import type { TeacherReviewCockpitData } from "./homework-read-models";
 import type { PublishAssessmentInput } from "./homework-inputs";
 import {
@@ -105,8 +109,8 @@ export async function getTeacherReviewCockpit(
   );
 
   // Target attempt: If teacher already started review, use reviewedAttemptNumber; otherwise use currentAttemptNumber
-  const targetAttemptNumber =
-    submission.reviewedAttemptNumber || submission.currentAttemptNumber;
+  const reviewAttempt = resolveAttemptForReview(submission);
+  const targetAttemptNumber = reviewAttempt.attemptNumber;
 
   const attempt = await findAttemptByNumber(submission.id, targetAttemptNumber);
   if (!attempt) {
@@ -159,7 +163,7 @@ export async function startTeacherReview(
     submissionId
   );
 
-  if (submission.status === "published") {
+  if (getTeacherReviewAvailability(submission.status) === "terminal") {
     throw new ConflictError(
       "Bài nộp đã được xuất bản kết quả đánh giá chính thức, không thể mở lại chấm.",
       { status: submission.status },
@@ -210,7 +214,7 @@ export async function publishTeacherAssessment(
     submissionId
   );
 
-  if (submission.status === "published") {
+  if (getTeacherReviewAvailability(submission.status) === "terminal") {
     throw new ConflictError(
       "Bài nộp này đã được xuất bản kết quả chính thức trước đó.",
       { status: submission.status },
@@ -237,8 +241,8 @@ export async function publishTeacherAssessment(
   // Derive IELTS Overall Band with official rounding rules
   const overallBand = calculateIeltsSpeakingOverallBand(fc, lr, gra, pr);
 
-  const attemptNumber =
-    submission.reviewedAttemptNumber || submission.currentAttemptNumber;
+  const reviewAttempt = resolveAttemptForReview(submission);
+  const attemptNumber = reviewAttempt.attemptNumber;
 
   const now = new Date();
   const teacherAssessmentId = crypto.randomUUID();

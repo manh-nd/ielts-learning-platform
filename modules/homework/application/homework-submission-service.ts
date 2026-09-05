@@ -16,6 +16,11 @@ import type {
   HomeworkSubmission,
   SubmissionAttempt,
 } from "../domain/homework-types";
+import {
+  canLearnerResubmit,
+  hasSubmissionDeadlinePassed,
+  resolveAttemptForReview,
+} from "../domain/homework-submission-lifecycle";
 import type {
   LearnerHomeworkDetail,
   LearnerPublishedAssessmentData,
@@ -172,8 +177,8 @@ export async function getLearnerPublishedAssessment(
     );
   }
 
-  const targetAttemptNumber =
-    submission.reviewedAttemptNumber || submission.currentAttemptNumber;
+  const reviewAttempt = resolveAttemptForReview(submission);
+  const targetAttemptNumber = reviewAttempt.attemptNumber;
   const attempt = await findAttemptByNumber(submission.id, targetAttemptNumber);
   if (!attempt) {
     throw new NotFoundError(
@@ -219,7 +224,7 @@ export async function submitLearnerHomeworkAttempt(
 
   // 1. Deadline check: Strict rejection after deadline
   const now = new Date();
-  if (now.getTime() > assignment.submissionDeadline.getTime()) {
+  if (hasSubmissionDeadlinePassed(assignment.submissionDeadline, now)) {
     throw new ValidationError(
       "Đã hết hạn nộp bài. Hệ thống không tiếp nhận thêm bài làm sau thời hạn chót."
     );
@@ -283,7 +288,7 @@ export async function submitLearnerHomeworkAttempt(
 
   if (existingSubmission) {
     // First-Committed-Wins Concurrency Lock: Only "submitted" status can be resubmitted
-    if (existingSubmission.status !== "submitted") {
+    if (!canLearnerResubmit(existingSubmission.status)) {
       if (existingSubmission.status === "in_review") {
         throw new ConflictError(
           "Bài làm đã được Giáo viên tiếp nhận chấm, không thể nộp lại.",
