@@ -29,15 +29,12 @@ import { PcmAudioController } from "@/lib/audio/pcm-audio-controller";
 import {
   dispatchHomeworkViewed,
   dispatchHomeworkRecordCompleted,
-  dispatchHomeworkSubmitted,
-  dispatchHomeworkResubmitted,
-  dispatchHomeworkSubmitConflictRejected,
 } from "@/lib/telemetry/telemetry-client";
 import type {
   HomeworkSubmission,
   SubmissionAttempt,
-  AudioResponseClip,
 } from "@/modules/homework/domain/homework-types";
+import { commitHomeworkAttempt } from "./client/commit-homework-attempt";
 import type { LearnerHomeworkDetail } from "@/modules/homework/application/homework-read-models";
 
 export interface RecordedClipData {
@@ -366,163 +363,62 @@ export function LearnerHomeworkRecordingView({
     [playingPromptId, recordedClips]
   );
 
-  // Submit all recorded clips
+  // Submit all recorded clips via extracted client workflow seam
   const handleSubmitHomework = useCallback(async () => {
     if (isConflictLocked || isPastDeadline || isSubmitting) return;
-
-    // Check all prompts are recorded
-    const missingPrompts = prompts.filter((p) => !recordedClips[p.promptId]);
-    if (missingPrompts.length > 0) {
-      setSubmissionError(
-        `Bạn chưa thu âm đủ các câu hỏi (${missingPrompts.length} câu còn thiếu).`
-      );
-      return;
-    }
 
     setIsSubmitting(true);
     setSubmissionError(null);
 
-    try {
-      const audioResponses: AudioResponseClip[] = [];
+    const result = await commitHomeworkAttempt({
+      assignmentId: assignment.id,
+      prompts,
+      recordedClips,
+      mockMode,
+      currentAttemptNumber: submission?.currentAttemptNumber,
+    });
 
-      // Step 1: Upload each clip to get storageKey
-      for (const prompt of prompts) {
-        const clip = recordedClips[prompt.promptId];
-        let storageKey = clip.storageKey;
-
-        if (!storageKey && clip.blob) {
-          const isWav = clip.blob.type?.includes("wav");
-          const ext = isWav ? "wav" : "webm";
-          const mimeType = isWav
-            ? "audio/wav"
-            : clip.blob.type || "audio/webm;codecs=opus";
-
-          // Request upload URL
-          const uploadUrlRes = await fetch(
-            `/api/learner/assignments/${assignment.id}/upload-url`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                promptId: prompt.promptId,
-                filename: `${prompt.promptId}.${ext}`,
-                mimeType,
-              }),
-            }
-          );
-
-          if (!uploadUrlRes.ok) {
-            const errData = await uploadUrlRes.json().catch(() => ({}));
-            throw new Error(
-              errData.error?.message ||
-                `Không thể tạo URL tải lên cho câu hỏi (${uploadUrlRes.status})`
-            );
-          }
-
-          const uploadData = await uploadUrlRes.json();
-          storageKey = uploadData.storageKey;
-
-          // PUT binary blob
-          const putRes = await fetch(uploadData.uploadUrl, {
-            method: "PUT",
-            headers: {
-              "Content-Type": mimeType,
-            },
-            body: clip.blob,
-          });
-
-          if (!putRes.ok) {
-            throw new Error(
-              `Lỗi khi tải file âm thanh lên hệ thống lưu trữ (${putRes.status}).`
-            );
-          }
-
-          // Cache storageKey on clip
-          setRecordedClips((prev) => ({
-            ...prev,
-            [prompt.promptId]: {
-              ...prev[prompt.promptId],
+    // Cache any newly generated storage keys into recordedClips for subsequent retry attempts
+    if (result.uploadedStorageKeys) {
+      const keys = result.uploadedStorageKeys;
+      setRecordedClips((prev) => {
+        const next = { ...prev };
+        for (const [promptId, storageKey] of Object.entries(keys)) {
+          if (next[promptId]) {
+            next[promptId] = {
+              ...next[promptId],
               storageKey,
-            },
-          }));
-        } else if (!storageKey && mockMode) {
-          storageKey = `homework/mock_learner/${assignment.id}/${prompt.promptId}/response.webm`;
+            };
+          }
         }
+        return next;
+      });
+    }
 
-        if (!storageKey) {
-          throw new Error(
-            `Thiếu file âm thanh cho câu hỏi Part ${prompt.partNumber}.`
-          );
-        }
+    setIsSubmitting(false);
 
-        audioResponses.push({
-          promptId: prompt.promptId,
-          storageKey,
-          durationMs: Math.round(clip.durationSeconds * 1000),
-          audioBytes: clip.blob?.size || 45000,
-        });
+    switch (result.kind) {
+      case "committed": {
+        setSubmission(result.submission);
+        onSubmitted?.(result.submission, result.attempt);
+        break;
       }
-
-      // Step 2: Post submission attempt
-      const submitRes = await fetch(
-        `/api/learner/assignments/${assignment.id}/submit`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audioResponses }),
-        }
-      );
-
-      if (submitRes.status === 409) {
-        const conflictData = await submitRes.json().catch(() => ({}));
+      case "conflict_locked": {
         setIsConflictLocked(true);
-        dispatchHomeworkSubmitConflictRejected(
-          assignment.id,
-          submission?.currentAttemptNumber || 1
-        );
-        throw new Error(
-          conflictData.error?.message ||
-            "Bài làm đã được Giáo viên tiếp nhận chấm điểm, không thể nộp lại."
-        );
+        setSubmissionError(result.message);
+        break;
       }
-
-      if (!submitRes.ok) {
-        const errData = await submitRes.json().catch(() => ({}));
-        throw new Error(
-          errData.error?.message || `Lỗi khi nộp bài (${submitRes.status})`
+      case "incomplete": {
+        setSubmissionError(
+          `Bạn chưa thu âm đủ các câu hỏi (${result.missingPromptCount} câu còn thiếu).`
         );
+        break;
       }
-
-      const data = (await submitRes.json()) as {
-        success: boolean;
-        submission: HomeworkSubmission;
-        attempt: SubmissionAttempt;
-      };
-
-      setSubmission(data.submission);
-
-      if (data.submission.currentAttemptNumber > 1) {
-        dispatchHomeworkResubmitted(
-          assignment.id,
-          data.submission.id,
-          data.submission.currentAttemptNumber
-        );
-      } else {
-        dispatchHomeworkSubmitted(
-          assignment.id,
-          data.submission.id,
-          data.submission.currentAttemptNumber
-        );
+      case "upload_failed":
+      case "rejected": {
+        setSubmissionError(result.message);
+        break;
       }
-
-      onSubmitted?.(data.submission, data.attempt);
-    } catch (err: unknown) {
-      console.error("[LearnerHomework] Submit error:", err);
-      setSubmissionError(
-        (err as Error)?.message || "Đã xảy ra lỗi không xác định khi nộp bài."
-      );
-    } finally {
-      setIsSubmitting(false);
     }
   }, [
     assignment.id,
@@ -533,7 +429,7 @@ export function LearnerHomeworkRecordingView({
     onSubmitted,
     prompts,
     recordedClips,
-    submission,
+    submission?.currentAttemptNumber,
   ]);
 
   const recordedCount = prompts.filter((p) => recordedClips[p.promptId]).length;

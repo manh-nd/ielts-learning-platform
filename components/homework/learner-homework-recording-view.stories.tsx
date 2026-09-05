@@ -114,6 +114,27 @@ export const RecordingInteraction: Story = {
     await expect(
       canvas.getByRole("button", { name: /Phát lại/i })
     ).toBeInTheDocument();
+
+    // Verify re-record button is available and click it
+    const rerecordBtn = canvas.getByRole("button", { name: /Thu âm lại/i });
+    await expect(rerecordBtn).toBeInTheDocument();
+    await userEvent.click(rerecordBtn);
+
+    // Verify recording UI reappeared
+    await expect(
+      canvas.getByText(/Đang thu âm microphone\.\.\./i)
+    ).toBeInTheDocument();
+
+    // Finish recording again
+    const finishBtn2 = canvas.getByRole("button", {
+      name: /Hoàn thành câu trả lời/i,
+    });
+    await userEvent.click(finishBtn2);
+
+    // Verify clip now has playback button again
+    await expect(
+      canvas.getByRole("button", { name: /Phát lại/i })
+    ).toBeInTheDocument();
   },
 };
 
