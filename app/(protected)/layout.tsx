@@ -1,7 +1,7 @@
 import * as React from "react";
 import { requireAuthOrRedirect } from "@/lib/authorization";
-import { ProtectedHeader } from "@/components/auth/protected-header";
-import type { UserProfile } from "@/components/auth/types";
+import { AppShell } from "@/components/layout";
+import type { UserProfile, UserRole } from "@/components/auth/types";
 
 export default async function ProtectedLayout({
   children,
@@ -14,24 +14,9 @@ export default async function ProtectedLayout({
     id: session.user.id,
     name: session.user.name,
     email: session.user.email,
-    role: (session.user.role as "teacher" | "learner") || "learner",
+    role: (session.user.role as UserRole) || "learner",
     image: session.user.image,
   };
 
-  return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground antialiased selection:bg-primary/20">
-      <ProtectedHeader user={userProfile} />
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-6 sm:px-6">
-        {children}
-      </main>
-      <footer className="border-t border-border/30 py-4 text-center text-xs text-muted-foreground">
-        <div className="mx-auto max-w-7xl px-4">
-          <p>
-            © {new Date().getFullYear()} Chilly IELTS • Nền tảng Luyện thi IELTS
-            Thông minh kết hợp AI & Giảng viên.
-          </p>
-        </div>
-      </footer>
-    </div>
-  );
+  return <AppShell user={userProfile}>{children}</AppShell>;
 }

@@ -168,4 +168,13 @@ test.describe("Storybook Visual Regression Suite", () => {
       );
     });
   });
+
+  test.describe("7. Dashboard App Shell", () => {
+    test("Teacher Default App Shell", async ({ page }) => {
+      await loadStory(page, "product-layout-appshell--teacher-default");
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "app-shell-teacher-default.png"
+      );
+    });
+  });
 });
