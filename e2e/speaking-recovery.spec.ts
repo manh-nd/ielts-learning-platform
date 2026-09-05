@@ -131,6 +131,12 @@ test.describe("Speaking Practice Failure Recovery & Consent Gates (#70)", () => 
                 storageKey: "speaking/mock-audio.webm",
               },
             ],
+            restoredState: {
+              status: "ended_evaluation_failed_retryable",
+              sessionId,
+              error: "Máy chủ AI quá tải (503). Vui lòng thử phân tích lại.",
+              canRetry: true,
+            },
           }),
         });
       }

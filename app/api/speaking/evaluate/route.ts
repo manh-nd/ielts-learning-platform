@@ -24,7 +24,7 @@ import {
   NotFoundError,
 } from "@/lib/errors";
 import { finishSpeakingPractice } from "@/modules/speaking/application/finish-speaking-practice";
-import { getSpeakingPractice } from "@/modules/speaking/application/get-speaking-practice";
+import { restoreSpeakingPractice } from "@/modules/speaking/application/restore-speaking-practice";
 import { normalizeSpeakingPracticeScope } from "@/modules/speaking/domain";
 import {
   devSessionCache,
@@ -453,15 +453,20 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const practiceData = await getSpeakingPractice({
+      const {
+        session: practiceSession,
+        responses,
+        restoredState,
+      } = await restoreSpeakingPractice({
         authenticatedUserId,
         sessionId,
       });
 
       return NextResponse.json({
         success: true,
-        session: practiceData.session,
-        responses: practiceData.responses,
+        session: practiceSession,
+        responses,
+        restoredState,
       });
     } catch (practiceErr) {
       if (practiceErr instanceof NotFoundError) {

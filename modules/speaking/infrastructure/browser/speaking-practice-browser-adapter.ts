@@ -141,6 +141,28 @@ export function createSpeakingPracticeBrowserPorts(): SpeakingPracticeWorkflowPo
       return res.json();
     },
 
+    restorePractice: async (sessionId: string) => {
+      try {
+        const res = await fetch(
+          `/api/speaking/evaluate?sessionId=${encodeURIComponent(sessionId)}`
+        );
+        if (!res.ok) {
+          return null;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (data?.success && data?.restoredState) {
+          return data.restoredState;
+        }
+        return null;
+      } catch (err) {
+        console.warn(
+          "[SpeakingPracticeBrowserAdapter] Session restoration error:",
+          err
+        );
+        return null;
+      }
+    },
+
     saveSessionIdentity: (sessionId: string) => {
       if (typeof window !== "undefined") {
         try {

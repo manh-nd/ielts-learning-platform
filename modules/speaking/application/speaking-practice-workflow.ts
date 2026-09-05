@@ -66,6 +66,10 @@ export interface SpeakingPracticeTelemetryObserver {
   ) => void | Promise<unknown>;
 }
 
+import type { RestoredSpeakingPracticeState } from "./restore-speaking-practice";
+
+export type { RestoredSpeakingPracticeState } from "./restore-speaking-practice";
+
 /**
  * Outbound ports contract for SpeakingPractice workflow orchestration.
  * Implemented by infrastructure adapters (e.g. browser adapter or test mocks).
@@ -98,6 +102,9 @@ export interface SpeakingPracticeWorkflowPorts {
     status?: string;
     httpStatus?: number;
   }>;
+  restorePractice?: (
+    sessionId: string
+  ) => Promise<RestoredSpeakingPracticeState | null>;
   saveSessionIdentity?: (sessionId: string) => void;
   telemetry?: SpeakingPracticeTelemetryObserver;
 }
@@ -398,12 +405,13 @@ export async function retrySpeakingPracticeEvaluationWorkflow(
     durationSeconds = 120,
   } = input;
 
-  if (!storageKey && !audioBase64) {
+  if (!sessionId) {
     return {
       status: "evaluation_failed",
-      sessionId,
+      sessionId: "",
       practiceEnded: false,
-      error: "Không đủ điều kiện thử lại chấm điểm do thiếu bản thu âm gốc.",
+      error:
+        "Không đủ điều kiện thử lại chấm điểm do thiếu mã phiên luyện tập.",
       canRetry: false,
     };
   }
@@ -520,4 +528,22 @@ export async function retrySpeakingAudioUploadWorkflow(
     },
     ports
   );
+}
+
+/**
+ * Restores an existing SpeakingPractice state via application ports.
+ */
+export async function restoreSpeakingPracticeWorkflow(
+  sessionId: string,
+  ports: SpeakingPracticeWorkflowPorts
+): Promise<RestoredSpeakingPracticeState | null> {
+  if (!ports.restorePractice) {
+    return null;
+  }
+  try {
+    return await ports.restorePractice(sessionId);
+  } catch (err) {
+    console.warn("[SpeakingPracticeWorkflow] Restore practice error:", err);
+    return null;
+  }
 }

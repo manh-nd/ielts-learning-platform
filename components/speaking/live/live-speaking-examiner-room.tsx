@@ -54,6 +54,7 @@ import {
   finishSpeakingPracticeWorkflow,
   retrySpeakingPracticeEvaluationWorkflow,
   retrySpeakingAudioUploadWorkflow,
+  restoreSpeakingPracticeWorkflow,
   type SpeakingPracticeWorkflowOutcome,
   type SpeakingPracticeWorkflowPorts,
 } from "@/modules/speaking/application/speaking-practice-workflow";
@@ -408,6 +409,71 @@ export function LiveSpeakingExaminerRoom({
       !evaluationResult &&
       !practiceFeedback
     ) {
+      // Part 1 Speaking Practice Flow: driven by explicit application RestoredSpeakingPracticeState (#82)
+      if (isPart1Practice) {
+        const restorePractice = async () => {
+          try {
+            const restored = await restoreSpeakingPracticeWorkflow(
+              sessionToRestore,
+              effectiveWorkflowPorts
+            );
+            if (isCancelled || !restored) return;
+
+            setActiveSessionId(restored.sessionId);
+
+            switch (restored.status) {
+              case "ended_feedback_ready":
+                setPracticeFeedback(restored.feedback);
+                if (restored.trace) {
+                  setTraceMetadata(restored.trace);
+                }
+                setCanRetryEvaluation(false);
+                setIsExamFinished(true);
+                setIsEvaluating(false);
+                setEvalError(null);
+                break;
+
+              case "ended_evaluation_failed_retryable":
+                setEvalError(restored.error);
+                setCanRetryEvaluation(true);
+                setIsExamFinished(true);
+                setIsEvaluating(false);
+                break;
+
+              case "ended_audio_unavailable":
+                setEvalError(restored.error);
+                setCanRetryEvaluation(false);
+                setIsExamFinished(true);
+                setIsEvaluating(false);
+                break;
+
+              case "ended_evaluating":
+                setIsExamFinished(true);
+                setIsEvaluating(true);
+                setCanRetryEvaluation(false);
+                setEvalError(null);
+                // DO NOT trigger evaluation again. Mark UI as waiting/evaluating.
+                break;
+
+              case "in_progress":
+                setIsExamFinished(false);
+                setIsEvaluating(false);
+                setCanRetryEvaluation(false);
+                break;
+            }
+          } catch (err) {
+            console.warn(
+              "[LiveExaminerRoom] Speaking practice restoration error:",
+              err
+            );
+          }
+        };
+
+        restorePractice();
+        return;
+      }
+
+      // Full Mock Examination Flow (Untouched)
       const restoreSession = async () => {
         try {
           const res = await fetch(
@@ -427,13 +493,7 @@ export function LiveSpeakingExaminerRoom({
 
           if (pSession.status === "evaluated" && pSession.scorecardJson) {
             const sc = pSession.scorecardJson as Record<string, unknown>;
-            if (sc.estimatedPerformance || isPart1Practice) {
-              setPracticeFeedback(sc as unknown as PracticeFeedback);
-            } else {
-              setEvaluationResult(
-                sc as unknown as IeltsSpeakingEvaluationResult
-              );
-            }
+            setEvaluationResult(sc as unknown as IeltsSpeakingEvaluationResult);
             if (pSession.evidenceJson?.trace) {
               setTraceMetadata(
                 pSession.evidenceJson.trace as SpeakingEvaluationTrace
@@ -476,6 +536,7 @@ export function LiveSpeakingExaminerRoom({
     practiceFeedback,
     triggerEvaluation,
     isPart1Practice,
+    effectiveWorkflowPorts,
   ]);
 
   // Finish exam manually or automatically

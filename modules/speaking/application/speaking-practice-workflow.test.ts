@@ -317,6 +317,33 @@ describe("SpeakingPractice Workflow Orchestration Application Seam (#81)", () =>
 
   it("Critical Seam 5b: retry evaluation denies retry when authoritative OriginalAudio is missing", async () => {
     const mockEvaluate = mock(async () => ({
+      success: false,
+      error: "ORIGINAL_AUDIO_MISSING",
+      message:
+        "Không tìm thấy hoặc không xác thực được bản ghi âm gốc (OriginalAudio).",
+    }));
+    const ports: SpeakingPracticeWorkflowPorts = {
+      persistAudio: mock(async () => ({})),
+      evaluatePractice: mockEvaluate,
+    };
+
+    const outcome = await retrySpeakingPracticeEvaluationWorkflow(
+      {
+        sessionId: "ses_missing_audio",
+      },
+      ports
+    );
+
+    expect(outcome.status).toBe("evaluation_failed");
+    if (outcome.status === "evaluation_failed") {
+      expect(outcome.canRetry).toBe(false);
+      expect(outcome.error).toContain("bản ghi âm gốc");
+    }
+    expect(mockEvaluate).toHaveBeenCalledTimes(1);
+  });
+
+  it("Critical Seam 5c: retry evaluation without sessionId fails fast", async () => {
+    const mockEvaluate = mock(async () => ({
       success: true,
       result: mockFeedback,
     }));
@@ -327,8 +354,7 @@ describe("SpeakingPractice Workflow Orchestration Application Seam (#81)", () =>
 
     const outcome = await retrySpeakingPracticeEvaluationWorkflow(
       {
-        sessionId: "ses_missing_audio",
-        // Both storageKey and audioBase64 omitted
+        sessionId: "",
       },
       ports
     );
@@ -336,7 +362,6 @@ describe("SpeakingPractice Workflow Orchestration Application Seam (#81)", () =>
     expect(outcome.status).toBe("evaluation_failed");
     if (outcome.status === "evaluation_failed") {
       expect(outcome.canRetry).toBe(false);
-      expect(outcome.error).toContain("thiếu bản thu âm gốc");
     }
     expect(mockEvaluate).toHaveBeenCalledTimes(0);
   });
