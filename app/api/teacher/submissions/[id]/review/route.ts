@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
 import { toErrorResponse, AppError, ValidationError } from "@/lib/errors";
-import { getTeacherReviewCockpit } from "@/modules/homework/application/homework-review-service";
+import { getTeacherReviewCockpit } from "@/modules/homework/application/get-teacher-review-cockpit";
 
 export const runtime = "nodejs";
 

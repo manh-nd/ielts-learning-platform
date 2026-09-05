@@ -7,6 +7,7 @@ import type {
   SpeakingCriteriaScores,
   SpeakingCriteriaFeedback,
 } from "@/modules/homework/domain/homework-types";
+import { IELTS_BAND_SCORE } from "@/modules/homework/application/validate-homework-assessment";
 import { calculateIeltsSpeakingOverallBand } from "@/modules/homework/domain/homework-types";
 import type { PublishAssessmentInput } from "@/modules/homework/application/homework-inputs";
 import type { TeacherReviewCockpitData } from "@/modules/homework/application/homework-read-models";
@@ -892,9 +893,9 @@ export function TeacherReviewCockpit({
                     {!isPublished && (
                       <div className="pt-1 px-1">
                         <Slider
-                          min={0}
-                          max={9}
-                          step={0.5}
+                          min={IELTS_BAND_SCORE.min}
+                          max={IELTS_BAND_SCORE.max}
+                          step={IELTS_BAND_SCORE.step}
                           aria-label={`Điểm tiêu chí ${crit.label}`}
                           value={[currentScore]}
                           disabled={isPendingStart}

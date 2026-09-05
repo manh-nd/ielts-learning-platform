@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
 import { toErrorResponse, AppError, ValidationError } from "@/lib/errors";
-import { startTeacherReview } from "@/modules/homework/application/homework-review-service";
+import { claimHomeworkReview } from "@/modules/homework/application/claim-homework-review";
 
 export const runtime = "nodejs";
 
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       throw new ValidationError("Thiếu thông tin mã bài nộp.");
     }
 
-    const submission = await startTeacherReview(session.user.id, submissionId);
+    const submission = await claimHomeworkReview(session.user.id, submissionId);
 
     return NextResponse.json(
       {

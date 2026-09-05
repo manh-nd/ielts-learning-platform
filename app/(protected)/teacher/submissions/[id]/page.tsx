@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { requireRoleOrRedirect } from "@/lib/authorization";
-import { getTeacherReviewCockpit } from "@/modules/homework/application/homework-review-service";
+import { getTeacherReviewCockpit } from "@/modules/homework/application/get-teacher-review-cockpit";
 import { TeacherReviewCockpit } from "@/components/homework/teacher-review-cockpit";
 import { NotFoundError, ForbiddenError } from "@/lib/errors";
 import { buttonVariants } from "@/components/ui/button";

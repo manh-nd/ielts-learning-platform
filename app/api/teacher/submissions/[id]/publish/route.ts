@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole } from "@/lib/authorization";
 import { toErrorResponse, AppError, ValidationError } from "@/lib/errors";
-import { publishTeacherAssessment } from "@/modules/homework/application/homework-review-service";
+import { publishHomeworkAssessment } from "@/modules/homework/application/publish-homework-assessment";
 import type { PublishAssessmentInput } from "@/modules/homework/application/homework-inputs";
 
 export const runtime = "nodejs";
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     const input = body as PublishAssessmentInput;
 
-    const result = await publishTeacherAssessment(
+    const result = await publishHomeworkAssessment(
       session.user.id,
       submissionId,
       input

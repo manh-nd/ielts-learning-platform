@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { getLearnerPublishedAssessment } from "./get-learner-published-assessment";
 import { submitLearnerHomeworkAttempt } from "./submit-homework-attempt";
-import {
-  startTeacherReview,
-  publishTeacherAssessment,
-} from "./homework-review-service";
+import { claimHomeworkReview } from "./claim-homework-review";
+import { publishHomeworkAssessment } from "./publish-homework-assessment";
 import {
   createAssignment,
   clearDevHomeworkCache,
@@ -108,7 +106,7 @@ describe("Learner PublishedAssessment query", () => {
     );
     for (const status of ["submitted", "in_review"] as const) {
       if (status === "in_review")
-        await startTeacherReview(teacherId, submission.id);
+        await claimHomeworkReview(teacherId, submission.id);
       await expect(
         getLearnerPublishedAssessment(learnerId, assignment.id)
       ).rejects.toMatchObject({
@@ -168,7 +166,7 @@ describe("Learner PublishedAssessment query", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-    const official = await publishTeacherAssessment(
+    const official = await publishHomeworkAssessment(
       teacherId,
       first.submission.id,
       {
