@@ -128,6 +128,19 @@ export const VietnameseCoverage: Story = {
 
           <div className="p-4 rounded-lg border bg-card space-y-1 italic">
             <div className="flex justify-between items-center text-xs text-muted-foreground font-mono not-italic">
+              <span>Weight 500 — Medium Italic</span>
+              <span>font-medium italic</span>
+            </div>
+            <p className="text-base font-medium leading-relaxed">
+              {SAMPLE_PARAGRAPH}
+            </p>
+            <p className="text-sm font-medium text-muted-foreground">
+              {VIETNAMESE_PROBE_CHARS}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-lg border bg-card space-y-1 italic">
+            <div className="flex justify-between items-center text-xs text-muted-foreground font-mono not-italic">
               <span>Weight 600 — Semibold Italic</span>
               <span>font-semibold italic</span>
             </div>

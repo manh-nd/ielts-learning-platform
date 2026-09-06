@@ -33,6 +33,7 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 800 },
+        deviceScaleFactor: 1,
         colorScheme: "light",
       },
     },
@@ -41,14 +42,19 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 800 },
+        deviceScaleFactor: 1,
         colorScheme: "dark",
       },
     },
+    // Mobile projects emulate canonical smartphone density (375x667 at @2x Retina, e.g. iPhone SE).
+    // Explicit DPR 2 matches real-world mobile displays and prevents 1x FreeType grid-snapping
+    // distortion on Vietnamese diacritics under Chromium/Linux.
     {
       name: "mobile-light",
       use: {
         viewport: { width: 375, height: 667 },
         isMobile: true,
+        deviceScaleFactor: 2,
         colorScheme: "light",
       },
     },
@@ -57,6 +63,7 @@ export default defineConfig({
       use: {
         viewport: { width: 375, height: 667 },
         isMobile: true,
+        deviceScaleFactor: 2,
         colorScheme: "dark",
       },
     },

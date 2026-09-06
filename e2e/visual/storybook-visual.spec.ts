@@ -53,11 +53,16 @@ test.describe("Storybook Visual Regression Suite", () => {
   test.describe("0. Foundations Typography", () => {
     test("Vietnamese Typography Coverage & Platform Font Verification", async ({
       page,
-    }) => {
+    }, testInfo) => {
       await loadStory(
         page,
         "design-system-foundations-typography--vietnamese-coverage"
       );
+
+      // Verify that runtime devicePixelRatio strictly matches the visual-project contract
+      const expectedDpr = testInfo.project.use.deviceScaleFactor;
+      const actualDpr = await page.evaluate(() => window.devicePixelRatio);
+      expect(actualDpr).toBe(expectedDpr);
 
       // Verify via Chromium CDP that probe glyphs are rendered from project-owned Chilly Inter
       const client = await page.context().newCDPSession(page);
