@@ -57,6 +57,9 @@ export class LearnerAudioTimelineStream {
   private isStarted: boolean = false;
 
   start(streamStartMs: number) {
+    if (this.isStarted) {
+      return;
+    }
     this.streamStartMs = streamStartMs;
     this.samplesCaptured = 0;
     this.isStarted = true;

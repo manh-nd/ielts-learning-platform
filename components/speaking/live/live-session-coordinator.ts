@@ -40,8 +40,10 @@ export class LiveSessionCoordinator {
   private sessionEpoch: number | null = null;
   private completionRequested: boolean = false;
   private terminalTurnCompleteSeen: boolean = false;
+  private hasNotifiedExamCompleted: boolean = false;
   private safetyTimer: NodeJS.Timeout | null = null;
   private finalizePromise: Promise<FinalizedLiveSessionAudio> | null = null;
+  private replayBlobUrl: string | null = null;
 
   private audioController: PcmAudioController | null = null;
   private replayRecorder: ConversationReplayRecorder | null = null;
@@ -59,32 +61,62 @@ export class LiveSessionCoordinator {
 
   /**
    * Resets coordinator lifecycle for a new live session.
+   * Also revokes any previously created ConversationReplay Object URL.
    */
   reset() {
     if (this.safetyTimer) {
       clearTimeout(this.safetyTimer);
       this.safetyTimer = null;
     }
+    this.revokeReplayUrl();
     this.sessionEpoch = null;
     this.completionRequested = false;
     this.terminalTurnCompleteSeen = false;
+    this.hasNotifiedExamCompleted = false;
     this.finalizePromise = null;
     this.audioController = null;
     this.replayRecorder = null;
   }
 
   /**
+   * Revokes the managed ConversationReplay Object URL if one was created.
+   */
+  revokeReplayUrl() {
+    if (this.replayBlobUrl) {
+      try {
+        const urlApi =
+          typeof window !== "undefined" && window.URL
+            ? window.URL
+            : typeof URL !== "undefined"
+              ? URL
+              : null;
+        if (urlApi && typeof urlApi.revokeObjectURL === "function") {
+          urlApi.revokeObjectURL(this.replayBlobUrl);
+        }
+      } catch {
+        // Ignored
+      }
+      this.replayBlobUrl = null;
+    }
+  }
+
+  /**
    * Initializes a new session epoch and binds audio controller & recorder.
+   * If recorder is passed as a factory function (epoch: number) => ConversationReplayRecorder,
+   * it is instantiated using the exact single session epoch.
    */
   startSession(
     controller: PcmAudioController,
-    recorder: ConversationReplayRecorder
+    recorder:
+      | ConversationReplayRecorder
+      | ((epoch: number) => ConversationReplayRecorder)
   ): number {
     this.reset();
     const epoch = this.clock();
     this.sessionEpoch = epoch;
     this.audioController = controller;
-    this.replayRecorder = recorder;
+    this.replayRecorder =
+      typeof recorder === "function" ? recorder(epoch) : recorder;
     return epoch;
   }
 
@@ -111,6 +143,15 @@ export class LiveSessionCoordinator {
   }
 
   /**
+   * Invokes onExamCompleted callback at most once per live session.
+   */
+  private notifyExamCompletedOnce(onExamCompleted?: () => void) {
+    if (this.hasNotifiedExamCompleted) return;
+    this.hasNotifiedExamCompleted = true;
+    onExamCompleted?.();
+  }
+
+  /**
    * Called when Gemini emits the end_exam tool call.
    * Starts terminal turn protocol: completionRequested = true.
    * Sets safety timeout (default 5000ms) in case turnComplete is never received.
@@ -123,7 +164,7 @@ export class LiveSessionCoordinator {
         this.safetyTimer = null;
         this.terminalTurnCompleteSeen = true;
         void this.finalizeLiveSession("ai_completed").then(() => {
-          onExamCompleted?.();
+          this.notifyExamCompletedOnce(onExamCompleted);
         });
       }, safetyTimeoutMs);
     }
@@ -145,7 +186,7 @@ export class LiveSessionCoordinator {
     }
 
     void this.finalizeLiveSession("ai_completed").then(() => {
-      onExamCompleted?.();
+      this.notifyExamCompletedOnce(onExamCompleted);
     });
 
     return true;
@@ -222,17 +263,33 @@ export class LiveSessionCoordinator {
           try {
             const remainingDurationMs =
               controller.getRemainingScheduledDurationMs();
-            // Drain timeout: remaining duration + 200ms safety margin, capped between 300ms and 2500ms
-            const drainTimeoutMs = Math.min(
-              2500,
-              Math.max(300, remainingDurationMs + 200)
-            );
-            await controller.waitForQueueDrain(drainTimeoutMs);
+            // Drain timeout: remaining duration + 1000ms safety margin, capped at 8000ms
+            const drainTimeoutMs = Math.min(8000, remainingDurationMs + 1000);
+            const drained = await controller.waitForQueueDrain(drainTimeoutMs);
+            if (!drained) {
+              console.warn(
+                "[LiveSessionCoordinator] Audio queue drain timed out. Truncating examiner replay at cutoff."
+              );
+              if (recorder && this.sessionEpoch !== null) {
+                const cutoffTimestampMs = Math.max(
+                  0,
+                  this.clock() - this.sessionEpoch
+                );
+                recorder.notifyInterrupted(cutoffTimestampMs);
+              }
+            }
           } catch (drainErr) {
             console.warn(
               "[LiveSessionCoordinator] Audio queue drain timeout:",
               drainErr
             );
+            if (recorder && this.sessionEpoch !== null) {
+              const cutoffTimestampMs = Math.max(
+                0,
+                this.clock() - this.sessionEpoch
+              );
+              recorder.notifyInterrupted(cutoffTimestampMs);
+            }
           }
         }
       }
@@ -254,14 +311,18 @@ export class LiveSessionCoordinator {
         try {
           const replayOut = recorder.finalize();
           if (replayOut) {
+            this.revokeReplayUrl();
             let url = "";
             try {
-              if (
-                typeof window !== "undefined" &&
-                window.URL &&
-                typeof window.URL.createObjectURL === "function"
-              ) {
-                url = window.URL.createObjectURL(replayOut.blob);
+              const urlApi =
+                typeof window !== "undefined" && window.URL
+                  ? window.URL
+                  : typeof URL !== "undefined"
+                    ? URL
+                    : null;
+              if (urlApi && typeof urlApi.createObjectURL === "function") {
+                url = urlApi.createObjectURL(replayOut.blob);
+                this.replayBlobUrl = url;
               }
             } catch {
               // Ignore in tests

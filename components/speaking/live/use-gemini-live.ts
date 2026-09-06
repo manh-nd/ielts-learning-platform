@@ -274,7 +274,6 @@ export function useGeminiLive(
 
   // References
   const coordinatorRef = useRef<LiveSessionCoordinator | null>(null);
-  const sessionEpochRef = useRef<number | null>(null);
   const conversationReplayRecorderRef =
     useRef<ConversationReplayRecorder | null>(null);
 
@@ -950,14 +949,13 @@ export function useGeminiLive(
     const controller = new PcmAudioController();
     audioControllerRef.current = controller;
 
-    const epoch =
-      typeof performance !== "undefined" ? performance.now() : Date.now();
-    sessionEpochRef.current = epoch;
-    const replayRecorder = new ConversationReplayRecorder({
-      sessionEpochMs: epoch,
+    coordinator.startSession(controller, (epoch) => {
+      const replayRecorder = new ConversationReplayRecorder({
+        sessionEpochMs: epoch,
+      });
+      conversationReplayRecorderRef.current = replayRecorder;
+      return replayRecorder;
     });
-    conversationReplayRecorderRef.current = replayRecorder;
-    coordinator.startSession(controller, replayRecorder);
 
     if (mockMode) {
       runMockSimulation();
