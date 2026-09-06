@@ -61,10 +61,21 @@ export interface LearnerPublishedAssessmentData {
   };
 }
 
+export interface TeacherReviewAudioClip {
+  promptId: string;
+  audioUrl: string;
+  durationMs?: number;
+}
+
+export interface TeacherReviewAttemptView {
+  attemptNumber: number;
+  audioClips: readonly TeacherReviewAudioClip[];
+}
+
 export interface TeacherReviewCockpitData {
   assignment: HomeworkAssignment;
   submission: HomeworkSubmission;
-  attempt: SubmissionAttempt;
+  reviewAttempt: TeacherReviewAttemptView;
   student: {
     id: string;
     name: string;

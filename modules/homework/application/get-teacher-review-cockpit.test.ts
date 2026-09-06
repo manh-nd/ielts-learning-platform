@@ -28,7 +28,11 @@ describe("get-teacher-review-cockpit", () => {
       const data = await getTeacherReviewCockpit(teacherId, submissionId);
       expect(data.assignment.id).toBe(assignmentId);
       expect(data.submission.id).toBe(submissionId);
-      expect(data.attempt.attemptNumber).toBe(1);
+      expect(data.reviewAttempt.attemptNumber).toBe(1);
+      expect(data.reviewAttempt.audioClips).toHaveLength(2);
+      expect(data.reviewAttempt.audioClips[0].audioUrl).toBe(
+        `/api/teacher/submissions/${submissionId}/audio/prompt_p1_1`
+      );
       expect(data.student.id).toBe(learnerId);
       expect(data.aiProposal).toBeNull();
       expect(data.teacherDraft).toBeNull();

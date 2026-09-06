@@ -40,7 +40,7 @@ import { SpeakingScratchpad } from "./speaking-scratchpad";
 import { SpeakingSummaryView } from "./speaking-summary-view";
 import { SpeakingSubmissionConfirmedView } from "./speaking-submission-confirmed-view";
 import { LiveSpeakingResultView } from "../live/live-speaking-result-view";
-import { AudioWaveformVisualizer } from "../audio-waveform-visualizer";
+import { LiveAudioVisualizer } from "../live-audio-visualizer";
 import { useAudioRecorder } from "../use-audio-recorder";
 import { formatDuration } from "../speaking-audio-recorder";
 import { IeltsSpeakingEvaluationResult } from "@/lib/gemini/speaking-schema";
@@ -635,9 +635,8 @@ export function SpeakingPracticeSuite({
                         className="h-2"
                       />
 
-                      <AudioWaveformVisualizer
+                      <LiveAudioVisualizer
                         analyserNode={analyserNode}
-                        isLive={isRecording}
                         height={60}
                       />
 
@@ -834,11 +833,7 @@ export function SpeakingPracticeSuite({
                   </span>
                 </div>
 
-                <AudioWaveformVisualizer
-                  analyserNode={analyserNode}
-                  isLive={isRecording}
-                  height={56}
-                />
+                <LiveAudioVisualizer analyserNode={analyserNode} height={56} />
 
                 {/* Recorder Control Buttons */}
                 <div className="flex items-center justify-center gap-3 pt-2">

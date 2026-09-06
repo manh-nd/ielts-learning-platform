@@ -226,8 +226,12 @@ describe("Teacher Review Cockpit API Endpoints (Issue #76, ADR-0008, ADR-0009)",
       expect(json.success).toBe(true);
       expect(json.submission.id).toBe(submissionId);
       expect(json.aiProposal).not.toBeNull();
-      expect(json.aiProposal.scores.fluencyAndCoherence).toBe(6.5);
-      expect(json.attempt.audioResponses.length).toBe(2);
+      expect(json.reviewAttempt.attemptNumber).toBe(1);
+      expect(json.reviewAttempt.audioClips.length).toBe(2);
+      expect(json.reviewAttempt.audioClips[0].audioUrl).toBe(
+        `/api/teacher/submissions/${submissionId}/audio/prompt_hobby_1`
+      );
+      expect(json.attempt).toBeUndefined();
     });
   });
 

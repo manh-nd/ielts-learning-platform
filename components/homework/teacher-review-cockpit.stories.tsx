@@ -44,25 +44,20 @@ const mockCockpitDataProposalReady: TeacherReviewCockpitData = {
     createdAt: new Date(Date.now() - 3600000),
     updatedAt: new Date(),
   },
-  attempt: {
-    id: "att_cockpit_01",
-    submissionId: "sub_cockpit_01",
+  reviewAttempt: {
     attemptNumber: 1,
-    audioResponses: [
+    audioClips: [
       {
         promptId: "p_env_1",
-        storageKey: "homework/lrn_cockpit_01/asg_cockpit_01/p_env_1.webm",
+        audioUrl: "/api/teacher/submissions/sub_cockpit_01/audio/p_env_1",
         durationMs: 115000,
-        audioBytes: 154000,
       },
       {
         promptId: "p_env_2",
-        storageKey: "homework/lrn_cockpit_01/asg_cockpit_01/p_env_2.webm",
+        audioUrl: "/api/teacher/submissions/sub_cockpit_01/audio/p_env_2",
         durationMs: 52000,
-        audioBytes: 72000,
       },
     ],
-    submittedAt: new Date(Date.now() - 3600000),
   },
   student: {
     id: "lrn_cockpit_01",

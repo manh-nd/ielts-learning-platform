@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   SpeakingCriteriaScorecard,
@@ -8,7 +8,11 @@ import {
   SpeakingScorecardTraceInfo,
   SpeakingCriterionKey,
 } from "./speaking-criteria-scorecard";
-import { AudioWaveformVisualizer } from "@/components/speaking/audio-waveform-visualizer";
+import {
+  AudioReviewPlayer,
+  type AudioReviewMarker,
+  type AudioReviewPlayerRef,
+} from "@/components/speaking/audio-review-player";
 import { calculateIeltsOverallBand } from "@/lib/gemini/speaking-schema";
 
 import { Button } from "@/components/ui/button";
@@ -18,9 +22,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 import {
-  Play,
-  Pause,
-  RotateCcw,
   BookmarkPlus,
   CheckCircle2,
   Sparkles,
@@ -29,7 +30,6 @@ import {
   FileText,
   AlertCircle,
   TrendingUp,
-  Tag,
   Trash2,
   ThumbsUp,
   Target,
@@ -123,9 +123,8 @@ export function TeacherSpeakingReviewWorkspace({
 }: TeacherSpeakingReviewWorkspaceProps) {
   // Navigation & playback state
   const [activePartNumber, setActivePartNumber] = useState<number>(1);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+  const playerRef = useRef<AudioReviewPlayerRef | null>(null);
 
   // Review & scoring state
   const [status, setStatus] = useState<SpeakingReviewStatus>(initialStatus);
@@ -169,6 +168,24 @@ export function TeacherSpeakingReviewWorkspace({
     return annotations.filter((a) => a.partNumber === activePartNumber);
   }, [annotations, activePartNumber]);
 
+  const mappedMarkers = useMemo<AudioReviewMarker[]>(() => {
+    const notesMarkers: AudioReviewMarker[] = (
+      activePart.pronunciationNotes || []
+    ).map((note, idx) => ({
+      id: `pron-note-${idx}`,
+      timeSeconds: note.timestampSeconds || 0,
+      label: `Lỗi phát âm: ${note.word}`,
+    }));
+    const annotMarkers: AudioReviewMarker[] = activePartAnnotations.map(
+      (annot) => ({
+        id: annot.id,
+        timeSeconds: annot.timestampSeconds,
+        label: `Ghi chú: ${annot.teacherComment.slice(0, 20)}...`,
+      })
+    );
+    return [...notesMarkers, ...annotMarkers];
+  }, [activePart.pronunciationNotes, activePartAnnotations]);
+
   // Overall Band calculation
   const overallBand = useMemo(() => {
     return calculateIeltsOverallBand(
@@ -182,16 +199,12 @@ export function TeacherSpeakingReviewWorkspace({
   // Handlers
   const handleSeek = useCallback((timeSeconds: number) => {
     setCurrentTime(timeSeconds);
-  }, []);
-
-  const handleTogglePlay = useCallback(() => {
-    setIsPlaying((prev) => !prev);
+    playerRef.current?.seekTo(timeSeconds);
   }, []);
 
   const handlePartChange = useCallback((partNumStr: string) => {
     setActivePartNumber(Number(partNumStr));
     setCurrentTime(0);
-    setIsPlaying(false);
   }, []);
 
   const handleAddAnnotation = useCallback(() => {
@@ -395,114 +408,39 @@ export function TeacherSpeakingReviewWorkspace({
                   )}
               </div>
 
-              {/* Interactive Audio Waveform Player */}
+              {/* Interactive Audio Review Player */}
               <div className="p-4 rounded-xl border bg-card/80 shadow-xs space-y-3">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="font-mono font-bold text-foreground">
-                    {formatTime(currentTime)} /{" "}
-                    {formatTime(activePart.durationSeconds)}
-                  </span>
+                <AudioReviewPlayer
+                  ref={playerRef}
+                  src={activePart.audioUrl || null}
+                  ariaLabel={`Speaking Part ${activePart.partNumber} Audio Review`}
+                  markers={mappedMarkers}
+                  onMarkerActivate={(markerId) => {
+                    const marker = mappedMarkers.find((m) => m.id === markerId);
+                    if (marker) {
+                      setCurrentTime(marker.timeSeconds);
+                    }
+                  }}
+                  onTimeUpdate={setCurrentTime}
+                />
 
-                  {/* Playback speed controls */}
-                  <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-md text-[11px] font-mono">
-                    {[0.8, 1.0, 1.2, 1.5].map((speed) => (
-                      <button
-                        key={speed}
-                        onClick={() => setPlaybackSpeed(speed)}
-                        className={cn(
-                          "px-2 py-0.5 rounded transition-colors",
-                          playbackSpeed === speed
-                            ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        {speed}x
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Audio Waveform Canvas */}
-                <div className="relative">
-                  <AudioWaveformVisualizer
-                    isLive={false}
-                    audioDuration={activePart.durationSeconds}
-                    currentTime={currentTime}
-                    onSeek={handleSeek}
-                    barCount={48}
-                    height={56}
-                    className="cursor-pointer rounded-lg bg-muted/30 border"
-                  />
-
-                  {/* Timestamp Pins on Waveform */}
-                  {activePart.pronunciationNotes.map((note, idx) => {
-                    const sec = note.timestampSeconds || 0;
-                    const leftPct =
-                      (sec / (activePart.durationSeconds || 1)) * 100;
-                    return (
-                      <button
-                        key={idx}
-                        onClick={() => handleSeek(sec)}
-                        style={{
-                          left: `${Math.min(95, Math.max(2, leftPct))}%`,
-                        }}
-                        aria-label={`Lỗi phát âm: ${note.word} tại ${formatTime(sec)}`}
-                        className="absolute -top-2.5 -translate-x-1/2 p-1 rounded-full bg-purple-700 text-white shadow-md hover:scale-125 transition-transform"
-                        title={`Lỗi phát âm: "${note.word}" tại ${formatTime(sec)}`}
-                      >
-                        <Tag className="h-2.5 w-2.5" />
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Audio Controls (Play/Pause, Rewind, Quick Pin) */}
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={handleTogglePlay}
-                      aria-label={isPlaying ? "Tạm dừng audio" : "Phát audio"}
-                      className="h-9 w-9 p-0 rounded-full bg-primary text-primary-foreground"
-                      data-testid="audio-play-pause-button"
-                    >
-                      {isPlaying ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4 ml-0.5" />
-                      )}
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleSeek(0)}
-                      aria-label="Phát lại từ đầu"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                      title="Phát lại từ đầu"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-
-                  {/* Add Pin Button */}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const input = document.getElementById(
-                          "annotation-input-box"
-                        );
-                        input?.focus();
-                      }}
-                      className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
-                      data-testid="pin-timestamp-button"
-                    >
-                      <BookmarkPlus className="h-3.5 w-3.5" />
-                      <span>Ghim tại {formatTime(currentTime)}</span>
-                    </Button>
-                  </div>
+                {/* Quick Pin Timestamp Button */}
+                <div className="flex items-center justify-end pt-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const input = document.getElementById(
+                        "annotation-input-box"
+                      );
+                      input?.focus();
+                    }}
+                    className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
+                    data-testid="pin-timestamp-button"
+                  >
+                    <BookmarkPlus className="h-3.5 w-3.5" />
+                    <span>Ghim tại {formatTime(currentTime)}</span>
+                  </Button>
                 </div>
               </div>
 

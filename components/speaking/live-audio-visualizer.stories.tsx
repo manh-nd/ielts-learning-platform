@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { useState, useEffect } from "react";
-import { AudioWaveformVisualizer } from "./audio-waveform-visualizer";
+import { LiveAudioVisualizer } from "./live-audio-visualizer";
 
-const meta: Meta<typeof AudioWaveformVisualizer> = {
-  title: "Patterns/Audio/AudioWaveformVisualizer",
-  component: AudioWaveformVisualizer,
+const meta: Meta<typeof LiveAudioVisualizer> = {
+  title: "Product/Speaking/LiveAudioVisualizer",
+  component: LiveAudioVisualizer,
   tags: ["autodocs"],
   parameters: {
     layout: "centered",
@@ -19,12 +19,12 @@ const meta: Meta<typeof AudioWaveformVisualizer> = {
 };
 
 export default meta;
-type Story = StoryObj<typeof AudioWaveformVisualizer>;
+type Story = StoryObj<typeof LiveAudioVisualizer>;
 
 /**
- * Live audio recording mode with active AnalyserNode
+ * 1. Active live audio recording stream with connected AnalyserNode
  */
-export const LiveMode: Story = {
+export const ActiveMicStream: Story = {
   render: () => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
@@ -57,8 +57,7 @@ export const LiveMode: Story = {
           <span>AnalyserNode (FFT: 256)</span>
         </div>
         <div className="p-3 bg-muted/40 rounded-lg border">
-          <AudioWaveformVisualizer
-            isLive={true}
+          <LiveAudioVisualizer
             analyserNode={analyser}
             height={68}
             barCount={42}
@@ -70,46 +69,59 @@ export const LiveMode: Story = {
 };
 
 /**
- * Static playback mode with progress at 45%
+ * 2. Paused recording stream (freezes into low-amplitude calm baseline)
  */
-export const PlaybackModeStatic: Story = {
-  args: {
-    isLive: false,
-    audioDuration: 60,
-    currentTime: 27,
-    barCount: 40,
-    height: 64,
-  },
-};
-
-/**
- * Interactive playback mode supporting click-to-seek
- */
-export const PlaybackInteractiveSeeker: Story = {
+export const PausedMicStream: Story = {
   render: () => {
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    const [time, setTime] = useState<number>(15);
-    const duration = 90;
+    const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    useEffect(() => {
+      if (typeof window !== "undefined") {
+        const AudioCtx =
+          window.AudioContext ||
+          // @ts-expect-error webkit prefix fallback
+          window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const node = ctx.createAnalyser();
+          setAnalyser(node);
+          return () => {
+            ctx.close();
+          };
+        }
+      }
+    }, []);
 
     return (
       <div className="space-y-3">
-        <div className="flex justify-between text-xs text-muted-foreground font-mono">
-          <span>Click anywhere on waveform to seek:</span>
-          <span className="font-bold text-foreground">
-            {time.toFixed(1)}s / {duration}s
+        <div className="flex justify-between items-center text-xs text-muted-foreground">
+          <span className="font-semibold text-muted-foreground flex items-center gap-1.5">
+            Tạm dừng thu âm
           </span>
+          <span>isPaused: true</span>
         </div>
-        <div className="p-3 bg-muted/30 rounded-lg border">
-          <AudioWaveformVisualizer
-            isLive={false}
-            audioDuration={duration}
-            currentTime={time}
-            onSeek={(newTime) => setTime(newTime)}
-            height={72}
-            barCount={48}
+        <div className="p-3 bg-muted/40 rounded-lg border">
+          <LiveAudioVisualizer
+            analyserNode={analyser}
+            isPaused={true}
+            height={68}
+            barCount={42}
           />
         </div>
       </div>
     );
+  },
+};
+
+/**
+ * 3. Idle standby baseline without connected AnalyserNode
+ */
+export const IdleWithoutNode: Story = {
+  args: {
+    analyserNode: null,
+    barCount: 40,
+    height: 64,
   },
 };

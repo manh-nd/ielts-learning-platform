@@ -32,7 +32,7 @@ import {
   SpeakingCriteriaScorecard,
   SpeakingCriteriaScores,
 } from "@/components/speaking/review/speaking-criteria-scorecard";
-import { AudioWaveformVisualizer } from "@/components/speaking/audio-waveform-visualizer";
+import { AudioReviewPlayer } from "@/components/speaking/audio-review-player";
 import {
   IeltsSpeakingEvaluationResult,
   PracticeFeedback,
@@ -84,79 +84,8 @@ export function LiveSpeakingResultView({
   } | null>(null);
   const [isPlayingClip, setIsPlayingClip] = useState(false);
 
-  // Full Audio Player State (Tab 3)
-  const [fullAudioCurrentTime, setFullAudioCurrentTime] = useState<number>(0);
-  const [isFullAudioPlaying, setIsFullAudioPlaying] = useState<boolean>(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
-
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const clipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Synchronize HTML5 audio element events with state
-  useEffect(() => {
-    const audio = audioElementRef.current;
-    if (!audio) return;
-
-    const handleTimeUpdate = () => {
-      setFullAudioCurrentTime(audio.currentTime);
-    };
-    const handlePlay = () => {
-      setIsFullAudioPlaying(true);
-    };
-    const handlePause = () => {
-      setIsFullAudioPlaying(false);
-    };
-    const handleEnded = () => {
-      setIsFullAudioPlaying(false);
-      setFullAudioCurrentTime(0);
-    };
-
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("play", handlePlay);
-    audio.addEventListener("pause", handlePause);
-    audio.addEventListener("ended", handleEnded);
-
-    return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("play", handlePlay);
-      audio.removeEventListener("pause", handlePause);
-      audio.removeEventListener("ended", handleEnded);
-    };
-  }, [recordedAudio?.url]);
-
-  // Full Audio Handlers
-  const handleFullAudioTogglePlay = useCallback(() => {
-    const audio = audioElementRef.current;
-    if (!audio) return;
-
-    if (isFullAudioPlaying) {
-      audio.pause();
-    } else {
-      if (clipTimeoutRef.current) {
-        clearTimeout(clipTimeoutRef.current);
-        clipTimeoutRef.current = null;
-        setIsPlayingClip(false);
-        setActiveClip(null);
-      }
-      audio.play().catch(() => {});
-    }
-  }, [isFullAudioPlaying]);
-
-  const handleFullAudioSeek = useCallback((targetTimeSeconds: number) => {
-    const audio = audioElementRef.current;
-    if (audio) {
-      audio.currentTime = targetTimeSeconds;
-      setFullAudioCurrentTime(targetTimeSeconds);
-    }
-  }, []);
-
-  const handleSetPlaybackSpeed = useCallback((speed: number) => {
-    setPlaybackSpeed(speed);
-    const audio = audioElementRef.current;
-    if (audio) {
-      audio.playbackRate = speed;
-    }
-  }, []);
 
   // Play clip helper
   const handlePlayClip = useCallback((startMs: number, endMs: number) => {
@@ -513,61 +442,10 @@ export function LiveSpeakingResultView({
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
-              <div className="p-3 rounded-xl border bg-muted/30 space-y-3">
-                <AudioWaveformVisualizer
-                  isLive={false}
-                  audioDuration={recordedAudio.durationSeconds}
-                  currentTime={fullAudioCurrentTime}
-                  onSeek={handleFullAudioSeek}
-                  barCount={48}
-                  height={60}
-                  className="cursor-pointer rounded-lg bg-background/80 border"
-                />
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 text-xs"
-                      onClick={handleFullAudioTogglePlay}
-                    >
-                      {isFullAudioPlaying ? (
-                        <>
-                          <Pause className="w-3.5 h-3.5" />
-                          Tạm dừng
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-3.5 h-3.5 fill-current" />
-                          Phát ghi âm
-                        </>
-                      )}
-                    </Button>
-                    <Badge variant="outline" className="text-[11px] font-mono">
-                      {formatTimestamp(Math.round(fullAudioCurrentTime * 1000))}{" "}
-                      /{" "}
-                      {formatTimestamp(
-                        Math.round(recordedAudio.durationSeconds * 1000)
-                      )}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {[1, 1.25, 1.5].map((speed) => (
-                      <Button
-                        key={speed}
-                        type="button"
-                        variant={playbackSpeed === speed ? "default" : "ghost"}
-                        size="xs"
-                        className="h-6 px-1.5 text-[11px]"
-                        onClick={() => handleSetPlaybackSpeed(speed)}
-                      >
-                        {speed}x
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <AudioReviewPlayer
+                src={recordedAudio.url}
+                ariaLabel="Bản ghi âm hoàn chỉnh"
+              />
               <div className="space-y-1.5 pt-2">
                 <span className="font-semibold text-xs text-muted-foreground">
                   Bản chép lời hội thoại:
@@ -1149,7 +1027,6 @@ export function LiveSpeakingResultView({
                     </CardDescription>
                   </div>
                   <Badge variant="outline" className="text-xs font-mono">
-                    {formatTimestamp(Math.round(fullAudioCurrentTime * 1000))} /{" "}
                     {formatTimestamp(
                       Math.round(recordedAudio.durationSeconds * 1000)
                     )}
@@ -1157,74 +1034,10 @@ export function LiveSpeakingResultView({
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
-                {/* Waveform Player */}
-                <div className="p-3 rounded-xl border bg-muted/30 space-y-3">
-                  <AudioWaveformVisualizer
-                    isLive={false}
-                    audioDuration={recordedAudio.durationSeconds}
-                    currentTime={fullAudioCurrentTime}
-                    onSeek={handleFullAudioSeek}
-                    barCount={48}
-                    height={60}
-                    className="cursor-pointer rounded-lg bg-background/80 border"
-                  />
-
-                  {/* Controls Bar */}
-                  <div className="flex items-center justify-between pt-1">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="default"
-                        onClick={handleFullAudioTogglePlay}
-                        data-testid="play-full-audio-btn"
-                        className="h-8 px-3 gap-1.5 text-xs font-semibold rounded-full cursor-pointer"
-                      >
-                        {isFullAudioPlaying ? (
-                          <>
-                            <Pause className="w-3.5 h-3.5" />
-                            <span>Tạm dừng</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                            <span>Phát âm thanh</span>
-                          </>
-                        )}
-                      </Button>
-
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleFullAudioSeek(0)}
-                        title="Phát lại từ đầu"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-
-                    {/* Speed Selection */}
-                    <div className="flex items-center gap-1 bg-muted/80 p-0.5 rounded-md text-xs font-mono">
-                      {[0.8, 1.0, 1.2, 1.5].map((speed) => (
-                        <button
-                          key={speed}
-                          type="button"
-                          onClick={() => handleSetPlaybackSpeed(speed)}
-                          className={cn(
-                            "px-2 py-0.5 rounded transition-colors cursor-pointer",
-                            playbackSpeed === speed
-                              ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                              : "text-foreground/90 hover:bg-background/60 font-semibold"
-                          )}
-                        >
-                          {speed}x
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                <AudioReviewPlayer
+                  src={recordedAudio.url}
+                  ariaLabel="Bản ghi âm hoàn chỉnh"
+                />
               </CardContent>
             </Card>
           )}

@@ -1,7 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { LiveSpeakingResultView } from "./live-speaking-result-view";
-import { fn, expect, userEvent, within } from "storybook/test";
+import { fn, expect, userEvent, within, waitFor } from "storybook/test";
 import { IeltsSpeakingEvaluationResult } from "@/lib/gemini/speaking-schema";
+import { createSteppedEnvelopeWavBlob } from "@/test/fixtures/audio-fixtures";
+import {
+  restoreNativeAudioApis,
+  resetAudioMocks,
+} from "../../../.storybook/mocks/audio-api.mock";
 
 const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
   overallScorecard: {
@@ -176,6 +181,13 @@ const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
   },
 };
 
+const sampleAudioBlob = createSteppedEnvelopeWavBlob(2);
+const sampleAudioUrl =
+  typeof window !== "undefined" &&
+  typeof window.URL?.createObjectURL === "function"
+    ? window.URL.createObjectURL(sampleAudioBlob)
+    : "mock-audio-url";
+
 const meta = {
   title: "Product/Speaking/LiveSpeakingResultView",
   component: LiveSpeakingResultView,
@@ -183,14 +195,20 @@ const meta = {
     layout: "padded",
   },
   tags: ["autodocs"],
+  beforeEach: () => {
+    restoreNativeAudioApis();
+  },
+  afterEach: () => {
+    resetAudioMocks();
+  },
   args: {
     evaluationResult: mockEvaluationResult,
     isLoading: false,
     recordedAudio: {
-      blob: new Blob([], { type: "audio/webm" }),
-      url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-      durationSeconds: 165,
-      mimeType: "audio/webm",
+      blob: sampleAudioBlob,
+      url: sampleAudioUrl,
+      durationSeconds: 2,
+      mimeType: "audio/wav",
     },
     transcripts: [
       {
@@ -264,9 +282,10 @@ export const InteractiveAudioWaveformTab: Story = {
       canvas.getByText(/File Ghi âm Toàn Bộ Buổi Thi/i)
     ).toBeInTheDocument();
 
-    // 3. Check play button exists
-    const playBtn = canvas.getByTestId("play-full-audio-btn");
+    // 3. Check play button exists in AudioReviewPlayer
+    const playBtn = await canvas.findByTestId("audio-player-play-pause");
     await expect(playBtn).toBeInTheDocument();
+    await waitFor(() => expect(playBtn).not.toBeDisabled(), { timeout: 5000 });
     await userEvent.click(playBtn);
   },
 };

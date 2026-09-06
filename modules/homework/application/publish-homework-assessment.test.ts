@@ -83,7 +83,7 @@ describe("publish-homework-assessment", () => {
     await saveAiProposal(proposal);
     const cockpit = await getTeacherReviewCockpit(teacherId, submissionId);
     expect(cockpit.aiProposal?.status).toBe("failed");
-    expect(cockpit.attempt.id).toBe(attemptId);
+    expect(cockpit.reviewAttempt.attemptNumber).toBe(1);
     const result = await publishHomeworkAssessment(
       teacherId,
       submissionId,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState } from "react";
 import {
   Mic,
   Square,
@@ -34,7 +34,8 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useAudioRecorder } from "./use-audio-recorder";
-import { AudioWaveformVisualizer } from "./audio-waveform-visualizer";
+import { LiveAudioVisualizer } from "./live-audio-visualizer";
+import { AudioReviewPlayer } from "./audio-review-player";
 
 export interface SpeakingAudioRecorderProps {
   /**
@@ -119,10 +120,6 @@ export function SpeakingAudioRecorder({
   const effectiveAudioUrl = recordedUrl || initialAudioUrl || null;
   const effectiveDuration = recordedDuration || initialDurationSeconds;
 
-  // Playback state
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [playbackCurrentTime, setPlaybackCurrentTime] = useState<number>(0);
   const [isReRecordDialogOpen, setIsReRecordDialogOpen] =
     useState<boolean>(false);
 
@@ -131,70 +128,8 @@ export function SpeakingAudioRecorder({
     recorderStatus === "playback" ||
     (recorderStatus === "idle" && !!initialAudioUrl);
 
-  // Synchronize HTML5 audio events
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleTimeUpdate = () => {
-      setPlaybackCurrentTime(audio.currentTime);
-    };
-
-    const handleEnded = () => {
-      setIsPlaying(false);
-      setPlaybackCurrentTime(0);
-    };
-
-    const handlePause = () => {
-      setIsPlaying(false);
-    };
-
-    const handlePlay = () => {
-      setIsPlaying(true);
-    };
-
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("pause", handlePause);
-    audio.addEventListener("play", handlePlay);
-
-    return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("pause", handlePause);
-      audio.removeEventListener("play", handlePlay);
-    };
-  }, [effectiveAudioUrl]);
-
-  const togglePlayback = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    if (isPlaying) {
-      audio.pause();
-    } else {
-      audio.play().catch(() => {
-        // Playback error catch
-      });
-    }
-  }, [isPlaying]);
-
-  const handleSeek = useCallback((targetTime: number) => {
-    const audio = audioRef.current;
-    if (audio) {
-      audio.currentTime = targetTime;
-      setPlaybackCurrentTime(targetTime);
-    }
-  }, []);
-
   const handleConfirmReRecord = () => {
     setIsReRecordDialogOpen(false);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-    }
-    setIsPlaying(false);
-    setPlaybackCurrentTime(0);
     resetRecording();
     startRecording();
   };
@@ -219,16 +154,6 @@ export function SpeakingAudioRecorder({
         className
       )}
     >
-      {/* Hidden audio element for playback */}
-      {effectiveAudioUrl && (
-        <audio
-          ref={audioRef}
-          src={effectiveAudioUrl}
-          preload="metadata"
-          className="hidden"
-        />
-      )}
-
       {/* Header Bar */}
       <CardHeader className="px-6 py-4 border-b bg-muted/20">
         <div className="flex items-start justify-between gap-4">
@@ -400,8 +325,7 @@ export function SpeakingAudioRecorder({
           <div data-testid="recording-panel" className="space-y-5">
             {/* Live Waveform Container */}
             <div className="bg-muted/30 p-3 rounded-xl border">
-              <AudioWaveformVisualizer
-                isLive={true}
+              <LiveAudioVisualizer
                 isPaused={recorderStatus === "paused"}
                 analyserNode={analyserNode}
                 height={72}
@@ -482,80 +406,39 @@ export function SpeakingAudioRecorder({
 
         {/* ================= 5. PLAYBACK & REVIEW STATE ================= */}
         {isPlaybackMode && (
-          <div data-testid="playback-panel" className="space-y-5">
-            {/* Interactive Playback Waveform */}
-            <div className="bg-muted/30 p-3 rounded-xl border">
-              <AudioWaveformVisualizer
-                isLive={false}
-                audioDuration={effectiveDuration}
-                currentTime={playbackCurrentTime}
-                onSeek={handleSeek}
-                height={72}
-              />
-            </div>
+          <div data-testid="playback-panel" className="space-y-4">
+            <AudioReviewPlayer
+              src={effectiveAudioUrl}
+              ariaLabel="Bản thu âm của bạn"
+            />
 
-            {/* Playback Controls & Actions */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-1">
-              <div className="flex items-center gap-3 w-full sm:w-auto">
+            {/* Actions: Re-record & Submit */}
+            <div className="flex items-center justify-between gap-3 px-1 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-testid="rerecord-btn"
+                onClick={() => setIsReRecordDialogOpen(true)}
+                className="gap-1 text-xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Ghi âm lại
+              </Button>
+
+              {onAudioSubmit && (
                 <Button
                   type="button"
-                  variant="outline"
-                  size="icon"
-                  data-testid="play-audio-btn"
-                  onClick={togglePlayback}
-                  className="w-10 h-10 rounded-full shrink-0"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-5 h-5" />
-                  ) : (
-                    <Play className="w-5 h-5 ml-0.5 fill-current" />
-                  )}
-                  <span className="sr-only">
-                    {isPlaying ? "Tạm dừng phát lại" : "Phát lại"}
-                  </span>
-                </Button>
-
-                <div className="text-xs font-mono text-muted-foreground">
-                  <span
-                    data-testid="playback-current-time"
-                    className="font-semibold text-foreground"
-                  >
-                    {formatDuration(playbackCurrentTime)}
-                  </span>{" "}
-                  /{" "}
-                  <span data-testid="playback-total-duration">
-                    {formatDuration(effectiveDuration)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
+                  variant="default"
                   size="sm"
-                  data-testid="rerecord-btn"
-                  onClick={() => setIsReRecordDialogOpen(true)}
-                  className="gap-1 text-xs"
+                  data-testid="submit-audio-btn"
+                  onClick={handleSubmit}
+                  className="gap-1.5 text-xs bg-primary text-primary-foreground"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                  Ghi âm lại
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Xác nhận & Nộp
                 </Button>
-
-                {onAudioSubmit && (
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    data-testid="submit-audio-btn"
-                    onClick={handleSubmit}
-                    className="gap-1.5 text-xs bg-primary text-primary-foreground"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    Xác nhận & Nộp
-                  </Button>
-                )}
-              </div>
+              )}
             </div>
           </div>
         )}

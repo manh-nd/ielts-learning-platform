@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, userEvent, within, waitFor } from "storybook/test";
 import { SpeakingAudioRecorder } from "./speaking-audio-recorder";
 import {
   resetAudioMocks,
@@ -169,9 +169,10 @@ export const FullRecordingCycleTest: Story = {
     const playbackBadge = await canvas.findByTestId("status-badge");
     await expect(playbackBadge).toHaveTextContent("Đã có bản thu");
 
-    // 6. Test Play audio button
-    const playBtn = canvas.getByTestId("play-audio-btn");
+    // 6. Test Play audio button in AudioReviewPlayer
+    const playBtn = await canvas.findByTestId("audio-player-play-pause");
     await expect(playBtn).toBeInTheDocument();
+    await waitFor(() => expect(playBtn).not.toBeDisabled(), { timeout: 5000 });
     await userEvent.click(playBtn);
   },
 };

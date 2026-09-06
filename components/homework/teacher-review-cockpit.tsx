@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type {
@@ -12,7 +12,7 @@ import { calculateIeltsSpeakingOverallBand } from "@/modules/homework/domain/hom
 import type { PublishAssessmentInput } from "@/modules/homework/application/homework-inputs";
 import type { TeacherReviewCockpitData } from "@/modules/homework/application/homework-read-models";
 import { useActiveReviewTimer } from "./hooks/use-active-review-timer";
-import { AudioWaveformVisualizer } from "@/components/speaking/audio-waveform-visualizer";
+import { AudioReviewPlayer } from "@/components/speaking/audio-review-player";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,8 +31,6 @@ import {
   RotateCcw,
   Mic,
   FileEdit,
-  Play,
-  Pause,
   AlertTriangle,
   ThumbsUp,
   Target,
@@ -68,7 +66,7 @@ export function TeacherReviewCockpit({
   const {
     assignment,
     submission,
-    attempt,
+    reviewAttempt,
     student,
     aiProposal,
     teacherDraft,
@@ -136,9 +134,6 @@ export function TeacherReviewCockpit({
 
   // Active prompt / audio clip tab
   const [activePromptIndex, setActivePromptIndex] = useState<number>(0);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
 
   // UI action states
   const [isStartingReview, setIsStartingReview] = useState<boolean>(false);
@@ -167,30 +162,9 @@ export function TeacherReviewCockpit({
 
   const currentPrompt =
     assignment.prompts[activePromptIndex] || assignment.prompts[0];
-  const currentClip = attempt.audioResponses.find(
+  const currentAudioClip = reviewAttempt.audioClips.find(
     (c) => c.promptId === currentPrompt?.promptId
   );
-  const clipDurationSec = Math.max(
-    1,
-    Math.round((currentClip?.durationMs || 30000) / 1000)
-  );
-
-  // Audio playback progress synchronization
-  useEffect(() => {
-    if (!isPlaying) return;
-    const stepMs = 200;
-    const interval = setInterval(() => {
-      setCurrentTime((prev) => {
-        const next = prev + (stepMs / 1000) * playbackSpeed;
-        if (next >= clipDurationSec) {
-          setIsPlaying(false);
-          return 0;
-        }
-        return next;
-      });
-    }, stepMs);
-    return () => clearInterval(interval);
-  }, [isPlaying, clipDurationSec, playbackSpeed]);
 
   // Handler: Start Review (First-Committed-Wins Lock)
   const handleStartReview = useCallback(async () => {
@@ -282,14 +256,6 @@ export function TeacherReviewCockpit({
     [aiProposal]
   );
 
-  const formatTime = (secs: number) => {
-    const mins = Math.floor(secs / 60);
-    const remainingSecs = Math.floor(secs % 60);
-    return `${mins.toString().padStart(2, "0")}:${remainingSecs
-      .toString()
-      .padStart(2, "0")}`;
-  };
-
   const criteriaConfig = [
     {
       key: "fluencyAndCoherence" as const,
@@ -362,7 +328,7 @@ export function TeacherReviewCockpit({
                   {student.name}
                 </h1>
                 <Badge variant="outline" className="text-xs font-normal">
-                  Lượt nộp #{attempt.attemptNumber}
+                  Lượt nộp #{reviewAttempt.attemptNumber}
                 </Badge>
                 <Badge
                   className={cn(
@@ -486,8 +452,6 @@ export function TeacherReviewCockpit({
                 value={activePromptIndex.toString()}
                 onValueChange={(val) => {
                   setActivePromptIndex(Number(val));
-                  setCurrentTime(0);
-                  setIsPlaying(false);
                 }}
                 className="w-full"
               >
@@ -516,8 +480,8 @@ export function TeacherReviewCockpit({
                   </span>
                   <span>
                     Thời lượng:{" "}
-                    {currentClip
-                      ? Math.round(currentClip.durationMs / 1000)
+                    {currentAudioClip?.durationMs
+                      ? Math.round(currentAudioClip.durationMs / 1000)
                       : 0}
                     s
                   </span>
@@ -535,76 +499,12 @@ export function TeacherReviewCockpit({
                   )}
               </div>
 
-              {/* Audio Waveform Player */}
-              <div className="p-4 rounded-xl border bg-card/80 shadow-xs space-y-3">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span className="font-mono font-bold text-foreground">
-                    {formatTime(currentTime)} / {formatTime(clipDurationSec)}
-                  </span>
-
-                  {/* Playback speed */}
-                  <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-md text-[11px] font-mono">
-                    {[0.8, 1.0, 1.2, 1.5].map((speed) => (
-                      <button
-                        key={speed}
-                        onClick={() => setPlaybackSpeed(speed)}
-                        className={cn(
-                          "px-2 py-0.5 rounded transition-colors",
-                          playbackSpeed === speed
-                            ? "bg-primary text-primary-foreground font-bold shadow-xs"
-                            : "text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        {speed}x
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Waveform Visualizer */}
-                <AudioWaveformVisualizer
-                  isLive={false}
-                  audioDuration={clipDurationSec}
-                  currentTime={currentTime}
-                  onSeek={(t) => setCurrentTime(t)}
-                  barCount={48}
-                  height={56}
-                  className="cursor-pointer rounded-lg bg-muted/30 border"
+              {/* Real Audio Review Player */}
+              <div className="pt-1">
+                <AudioReviewPlayer
+                  src={currentAudioClip?.audioUrl || null}
+                  ariaLabel={`Ghi âm câu hỏi ${activePromptIndex + 1} của học viên`}
                 />
-
-                {/* Audio Player Controls */}
-                <div className="flex items-center justify-between pt-1">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => setIsPlaying((p) => !p)}
-                      aria-label={isPlaying ? "Tạm dừng audio" : "Phát audio"}
-                      className="h-9 w-9 p-0 rounded-full bg-primary text-primary-foreground"
-                      data-testid="audio-play-pause-button"
-                    >
-                      {isPlaying ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4 ml-0.5" />
-                      )}
-                    </Button>
-
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setCurrentTime(0)}
-                      aria-label="Phát lại từ đầu"
-                      className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                      title="Phát lại từ đầu"
-                    >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-
-                  <span className="text-[11px] text-muted-foreground font-mono">
-                    Clip: {currentClip?.storageKey || "Bản thu âm của học viên"}
-                  </span>
-                </div>
               </div>
 
               {/* Per-Criterion Comments Form */}

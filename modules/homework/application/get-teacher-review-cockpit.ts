@@ -48,7 +48,14 @@ export async function getTeacherReviewCockpit(
   return {
     assignment,
     submission,
-    attempt,
+    reviewAttempt: {
+      attemptNumber: attempt.attemptNumber,
+      audioClips: attempt.audioResponses.map((clip) => ({
+        promptId: clip.promptId,
+        audioUrl: `/api/teacher/submissions/${submission.id}/audio/${clip.promptId}`,
+        durationMs: clip.durationMs,
+      })),
+    },
     student: {
       id: submission.learnerId,
       name:

@@ -36,15 +36,19 @@ export function setupAudioApiMocks() {
     state: "inactive" | "recording" | "paused" = "inactive";
     mimeType: string;
     private intervalId: ReturnType<typeof setInterval> | null = null;
+    private hasEmitted = false;
 
     ondataavailable: ((event: BlobEvent) => void) | null = null;
     onstop: ((event: Event) => void) | null = null;
     onerror: ((event: Event) => void) | null = null;
 
     static isTypeSupported(type: string) {
-      return ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].includes(
-        type
-      );
+      return [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+        "audio/wav",
+      ].includes(type);
     }
 
     constructor(_stream: MediaStream, options?: { mimeType?: string }) {
@@ -54,12 +58,18 @@ export function setupAudioApiMocks() {
 
     start(timeslice?: number) {
       this.state = "recording";
+      this.hasEmitted = false;
       const interval = timeslice || 500;
       this.intervalId = setInterval(() => {
-        if (this.state === "recording" && this.ondataavailable) {
+        if (
+          this.state === "recording" &&
+          this.ondataavailable &&
+          !this.hasEmitted
+        ) {
           const sampleWav = createSyntheticWavBlob(1);
           const event = new Event("dataavailable") as unknown as BlobEvent;
           Object.defineProperty(event, "data", { value: sampleWav });
+          this.hasEmitted = true;
           this.ondataavailable(event);
         }
       }, interval);
@@ -70,6 +80,13 @@ export function setupAudioApiMocks() {
       if (this.intervalId) {
         clearInterval(this.intervalId);
         this.intervalId = null;
+      }
+      if (!this.hasEmitted && this.ondataavailable) {
+        const sampleWav = createSyntheticWavBlob(1);
+        const event = new Event("dataavailable") as unknown as BlobEvent;
+        Object.defineProperty(event, "data", { value: sampleWav });
+        this.hasEmitted = true;
+        this.ondataavailable(event);
       }
       if (this.onstop) {
         this.onstop(new Event("stop"));
@@ -111,20 +128,17 @@ export function setupAudioApiMocks() {
     }
   }
 
-  class MockAudioContext {
-    state = "running";
+  const BaseAudioContext = nativeAudioContext || class {};
+
+  class MockAudioContext extends BaseAudioContext {
     createAnalyser() {
-      return new MockAnalyserNode();
+      return new MockAnalyserNode() as unknown as AnalyserNode;
     }
-    createMediaStreamSource() {
+    createMediaStreamSource(_stream: MediaStream) {
       return {
         connect: () => {},
         disconnect: () => {},
-      };
-    }
-    close() {
-      this.state = "closed";
-      return Promise.resolve();
+      } as unknown as MediaStreamAudioSourceNode;
     }
   }
 

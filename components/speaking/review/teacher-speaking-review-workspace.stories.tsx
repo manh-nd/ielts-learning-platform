@@ -1,11 +1,23 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, within, userEvent, fn } from "storybook/test";
+import { expect, within, userEvent, fn, waitFor } from "storybook/test";
 import {
   TeacherSpeakingReviewWorkspace,
   StudentReviewInfo,
   SpeakingPartReviewData,
 } from "./teacher-speaking-review-workspace";
 import { SpeakingCriteriaScores } from "./speaking-criteria-scorecard";
+import { createSteppedEnvelopeWavBlob } from "@/test/fixtures/audio-fixtures";
+import {
+  restoreNativeAudioApis,
+  resetAudioMocks,
+} from "../../../.storybook/mocks/audio-api.mock";
+
+const sampleAudioBlob = createSteppedEnvelopeWavBlob(2);
+const sampleAudioUrl =
+  typeof window !== "undefined" &&
+  typeof window.URL?.createObjectURL === "function"
+    ? window.URL.createObjectURL(sampleAudioBlob)
+    : "mock-audio-url";
 
 const mockStudent: StudentReviewInfo = {
   id: "student-101",
@@ -23,6 +35,7 @@ const mockSpeakingParts: SpeakingPartReviewData[] = [
     candidateTranscript:
       "Currently, I am a sophomore majoring in software engineering at Hanoi University. I have chosen this field because of my deep passion for coding and building impactful digital products.",
     durationSeconds: 28,
+    audioUrl: sampleAudioUrl,
     pronunciationNotes: [
       {
         word: "software",
@@ -58,6 +71,7 @@ const mockSpeakingParts: SpeakingPartReviewData[] = [
     candidateTranscript:
       "Today I would like to talk about air pollution, which is becoming a pressing issue in Hanoi. The surge in private motor vehicles and uncontrolled construction activities have heavily contributed to fine particulate matter in the atmosphere. Consequently, many citizens suffer from respiratory ailments.",
     durationSeconds: 112,
+    audioUrl: sampleAudioUrl,
     pronunciationNotes: [
       {
         word: "vehicles",
@@ -102,6 +116,7 @@ const mockSpeakingParts: SpeakingPartReviewData[] = [
     candidateTranscript:
       "From my perspective, transboundary environmental threats like global warming cannot be tackled by a single nation in isolation. Developed nations should provide financial aid and green technology transfer to emerging economies to foster sustainable industrialization.",
     durationSeconds: 52,
+    audioUrl: sampleAudioUrl,
     pronunciationNotes: [
       {
         word: "threats",
@@ -145,6 +160,12 @@ const meta: Meta<typeof TeacherSpeakingReviewWorkspace> = {
     },
   },
   tags: ["autodocs", "prototype"],
+  beforeEach: () => {
+    restoreNativeAudioApis();
+  },
+  afterEach: () => {
+    resetAudioMocks();
+  },
   args: {
     student: mockStudent,
     assignmentTitle: "Speaking Assignment #03 - Environment & Modern Society",
@@ -251,7 +272,11 @@ export const InteractiveSeekingAndScoring: Story = {
     });
 
     await step("Bật phát Audio Waveform Player", async () => {
-      const playBtn = canvas.getByTestId("audio-play-pause-button");
+      const playBtn = await canvas.findByTestId("audio-player-play-pause");
+      await expect(playBtn).toBeInTheDocument();
+      await waitFor(() => expect(playBtn).not.toBeDisabled(), {
+        timeout: 5000,
+      });
       await userEvent.click(playBtn);
     });
 
