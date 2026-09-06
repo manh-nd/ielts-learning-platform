@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach, spyOn } from "bun:test";
 import { NextRequest } from "next/server";
 import { GET as getTeacherReviewAudioRoute } from "./route";
 import {
@@ -190,5 +190,49 @@ describe("Teacher Review Audio Endpoint (Issue #100)", () => {
 
     const bodyBuffer = await res.arrayBuffer();
     expect(Buffer.from(bodyBuffer).equals(mockAudioBytes)).toBe(true);
+  });
+
+  it("should return 404 Not Found when audio data is missing in storage", async () => {
+    const getBufferSpy = spyOn(
+      await import("@/lib/storage/s3-client"),
+      "getSpeakingAudioBuffer"
+    ).mockResolvedValueOnce(null);
+
+    const req = new NextRequest(
+      `http://localhost:3000/api/teacher/submissions/${submissionId}/audio/${promptId}`,
+      { headers: createAuthHeaders(teacherA) }
+    );
+    const res = await getTeacherReviewAudioRoute(req, {
+      params: Promise.resolve({ id: submissionId, promptId }),
+    });
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error.code).toBe("NOT_FOUND");
+
+    getBufferSpy.mockRestore();
+  });
+
+  it("should return 500 Internal Server Error when storage encounters unexpected infrastructure failure", async () => {
+    const getBufferSpy = spyOn(
+      await import("@/lib/storage/s3-client"),
+      "getSpeakingAudioBuffer"
+    ).mockRejectedValueOnce(
+      new Error("S3 Service Unavailable / Connection Timeout")
+    );
+
+    const req = new NextRequest(
+      `http://localhost:3000/api/teacher/submissions/${submissionId}/audio/${promptId}`,
+      { headers: createAuthHeaders(teacherA) }
+    );
+    const res = await getTeacherReviewAudioRoute(req, {
+      params: Promise.resolve({ id: submissionId, promptId }),
+    });
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error.code).toBe("INTERNAL_SERVER_ERROR");
+
+    getBufferSpy.mockRestore();
   });
 });

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { LiveSpeakingResultView } from "./live-speaking-result-view";
 import { fn, expect, userEvent, within, waitFor } from "storybook/test";
@@ -166,6 +167,34 @@ const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
       pronunciationNotes: [],
     },
   ],
+  evidence: {
+    fluency: {
+      longPauses: [
+        {
+          startMs: 500,
+          endMs: 1500,
+          durationMs: 1000,
+          transcriptSnippet: "uhm... let me think",
+          reason: "Hesitation before Part 1 answer",
+        },
+      ],
+      fillers: [],
+      repetitions: [],
+      selfCorrections: [],
+    },
+    grammar: {
+      errors: [],
+      complexStructures: [],
+    },
+    vocabulary: {
+      strongUsage: [],
+      inappropriateUsage: [],
+    },
+    pronunciation: {
+      unclearSegments: [],
+      stressIssues: [],
+    },
+  },
   trace: {
     modelUsed: "gemini-3.7-flash",
     isFallback: false,
@@ -182,11 +211,6 @@ const mockEvaluationResult: IeltsSpeakingEvaluationResult = {
 };
 
 const sampleAudioBlob = createSteppedEnvelopeWavBlob(2);
-const sampleAudioUrl =
-  typeof window !== "undefined" &&
-  typeof window.URL?.createObjectURL === "function"
-    ? window.URL.createObjectURL(sampleAudioBlob)
-    : "mock-audio-url";
 
 const meta = {
   title: "Product/Speaking/LiveSpeakingResultView",
@@ -201,12 +225,35 @@ const meta = {
   afterEach: () => {
     resetAudioMocks();
   },
+  decorators: [
+    (Story, context) => {
+      const [blobUrl] = useState(() => {
+        const blob = createSteppedEnvelopeWavBlob(2);
+        return URL.createObjectURL(blob);
+      });
+
+      useEffect(() => {
+        return () => {
+          URL.revokeObjectURL(blobUrl);
+        };
+      }, [blobUrl]);
+
+      const recordedAudio = context.args.recordedAudio
+        ? {
+            ...context.args.recordedAudio,
+            url: blobUrl,
+          }
+        : context.args.recordedAudio;
+
+      return <Story args={{ ...context.args, recordedAudio }} />;
+    },
+  ],
   args: {
     evaluationResult: mockEvaluationResult,
     isLoading: false,
     recordedAudio: {
       blob: sampleAudioBlob,
-      url: sampleAudioUrl,
+      url: "",
       durationSeconds: 2,
       mimeType: "audio/wav",
     },
@@ -287,5 +334,65 @@ export const InteractiveAudioWaveformTab: Story = {
     await expect(playBtn).toBeInTheDocument();
     await waitFor(() => expect(playBtn).not.toBeDisabled(), { timeout: 5000 });
     await userEvent.click(playBtn);
+  },
+};
+
+export const InteractiveEvidenceClipAndHiddenTabMount: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // 1. Verify no hidden <audio> tag exists anywhere in the DOM
+    const audioTags = canvasElement.querySelectorAll("audio");
+    expect(audioTags.length).toBe(0);
+
+    // 2. Start on overview tab: AudioReviewPlayer is mounted in DOM (via keepMounted) but hidden
+    const playPauseBtn = canvasElement.querySelector(
+      '[data-testid="audio-player-play-pause"]'
+    ) as HTMLButtonElement | null;
+    expect(playPauseBtn).not.toBeNull();
+    // Wait for the hidden player to decode audio and become ready
+    await waitFor(
+      () => {
+        expect(playPauseBtn).not.toBeDisabled();
+      },
+      { timeout: 5000 }
+    );
+
+    // 3. Locate pause evidence playback button in the default Overview tab
+    const listenBtn = await canvas.findByRole("button", {
+      name: /Nghe/i,
+    });
+    await expect(listenBtn).toBeInTheDocument();
+
+    // 4. Start snippet playback
+    await userEvent.click(listenBtn);
+    // Button state should transition to playing
+    await waitFor(() => {
+      expect(canvas.getByText(/Dừng/i)).toBeInTheDocument();
+    });
+
+    // 5. Switch to Audio tab -> cancels snippet playback and clears snippet timeout
+    const audioTabBtn = canvas.getByRole("tab", {
+      name: /Ghi âm & Bản chép lời/i,
+    });
+    await userEvent.click(audioTabBtn);
+
+    // 7. Verify waveform container has non-zero rendered dimensions after tab switch
+    const waveformContainer = await canvas.findByTestId(
+      "audio-waveform-canvas-container"
+    );
+    expect(waveformContainer).toBeInTheDocument();
+    await waitFor(() => {
+      const shadowHost = waveformContainer.querySelector("div");
+      const canvasEl =
+        shadowHost?.shadowRoot?.querySelector("canvas") ||
+        waveformContainer.querySelector("canvas");
+      expect(canvasEl).not.toBeNull();
+      expect(canvasEl?.width).toBeGreaterThan(0);
+    });
+
+    // 8. Player controls remain ready and can start full playback without overlapping audio
+    expect(playPauseBtn).not.toBeDisabled();
+    await userEvent.click(playPauseBtn!);
   },
 };

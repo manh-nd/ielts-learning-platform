@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, userEvent, within, waitFor } from "storybook/test";
 import { SpeakingAudioRecorder } from "./speaking-audio-recorder";
+import { createSteppedEnvelopeWavBlob } from "@/test/fixtures/audio-fixtures";
 import {
   resetAudioMocks,
   mockPermissionDenied,
@@ -57,16 +59,32 @@ export const LiveRealMicrophone: Story = {
   },
 };
 
+function PlaybackReviewWrapper(
+  props: React.ComponentProps<typeof SpeakingAudioRecorder>
+) {
+  const [blobUrl] = useState(() => {
+    const blob = createSteppedEnvelopeWavBlob(2);
+    return URL.createObjectURL(blob);
+  });
+
+  useEffect(() => {
+    return () => {
+      URL.revokeObjectURL(blobUrl);
+    };
+  }, [blobUrl]);
+
+  return <SpeakingAudioRecorder {...props} initialAudioUrl={blobUrl} />;
+}
+
 /**
  * 2. Playback and review state with recorded sample audio
  */
 export const PlaybackReview: Story = {
+  render: (args) => <PlaybackReviewWrapper {...args} />,
   args: {
     title: "IELTS Speaking Part 1 - Hometown Response",
     description: "Nghe lại câu trả lời trước khi nộp bài đánh giá.",
-    initialAudioUrl:
-      "https://actions.google.com/sounds/v1/speech/greeting_male.ogg",
-    initialDurationSeconds: 38,
+    initialDurationSeconds: 2,
     maxDurationSeconds: 60,
   },
 };

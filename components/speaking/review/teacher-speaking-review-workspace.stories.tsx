@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, within, userEvent, fn, waitFor } from "storybook/test";
 import {
@@ -11,13 +12,6 @@ import {
   restoreNativeAudioApis,
   resetAudioMocks,
 } from "../../../.storybook/mocks/audio-api.mock";
-
-const sampleAudioBlob = createSteppedEnvelopeWavBlob(2);
-const sampleAudioUrl =
-  typeof window !== "undefined" &&
-  typeof window.URL?.createObjectURL === "function"
-    ? window.URL.createObjectURL(sampleAudioBlob)
-    : "mock-audio-url";
 
 const mockStudent: StudentReviewInfo = {
   id: "student-101",
@@ -35,7 +29,7 @@ const mockSpeakingParts: SpeakingPartReviewData[] = [
     candidateTranscript:
       "Currently, I am a sophomore majoring in software engineering at Hanoi University. I have chosen this field because of my deep passion for coding and building impactful digital products.",
     durationSeconds: 28,
-    audioUrl: sampleAudioUrl,
+    audioUrl: "",
     pronunciationNotes: [
       {
         word: "software",
@@ -71,7 +65,7 @@ const mockSpeakingParts: SpeakingPartReviewData[] = [
     candidateTranscript:
       "Today I would like to talk about air pollution, which is becoming a pressing issue in Hanoi. The surge in private motor vehicles and uncontrolled construction activities have heavily contributed to fine particulate matter in the atmosphere. Consequently, many citizens suffer from respiratory ailments.",
     durationSeconds: 112,
-    audioUrl: sampleAudioUrl,
+    audioUrl: "",
     pronunciationNotes: [
       {
         word: "vehicles",
@@ -116,7 +110,7 @@ const mockSpeakingParts: SpeakingPartReviewData[] = [
     candidateTranscript:
       "From my perspective, transboundary environmental threats like global warming cannot be tackled by a single nation in isolation. Developed nations should provide financial aid and green technology transfer to emerging economies to foster sustainable industrialization.",
     durationSeconds: 52,
-    audioUrl: sampleAudioUrl,
+    audioUrl: "",
     pronunciationNotes: [
       {
         word: "threats",
@@ -166,6 +160,27 @@ const meta: Meta<typeof TeacherSpeakingReviewWorkspace> = {
   afterEach: () => {
     resetAudioMocks();
   },
+  decorators: [
+    (Story, context) => {
+      const [blobUrl] = useState(() => {
+        const blob = createSteppedEnvelopeWavBlob(2);
+        return URL.createObjectURL(blob);
+      });
+
+      useEffect(() => {
+        return () => {
+          URL.revokeObjectURL(blobUrl);
+        };
+      }, [blobUrl]);
+
+      const parts = context.args.parts?.map((p) => ({
+        ...p,
+        audioUrl: blobUrl,
+      }));
+
+      return <Story args={{ ...context.args, parts }} />;
+    },
+  ],
   args: {
     student: mockStudent,
     assignmentTitle: "Speaking Assignment #03 - Environment & Modern Society",

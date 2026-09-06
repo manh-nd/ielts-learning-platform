@@ -32,7 +32,10 @@ import {
   SpeakingCriteriaScorecard,
   SpeakingCriteriaScores,
 } from "@/components/speaking/review/speaking-criteria-scorecard";
-import { AudioReviewPlayer } from "@/components/speaking/audio-review-player";
+import {
+  AudioReviewPlayer,
+  type AudioReviewPlayerRef,
+} from "@/components/speaking/audio-review-player";
 import {
   IeltsSpeakingEvaluationResult,
   PracticeFeedback,
@@ -84,13 +87,13 @@ export function LiveSpeakingResultView({
   } | null>(null);
   const [isPlayingClip, setIsPlayingClip] = useState(false);
 
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const playerRef = useRef<AudioReviewPlayerRef | null>(null);
   const clipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Play clip helper
   const handlePlayClip = useCallback((startMs: number, endMs: number) => {
-    const audio = audioElementRef.current;
-    if (!audio) return;
+    const player = playerRef.current;
+    if (!player) return;
 
     if (clipTimeoutRef.current) {
       clearTimeout(clipTimeoutRef.current);
@@ -98,22 +101,23 @@ export function LiveSpeakingResultView({
     }
 
     const durationMs = Math.max(800, endMs - startMs);
-    audio.currentTime = Math.max(0, startMs / 1000);
-    audio.play().catch(() => {});
+    const startSec = Math.max(0, startMs / 1000);
+    player.seekTo(startSec);
+    player.play().catch(() => {});
     setActiveClip({ startMs, endMs });
     setIsPlayingClip(true);
 
     clipTimeoutRef.current = setTimeout(() => {
-      audio.pause();
+      player.pause();
       setIsPlayingClip(false);
       setActiveClip(null);
     }, durationMs);
   }, []);
 
   const handleStopClip = useCallback(() => {
-    const audio = audioElementRef.current;
-    if (audio) {
-      audio.pause();
+    const player = playerRef.current;
+    if (player) {
+      player.pause();
     }
     if (clipTimeoutRef.current) {
       clearTimeout(clipTimeoutRef.current);
@@ -222,16 +226,6 @@ export function LiveSpeakingResultView({
 
     return (
       <div className={cn("w-full max-w-4xl mx-auto space-y-6", className)}>
-        {/* Hidden Audio Player for Interactive Clip Playback */}
-        {recordedAudio && (
-          <audio
-            ref={audioElementRef}
-            src={recordedAudio.url}
-            preload="auto"
-            className="hidden"
-          />
-        )}
-
         {/* Top Action Bar */}
         <div className="flex items-center justify-between">
           <Button
@@ -443,6 +437,7 @@ export function LiveSpeakingResultView({
             </CardHeader>
             <CardContent className="p-4 space-y-4">
               <AudioReviewPlayer
+                ref={playerRef}
                 src={recordedAudio.url}
                 ariaLabel="Bản ghi âm hoàn chỉnh"
               />
@@ -506,16 +501,6 @@ export function LiveSpeakingResultView({
 
   return (
     <div className={cn("w-full max-w-4xl mx-auto space-y-6", className)}>
-      {/* Hidden Audio Player for Interactive Clip Playback */}
-      {recordedAudio && (
-        <audio
-          ref={audioElementRef}
-          src={recordedAudio.url}
-          preload="auto"
-          className="hidden"
-        />
-      )}
-
       {/* Top Action Bar */}
       <div className="flex items-center justify-between">
         <Button
@@ -555,7 +540,15 @@ export function LiveSpeakingResultView({
       />
 
       {/* Detailed Analysis Tabs */}
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs
+        defaultValue="overview"
+        className="w-full"
+        onValueChange={(val) => {
+          if (val === "audio") {
+            handleStopClip();
+          }
+        }}
+      >
         <TabsList className="grid grid-cols-3 w-full max-w-md h-9 text-xs">
           <TabsTrigger value="overview">Tổng quan Đánh giá</TabsTrigger>
           <TabsTrigger value="parts">
@@ -1005,7 +998,7 @@ export function LiveSpeakingResultView({
         </TabsContent>
 
         {/* Tab 3: Recorded Audio & Full Transcript */}
-        <TabsContent value="audio" className="space-y-4 pt-3">
+        <TabsContent value="audio" keepMounted className="space-y-4 pt-3">
           {recordedAudio && (
             <Card
               className="shadow-xs border py-0 gap-0 overflow-hidden"
@@ -1035,6 +1028,7 @@ export function LiveSpeakingResultView({
               </CardHeader>
               <CardContent className="p-4 space-y-3">
                 <AudioReviewPlayer
+                  ref={playerRef}
                   src={recordedAudio.url}
                   ariaLabel="Bản ghi âm hoàn chỉnh"
                 />

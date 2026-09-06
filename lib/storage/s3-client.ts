@@ -207,9 +207,22 @@ export async function getSpeakingAudioBuffer(
         buffer: Buffer.from(byteArray),
         mimeType: response.ContentType || "audio/webm",
       };
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorObj = err as {
+        name?: string;
+        $metadata?: { httpStatusCode?: number };
+      };
+      const isMissing =
+        errorObj.name === "NoSuchKey" ||
+        errorObj.name === "NotFound" ||
+        errorObj.$metadata?.httpStatusCode === 404;
+
+      if (isMissing) {
+        return null;
+      }
+
       console.error("[S3Client] Error downloading audio from S3:", err);
-      return null;
+      throw err;
     }
   }
 
