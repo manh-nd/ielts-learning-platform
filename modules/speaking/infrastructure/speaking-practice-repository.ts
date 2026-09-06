@@ -21,6 +21,9 @@ export interface SpeakingPracticeRecord {
   overallBand: number | null;
   scorecardJson: unknown | null;
   evidenceJson: unknown | null;
+  conversationReplayStorageKey?: string | null;
+  conversationReplayMimeType?: string | null;
+  conversationReplayDurationSeconds?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -569,6 +572,9 @@ export class SpeakingPracticeRepository {
     if (cachedPractice) {
       cachedPractice.status = targetStatus;
       cachedPractice.updatedAt = now;
+      cachedPractice.conversationReplayStorageKey = null;
+      cachedPractice.conversationReplayMimeType = null;
+      cachedPractice.conversationReplayDurationSeconds = null;
       if (scrubCandidateName) {
         cachedPractice.candidateName = null;
       }
@@ -589,6 +595,9 @@ export class SpeakingPracticeRepository {
           .set({
             status: targetStatus,
             updatedAt: now,
+            conversationReplayStorageKey: null,
+            conversationReplayMimeType: null,
+            conversationReplayDurationSeconds: null,
             ...(scrubCandidateName ? { candidateName: null } : {}),
           })
           .where(eq(speakingSessions.id, sessionId));
@@ -606,6 +615,44 @@ export class SpeakingPracticeRepository {
           err
         );
         throw err;
+      }
+    }
+  }
+
+  async attachConversationReplay(
+    sessionId: string,
+    data: {
+      storageKey: string;
+      mimeType: string;
+      durationSeconds: number;
+    }
+  ): Promise<void> {
+    const now = new Date();
+    const cached = devSessionCache.get(sessionId);
+    if (cached) {
+      cached.conversationReplayStorageKey = data.storageKey;
+      cached.conversationReplayMimeType = data.mimeType;
+      cached.conversationReplayDurationSeconds = data.durationSeconds;
+      cached.updatedAt = now;
+    }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        await db
+          .update(speakingSessions)
+          .set({
+            conversationReplayStorageKey: data.storageKey,
+            conversationReplayMimeType: data.mimeType,
+            conversationReplayDurationSeconds: data.durationSeconds,
+            updatedAt: now,
+          })
+          .where(eq(speakingSessions.id, sessionId));
+      } catch (dbErr) {
+        console.error(
+          "[SpeakingPracticeRepository] attachConversationReplay database update failed:",
+          dbErr
+        );
+        throw dbErr;
       }
     }
   }

@@ -153,3 +153,35 @@ export function canRetryPracticeEvaluation(
 ): boolean {
   return checkPracticeEvaluationRetryEligibility(input).eligible;
 }
+
+export interface ConversationReplayAttachmentEligibility {
+  eligible: boolean;
+  reason?: "PRACTICE_NOT_ENDED" | "PRACTICE_ABANDONED" | "AUDIO_PURGED";
+}
+
+/**
+ * Pure domain policy evaluating whether a SpeakingPractice session is currently eligible
+ * to attach a new derived ConversationReplay audio artifact.
+ *
+ * Invariant:
+ * - "completed"  -> ALLOW (session ended, authoritative audio committed)
+ * - "evaluated"  -> ALLOW (legacy persistence status, session ended & feedback ready)
+ * - "in_progress" -> REJECT (session still active, cannot attach premature replay)
+ * - "abandoned"   -> REJECT (session abandoned, cannot attach replay)
+ * - "audio_purged" -> REJECT (audio retention window expired or user hard-deleted;
+ *                            cannot resurrect audio after purge)
+ */
+export function canAttachConversationReplay(
+  persistenceStatus: string
+): ConversationReplayAttachmentEligibility {
+  if (persistenceStatus === "completed" || persistenceStatus === "evaluated") {
+    return { eligible: true };
+  }
+  if (persistenceStatus === "audio_purged") {
+    return { eligible: false, reason: "AUDIO_PURGED" };
+  }
+  if (persistenceStatus === "abandoned") {
+    return { eligible: false, reason: "PRACTICE_ABANDONED" };
+  }
+  return { eligible: false, reason: "PRACTICE_NOT_ENDED" };
+}

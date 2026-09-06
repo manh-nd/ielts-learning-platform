@@ -284,4 +284,117 @@ describe("finishSpeakingPractice Use Case", () => {
       geminiRotator.executeWithRotation = originalExecute;
     }
   });
+
+  it("Evaluation & Retry Isolation: strictly consumes authoritative OriginalAudio and NEVER ConversationReplay", async () => {
+    const sessionId = "ses_isolation_evidence";
+    const testStorageKey = `speaking/user_isolation/${sessionId}/candidate.webm`;
+    const originalAudioContent = "authoritative-original-learner-audio";
+    const replayAudioContent =
+      "derived-conversation-replay-audio-with-examiner";
+
+    // Setup session with both OriginalAudio and ConversationReplay attached
+    const originalAudioBase64 =
+      Buffer.from(originalAudioContent).toString("base64");
+    let evaluatedAudioPayload = "";
+
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      estimatedPerformance: { fluencyAndCoherence: 8.0 },
+      strengths: [],
+      priorities: [],
+      summary: "Isolation test passed",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(
+          async ({
+            contents,
+            config,
+          }: {
+            contents?: Array<{
+              inlineData?: { data: string };
+              text?: string;
+            }>;
+            config?: { responseMimeType?: string };
+          }) => {
+            if (contents) {
+              for (const c of contents) {
+                if (c.inlineData?.data) {
+                  evaluatedAudioPayload = Buffer.from(
+                    c.inlineData.data,
+                    "base64"
+                  ).toString();
+                }
+              }
+            }
+            if (config?.responseMimeType !== "application/json") {
+              return { text: "Verbatim transcript." };
+            }
+            return {
+              text: JSON.stringify(mockFeedback),
+              usageMetadata: {
+                promptTokenCount: 100,
+                candidatesTokenCount: 50,
+                totalTokenCount: 150,
+              },
+            };
+          }
+        ),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      // 1. Initial finish commits practice with OriginalAudio
+      const res = await finishSpeakingPractice({
+        authenticatedUserId: "user_isolation",
+        sessionId,
+        topicTitle: "Isolation Topic",
+        audioBase64: originalAudioBase64,
+        storageKey: testStorageKey,
+        durationSeconds: 30,
+      });
+
+      expect(res.success).toBe(true);
+      expect(evaluatedAudioPayload).toBe(originalAudioContent);
+      expect(evaluatedAudioPayload).not.toBe(replayAudioContent);
+
+      // 2. Attach ConversationReplay to the session record
+      const session = devSessionCache.get(sessionId)!;
+      session.conversationReplayStorageKey = `speaking/user_isolation/${sessionId}/conversation.wav`;
+      session.conversationReplayDurationSeconds = 60;
+      session.status = "completed"; // Reset to completed to simulate retry
+      session.scorecardJson = null;
+      session.evidenceJson = { evaluationStatus: "failed" };
+
+      // 3. Retry evaluation on this session
+      evaluatedAudioPayload = "";
+      const retryRes = await finishSpeakingPractice({
+        authenticatedUserId: "user_isolation",
+        sessionId,
+        topicTitle: "Isolation Topic",
+        storageKey: testStorageKey,
+        durationSeconds: 30,
+      });
+
+      expect(retryRes.success).toBe(true);
+      // Invariant: Retry MUST evaluate ONLY the authoritative OriginalAudio
+      expect(evaluatedAudioPayload).toBe(originalAudioContent);
+      expect(evaluatedAudioPayload).not.toBe(replayAudioContent);
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
 });

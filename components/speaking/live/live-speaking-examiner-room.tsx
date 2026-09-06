@@ -30,6 +30,7 @@ import { MicPermissionDeniedDialog } from "./mic-permission-denied-dialog";
 import { useGeminiLive } from "./use-gemini-live";
 import {
   RecordedAudioData,
+  ConversationReplayData,
   ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
   clearActiveSpeakingSession,
 } from "./types";
@@ -53,7 +54,10 @@ import {
   type SpeakingPracticeWorkflowOutcome,
   type SpeakingPracticeWorkflowPorts,
 } from "@/modules/speaking/application/speaking-practice-workflow";
-import { createSpeakingPracticeBrowserPorts } from "@/modules/speaking/infrastructure/browser/speaking-practice-browser-adapter";
+import {
+  createSpeakingPracticeBrowserPorts,
+  uploadAndAttachConversationReplay,
+} from "@/modules/speaking/infrastructure/browser/speaking-practice-browser-adapter";
 
 /**
  * Internal Compatibility Debt:
@@ -139,8 +143,9 @@ export function LiveSpeakingExaminerRoom({
     isNoiseSuppressionActive,
     inputVolume,
     recordedAudio,
+    conversationReplay,
     connect,
-    disconnect,
+    finalizeLiveSession,
     toggleMute,
     toggleNoiseSuppression,
   } = useGeminiLive({
@@ -163,9 +168,9 @@ export function LiveSpeakingExaminerRoom({
   const [traceMetadata, setTraceMetadata] =
     useState<SpeakingEvaluationTrace | null>(null);
   const [isEvaluating, setIsEvaluating] = useState<boolean>(false);
+  const [isExamFinished, setIsExamFinished] = useState<boolean>(false);
   const [evalError, setEvalError] = useState<string | null>(null);
   const [canRetryEvaluation, setCanRetryEvaluation] = useState<boolean>(false);
-  const [isExamFinished, setIsExamFinished] = useState<boolean>(false);
 
   // Consent & Permission States
   const [hasLocalConsent, setHasLocalConsent] = useState<boolean>(false);
@@ -181,6 +186,8 @@ export function LiveSpeakingExaminerRoom({
   const [isUploadingAudio, setIsUploadingAudio] = useState<boolean>(false);
   const [savedFinalizedAudio, setSavedFinalizedAudio] =
     useState<RecordedAudioData | null>(null);
+  const [savedConversationReplay, setSavedConversationReplay] =
+    useState<ConversationReplayData | null>(null);
 
   const applyWorkflowOutcome = useCallback(
     (outcome: SpeakingPracticeWorkflowOutcome) => {
@@ -341,8 +348,13 @@ export function LiveSpeakingExaminerRoom({
     setEvalError(null);
     setUploadError(null);
 
-    const finalizedAudio = await disconnect();
+    // Finalize live session: seals both authoritative learner audio and derived conversation replay
+    const finalized = await finalizeLiveSession("learner_finish");
+    const finalizedAudio = finalized.recordedAudio;
+    const conversationReplayAudio = finalized.conversationReplay;
+
     setSavedFinalizedAudio(finalizedAudio);
+    setSavedConversationReplay(conversationReplayAudio);
 
     onSessionChange?.(activeSessionId);
 
@@ -362,12 +374,35 @@ export function LiveSpeakingExaminerRoom({
       },
       effectiveWorkflowPorts
     );
+
+    // Invariant: ConversationReplay upload & attachment is derived, non-authoritative, and best-effort.
+    // If practice has ended (status is completed or evaluated), attach the conversation replay.
+    // Failure to upload or attach MUST NEVER invalidate the ended practice or alter the workflow outcome.
+    if (
+      conversationReplayAudio &&
+      (outcome.status === "feedback_ready" ||
+        (outcome.status === "evaluation_failed" && outcome.practiceEnded))
+    ) {
+      try {
+        await uploadAndAttachConversationReplay(
+          activeSessionId,
+          conversationReplayAudio.blob,
+          conversationReplayAudio.durationSeconds
+        );
+      } catch (attachErr) {
+        console.warn(
+          "[LiveExaminerRoom] Non-fatal conversation replay upload/attach failure:",
+          attachErr
+        );
+      }
+    }
+
     applyWorkflowOutcome(outcome);
   }, [
     activeSessionId,
     applyWorkflowOutcome,
     candidateName,
-    disconnect,
+    finalizeLiveSession,
     effectiveWorkflowPorts,
     isEvaluating,
     onSessionChange,
@@ -539,6 +574,7 @@ export function LiveSpeakingExaminerRoom({
         isLoading={isEvaluating}
         error={evalError}
         recordedAudio={savedFinalizedAudio || recordedAudio}
+        conversationReplay={savedConversationReplay || conversationReplay}
         transcripts={transcripts}
         onRetryEvaluation={
           canRetryEvaluation ? handleRetryEvaluation : undefined
@@ -548,6 +584,7 @@ export function LiveSpeakingExaminerRoom({
           setPracticeFeedback(null);
           setTraceMetadata(null);
           setSavedFinalizedAudio(null);
+          setSavedConversationReplay(null);
           setUploadError(null);
           setCanRetryEvaluation(false);
           const newSessionId = `ses_live_${Date.now()}`;

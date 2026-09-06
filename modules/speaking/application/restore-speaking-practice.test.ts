@@ -503,4 +503,44 @@ describe("restoreSpeakingPractice Use Case & Critical Test Seams (#82)", () => {
     // Critical invariant: restoredState MUST NOT be emitted for Full Mock
     expect(data.restoredState).toBeUndefined();
   });
+
+  it("ConversationReplay Read Model: exposes sanitized replay fields without exposing raw storageKey", async () => {
+    const sessionId = "ses_restore_with_replay";
+    const userId = "learner_replay_owner";
+    const now = new Date();
+
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId,
+      candidateName: "Replay Candidate",
+      topicTitle: "Technology",
+      status: "completed",
+      targetPart: "part_1",
+      durationSeconds: 45,
+      overallBand: null,
+      scorecardJson: null,
+      evidenceJson: null,
+      conversationReplayStorageKey: `speaking/${userId}/${sessionId}/conversation.wav`,
+      conversationReplayMimeType: "audio/wav",
+      conversationReplayDurationSeconds: 45,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const result = await restoreSpeakingPractice({
+      authenticatedUserId: userId,
+      sessionId,
+    });
+
+    expect(result.conversationReplay).toBeDefined();
+    expect(result.conversationReplay?.available).toBe(true);
+    expect(result.conversationReplay?.url).toBe(
+      `/api/speaking/practices/${sessionId}/conversation-audio`
+    );
+    expect(result.conversationReplay?.durationSeconds).toBe(45);
+    // Crucial: raw storage key must NOT be leaked in conversationReplay read model
+    expect(
+      (result.conversationReplay as Record<string, unknown>).storageKey
+    ).toBeUndefined();
+  });
 });

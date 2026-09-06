@@ -55,6 +55,11 @@ export interface RestoreSpeakingPracticeResult {
   restoredState: RestoredSpeakingPracticeState | null;
   session: SpeakingPracticeRecord;
   responses: SpeakingResponseRecord[];
+  conversationReplay?: {
+    available: boolean;
+    url?: string;
+    durationSeconds?: number;
+  };
 }
 
 /**
@@ -162,7 +167,7 @@ export async function restoreSpeakingPractice(
   const { authenticatedUserId, sessionId } = input;
 
   // 1. Enforce ownership and load practice + responses
-  const { session, responses } = await getSpeakingPractice({
+  const { session, responses, conversationReplay } = await getSpeakingPractice({
     authenticatedUserId,
     sessionId,
   });
@@ -178,6 +183,7 @@ export async function restoreSpeakingPractice(
       restoredState: null,
       session,
       responses,
+      conversationReplay,
     };
   }
 
@@ -211,5 +217,6 @@ export async function restoreSpeakingPractice(
     restoredState,
     session,
     responses,
+    conversationReplay,
   };
 }

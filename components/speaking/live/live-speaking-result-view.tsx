@@ -41,7 +41,11 @@ import {
   PracticeFeedback,
   SpeakingEvaluationTrace,
 } from "@/lib/gemini/speaking-schema";
-import { RecordedAudioData, TranscriptItem } from "./types";
+import {
+  RecordedAudioData,
+  ConversationReplayData,
+  TranscriptItem,
+} from "./types";
 import { cn } from "@/lib/utils";
 
 export interface LiveSpeakingResultViewProps {
@@ -52,6 +56,8 @@ export interface LiveSpeakingResultViewProps {
   isLoading: boolean;
   error?: string | null;
   recordedAudio: RecordedAudioData | null;
+  conversationReplay?:
+    ConversationReplayData | { url: string; durationSeconds?: number } | null;
   transcripts: TranscriptItem[];
   onRetryEvaluation?: () => void;
   onRestartTest: () => void;
@@ -74,6 +80,7 @@ export function LiveSpeakingResultView({
   isLoading,
   error,
   recordedAudio,
+  conversationReplay,
   transcripts,
   onRetryEvaluation,
   onRestartTest,
@@ -89,6 +96,12 @@ export function LiveSpeakingResultView({
 
   const playerRef = useRef<AudioReviewPlayerRef | null>(null);
   const clipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Effective full conversation replay audio (with fallback to candidate recordedAudio)
+  const effectivePlaybackAudio = conversationReplay || recordedAudio;
+  const isConversationReplay = Boolean(
+    conversationReplay && conversationReplay.url
+  );
 
   // Play clip helper
   const handlePlayClip = useCallback((startMs: number, endMs: number) => {
@@ -427,18 +440,32 @@ export function LiveSpeakingResultView({
         </div>
 
         {/* Audio Recording & Transcript Player */}
-        {recordedAudio && (
+        {effectivePlaybackAudio && (
           <Card className="shadow-xs border overflow-hidden">
             <CardHeader className="p-4 border-b bg-muted/20 pb-3">
-              <CardTitle className="text-sm font-bold flex items-center gap-1.5">
-                <Volume2 className="w-4 h-4 text-primary" />
-                <span>Bản ghi âm & Bản chép lời</span>
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                  <Volume2 className="w-4 h-4 text-primary" />
+                  <span>
+                    {isConversationReplay
+                      ? "Bản ghi âm Hội thoại Toàn bộ (Thí sinh & Giám khảo)"
+                      : "Bản ghi âm & Bản chép lời"}
+                  </span>
+                </CardTitle>
+                {isConversationReplay && (
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] font-medium"
+                  >
+                    Full Conversation Replay
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
               <AudioReviewPlayer
                 ref={playerRef}
-                src={recordedAudio.url}
+                src={effectivePlaybackAudio.url}
                 ariaLabel="Bản ghi âm hoàn chỉnh"
               />
               <div className="space-y-1.5 pt-2">
@@ -999,7 +1026,7 @@ export function LiveSpeakingResultView({
 
         {/* Tab 3: Recorded Audio & Full Transcript */}
         <TabsContent value="audio" keepMounted className="space-y-4 pt-3">
-          {recordedAudio && (
+          {effectivePlaybackAudio && (
             <Card
               className="shadow-xs border py-0 gap-0 overflow-hidden"
               data-testid="recorded-audio-card"
@@ -1010,26 +1037,35 @@ export function LiveSpeakingResultView({
                     <CardTitle className="text-sm font-bold flex items-center gap-2">
                       <Volume2 className="w-4 h-4 text-primary" />
                       <span>
-                        File Ghi âm Toàn Bộ Buổi Thi (
-                        {recordedAudio.durationSeconds}s)
+                        {isConversationReplay
+                          ? "Bản Ghi Âm Hội Thoại Toàn Bộ (Thí sinh & Giám khảo)"
+                          : "File Ghi âm Toàn Bộ Buổi Thi"}
+                        {effectivePlaybackAudio.durationSeconds
+                          ? ` (${effectivePlaybackAudio.durationSeconds}s)`
+                          : ""}
                       </span>
                     </CardTitle>
                     <CardDescription className="text-xs">
-                      Sóng âm tương tác & nghe lại âm thanh giọng nói nguyên bản
-                      của bạn
+                      {isConversationReplay
+                        ? "Bao gồm giọng nói của bạn và câu hỏi của Giám khảo AI cùng các khoảng lặng đan xen"
+                        : "Sóng âm tương tác & nghe lại âm thanh giọng nói nguyên bản của bạn"}
                     </CardDescription>
                   </div>
-                  <Badge variant="outline" className="text-xs font-mono">
-                    {formatTimestamp(
-                      Math.round(recordedAudio.durationSeconds * 1000)
-                    )}
-                  </Badge>
+                  {effectivePlaybackAudio.durationSeconds && (
+                    <Badge variant="outline" className="text-xs font-mono">
+                      {formatTimestamp(
+                        Math.round(
+                          effectivePlaybackAudio.durationSeconds * 1000
+                        )
+                      )}
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-3">
                 <AudioReviewPlayer
                   ref={playerRef}
-                  src={recordedAudio.url}
+                  src={effectivePlaybackAudio.url}
                   ariaLabel="Bản ghi âm hoàn chỉnh"
                 />
               </CardContent>

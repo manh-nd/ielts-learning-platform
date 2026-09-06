@@ -80,6 +80,18 @@ export interface RecordedAudioData {
   storageKey?: string;
 }
 
+export interface ConversationReplayData {
+  blob: Blob;
+  url: string;
+  durationSeconds: number;
+  mimeType: string;
+}
+
+export interface FinalizedLiveSessionAudio {
+  recordedAudio: RecordedAudioData | null;
+  conversationReplay: ConversationReplayData | null;
+}
+
 export type GeminiLiveVoice = "Puck" | "Charon" | "Kore" | "Fenrir" | "Aoede";
 
 export interface LiveSpeakingConfig {
@@ -114,8 +126,12 @@ export interface UseGeminiLiveReturn {
   error: Error | null;
   inputVolume: number;
   recordedAudio: RecordedAudioData | null;
+  conversationReplay: ConversationReplayData | null;
   connect: () => Promise<void>;
   disconnect: () => Promise<RecordedAudioData | null>;
+  finalizeLiveSession: (
+    reason: "ai_completed" | "learner_finish"
+  ) => Promise<FinalizedLiveSessionAudio>;
   toggleMute: () => void;
   toggleNoiseSuppression: (enabled?: boolean) => void;
   sendTextMessage: (text: string) => void;

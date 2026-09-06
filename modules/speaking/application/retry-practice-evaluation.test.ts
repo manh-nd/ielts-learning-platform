@@ -330,4 +330,123 @@ describe("retryPracticeEvaluation Use Case", () => {
     expect(res.httpStatus).toBe(409);
     expect(res.error).toBe("EVALUATION_PENDING");
   });
+
+  it("Retry Audio Source Purity: retryPracticeEvaluation strictly evaluates OriginalAudio even when ConversationReplay exists", async () => {
+    const sessionId = "ses_retry_source_purity";
+    const storageKey = `speaking/user_purity/${sessionId}/candidate.webm`;
+    const originalAudioBytes = Buffer.from("original-learner-speaking-audio");
+    await persistSpeakingAudioBuffer(storageKey, originalAudioBytes);
+
+    const now = new Date();
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId: "user_purity",
+      candidateName: "Purity User",
+      topicTitle: "Technology",
+      status: "completed",
+      targetPart: "part_1",
+      durationSeconds: 40,
+      overallBand: null,
+      scorecardJson: null,
+      evidenceJson: {
+        liveTranscript: "I use AI daily.",
+        evaluationStatus: "failed",
+      },
+      // Replay artifact is present
+      conversationReplayStorageKey: `speaking/user_purity/${sessionId}/conversation.wav`,
+      conversationReplayMimeType: "audio/wav",
+      conversationReplayDurationSeconds: 65,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    devResponseCache.set(sessionId, [
+      {
+        id: `resp_${sessionId}_p1_0`,
+        sessionId,
+        partNumber: 1,
+        itemIndex: 0,
+        promptQuestion: "Technology",
+        storageKey,
+        audioUrl: `/api/speaking/upload-direct?key=${encodeURIComponent(storageKey)}`,
+        mimeType: "audio/webm",
+        startMs: 0,
+        endMs: 40000,
+        durationSeconds: 40,
+        liveTranscript: "I use AI daily.",
+        verifiedTranscript: null,
+        createdAt: now,
+      },
+    ]);
+
+    let evaluatedAudioString = "";
+    const mockFeedback = {
+      evidenceScope: { mode: "part_1", responseCount: 1 },
+      estimatedPerformance: { fluencyAndCoherence: 7.5 },
+      strengths: [],
+      priorities: [],
+      summary: "Purity check passed",
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+    };
+
+    const mockClient = {
+      models: {
+        generateContent: mock(
+          async ({
+            contents,
+            config,
+          }: {
+            contents?: Array<{ inlineData?: { data: string }; text?: string }>;
+            config?: { responseMimeType?: string };
+          }) => {
+            if (contents) {
+              for (const c of contents) {
+                if (c.inlineData?.data) {
+                  evaluatedAudioString = Buffer.from(
+                    c.inlineData.data,
+                    "base64"
+                  ).toString();
+                }
+              }
+            }
+            if (config?.responseMimeType !== "application/json") {
+              return { text: "I use AI daily." };
+            }
+            return {
+              text: JSON.stringify(mockFeedback),
+              usageMetadata: {
+                promptTokenCount: 100,
+                candidatesTokenCount: 50,
+                totalTokenCount: 150,
+              },
+            };
+          }
+        ),
+      },
+    };
+
+    const originalExecute = geminiRotator.executeWithRotation;
+    geminiRotator.executeWithRotation = mock(
+      async (
+        fn: (
+          client: unknown,
+          key: string,
+          fingerprint: string
+        ) => Promise<unknown>
+      ) => fn(mockClient, "MOCK_KEY_1234", "key_***1234")
+    ) as unknown as typeof geminiRotator.executeWithRotation;
+
+    try {
+      const res = await retryPracticeEvaluation({
+        authenticatedUserId: "user_purity",
+        sessionId,
+      });
+
+      expect(res.success).toBe(true);
+      // Invariant: Retry strictly evaluated the OriginalAudio
+      expect(evaluatedAudioString).toBe("original-learner-speaking-audio");
+    } finally {
+      geminiRotator.executeWithRotation = originalExecute;
+    }
+  });
 });

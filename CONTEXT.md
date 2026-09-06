@@ -106,6 +106,10 @@ _Avoid_: PracticeTest, QuickTest, SelfTest
 A single audio recording and transcript corresponding to a specific question or cue card within a SubmissionAttempt or SpeakingPractice. Audio is authoritative evidence while transcript is derived.
 _Avoid_: AudioRecord, SpeakingItem, SpeakingAudio, GenericTranscript, VoiceAnswer
 
+**ConversationReplay**:
+A derived, replay-only audio artifact combining learner microphone audio and AI examiner output on the SpeakingPractice session timeline. It is never authoritative assessment evidence and its failure never invalidates an ended SpeakingPractice.
+_Avoid_: FullExamAudio, CombinedOriginalAudio, SessionRecording, MixedEvidence
+
 **SpeakingReviewAnnotation**:
 A teacher-authored evaluation note attached to an exact audio timestamp and category (pronunciation, grammar, lexical, fluency) within a SpeakingResponse.
 _Avoid_: AudioMarker, VoiceNote, TimeTag

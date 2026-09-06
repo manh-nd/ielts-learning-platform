@@ -9,6 +9,12 @@ import {
  * - 16kHz 16-bit Mono PCM Input (Microphone via AudioWorklet)
  * - 24kHz 16-bit Mono PCM Output (AudioBufferSourceNode RingBuffer with instant interruption clear)
  */
+export interface PlaybackScheduleInfo {
+  scheduledStartTimeMs: number;
+  durationMs: number;
+  pcm: Int16Array;
+}
+
 export class PcmAudioController {
   private recordAudioContext: AudioContext | null = null;
   private playAudioContext: AudioContext | null = null;
@@ -193,8 +199,12 @@ export class PcmAudioController {
 
   /**
    * Schedules a 24kHz mono PCM audio chunk for gapless playback.
+   * Optionally notifies observer with exact scheduled start time and Int16 PCM.
    */
-  playAudioChunk(base64Chunk: string) {
+  playAudioChunk(
+    base64Chunk: string,
+    onScheduled?: (info: PlaybackScheduleInfo) => void
+  ) {
     if (this.isClosed) return;
 
     if (!this.playAudioContext) {
@@ -259,6 +269,17 @@ export class PcmAudioController {
     this.nextScheduledTime = startTime + audioBuffer.duration;
     this.activeSourceNodes.push(sourceNode);
 
+    if (onScheduled) {
+      const nowPerf =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      const leadDelayMs = Math.max(0, (startTime - now) * 1000);
+      onScheduled({
+        scheduledStartTimeMs: nowPerf + leadDelayMs,
+        durationMs: audioBuffer.duration * 1000,
+        pcm: int16Data,
+      });
+    }
+
     sourceNode.onended = () => {
       this.activeSourceNodes = this.activeSourceNodes.filter(
         (n) => n !== sourceNode
@@ -267,6 +288,47 @@ export class PcmAudioController {
         this.onSpeakerLevelCallback(0);
       }
     };
+  }
+
+  /**
+   * Returns remaining scheduled playback duration in milliseconds.
+   */
+  getRemainingScheduledDurationMs(): number {
+    if (!this.playAudioContext) return 0;
+    const now = this.playAudioContext.currentTime;
+    if (this.nextScheduledTime <= now) return 0;
+    return Math.max(0, (this.nextScheduledTime - now) * 1000);
+  }
+
+  /**
+   * Returns a promise that resolves when all currently scheduled audio has finished playing,
+   * or when timeoutMs expires.
+   */
+  async waitForQueueDrain(timeoutMs: number): Promise<boolean> {
+    if (!this.isPlaying() && this.getRemainingScheduledDurationMs() === 0) {
+      return true;
+    }
+
+    return new Promise<boolean>((resolve) => {
+      let resolved = false;
+      const timer = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve(false);
+        }
+      }, timeoutMs);
+
+      const checkInterval = setInterval(() => {
+        if (!this.isPlaying() && this.getRemainingScheduledDurationMs() === 0) {
+          if (!resolved) {
+            resolved = true;
+            clearTimeout(timer);
+            clearInterval(checkInterval);
+            resolve(true);
+          }
+        }
+      }, 50);
+    });
   }
 
   /**
@@ -338,7 +400,7 @@ export class PcmAudioController {
   }
 
   private base64ToArrayBuffer(base64: string): ArrayBuffer {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && typeof window.atob === "function") {
       const binaryString = window.atob(base64);
       const len = binaryString.length;
       const bytes = new Uint8Array(len);

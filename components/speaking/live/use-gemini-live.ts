@@ -12,9 +12,12 @@ import {
   LiveSpeakingConfig,
   UseGeminiLiveReturn,
   RecordedAudioData,
+  ConversationReplayData,
+  FinalizedLiveSessionAudio,
   CandidateTurnMarker,
 } from "./types";
 import { PcmAudioController } from "@/lib/audio/pcm-audio-controller";
+import { ConversationReplayRecorder } from "@/lib/audio/conversation-replay-recorder";
 import {
   playCallStartSound,
   playCallEndSound,
@@ -265,8 +268,20 @@ export function useGeminiLive(
   const [transcripts, setTranscripts] = useState<TranscriptItem[]>([]);
   const [turnMarkers, setTurnMarkers] = useState<CandidateTurnMarker[]>([]);
   const [error, setError] = useState<Error | null>(null);
+  const [conversationReplay, setConversationReplay] =
+    useState<ConversationReplayData | null>(null);
 
   // References
+  const sessionEpochRef = useRef<number | null>(null);
+  const conversationReplayRecorderRef =
+    useRef<ConversationReplayRecorder | null>(null);
+  const finalizePromiseRef = useRef<Promise<FinalizedLiveSessionAudio> | null>(
+    null
+  );
+  const completionRequestedRef = useRef<boolean>(false);
+  const terminalTurnCompleteSeenRef = useRef<boolean>(false);
+  const safetyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const recordStartTimeRef = useRef<number>(0);
   const turnMarkersRef = useRef<CandidateTurnMarker[]>([]);
   const currentTurnStartMsRef = useRef<number>(0);
@@ -493,6 +508,110 @@ export function useGeminiLive(
 
     setVoiceActivity("idle");
   }, [cleanupRecorder, clearNudgeTimer, releaseWakeLock]);
+
+  const resetSessionLifecycle = useCallback(() => {
+    if (safetyTimeoutRef.current) {
+      clearTimeout(safetyTimeoutRef.current);
+      safetyTimeoutRef.current = null;
+    }
+    finalizePromiseRef.current = null;
+    completionRequestedRef.current = false;
+    terminalTurnCompleteSeenRef.current = false;
+    conversationReplayRecorderRef.current = null;
+    sessionEpochRef.current = null;
+    setConversationReplay(null);
+  }, []);
+
+  const finalizeLiveSession = useCallback(
+    async (
+      _reason: "ai_completed" | "learner_finish"
+    ): Promise<FinalizedLiveSessionAudio> => {
+      // Return existing in-flight or completed promise for exactly-once execution
+      if (finalizePromiseRef.current) {
+        return finalizePromiseRef.current;
+      }
+
+      const promise = (async (): Promise<FinalizedLiveSessionAudio> => {
+        updateStatus("disconnecting");
+
+        // Clear safety timeout if running
+        if (safetyTimeoutRef.current) {
+          clearTimeout(safetyTimeoutRef.current);
+          safetyTimeoutRef.current = null;
+        }
+
+        const controller = audioControllerRef.current;
+        const recorder = conversationReplayRecorderRef.current;
+
+        // Drain examiner audio queue up to 2500ms
+        if (controller) {
+          try {
+            await controller.waitForQueueDrain(2500);
+          } catch (drainErr) {
+            console.warn(
+              "[useGeminiLive] Non-fatal audio queue drain timeout:",
+              drainErr
+            );
+          }
+        }
+
+        // Finalize learner recordedAudio
+        let audioData: RecordedAudioData | null = null;
+        try {
+          audioData = await finalizeRecording();
+        } catch (err) {
+          console.warn("[useGeminiLive] Error finalizing recording:", err);
+        }
+
+        // Finalize conversation replay
+        let replayData: ConversationReplayData | null = null;
+        if (recorder) {
+          try {
+            const replayOut = recorder.finalize();
+            if (replayOut) {
+              let url = "";
+              try {
+                if (
+                  typeof window !== "undefined" &&
+                  window.URL &&
+                  typeof window.URL.createObjectURL === "function"
+                ) {
+                  url = window.URL.createObjectURL(replayOut.blob);
+                }
+              } catch {
+                // Ignore in headless / test env
+              }
+              replayData = {
+                blob: replayOut.blob,
+                url,
+                durationSeconds: replayOut.durationSeconds,
+                mimeType: replayOut.mimeType,
+              };
+              setConversationReplay(replayData);
+            }
+          } catch (replayErr) {
+            console.warn(
+              "[useGeminiLive] Non-fatal conversation replay finalization error:",
+              replayErr
+            );
+          }
+        }
+
+        cleanupAudio();
+        updateStatus("idle");
+        setSpeakingState({ kind: "ended" });
+
+        return {
+          recordedAudio: audioData,
+          conversationReplay: replayData,
+        };
+      })();
+
+      finalizePromiseRef.current = promise;
+      return promise;
+    },
+    [cleanupAudio, finalizeRecording, updateStatus]
+  );
 
   const updateTranscriptStream = useCallback(() => {
     const committed = [...committedTranscriptsRef.current];
@@ -776,10 +895,39 @@ export function useGeminiLive(
             console.error("[useGeminiLive] Error responding to end_exam:", err);
           }
         }
-        onExamCompleted?.();
+
+        // Terminal Turn Completion Protocol:
+        // Mark completionRequested = true. Wait for terminal turnComplete from Gemini
+        // so any remaining examiner audio parts arriving with or after end_exam are fully scheduled.
+        completionRequestedRef.current = true;
+
+        if (mockMode) {
+          void finalizeLiveSession("ai_completed").then(() => {
+            onExamCompleted?.();
+          });
+          return;
+        }
+
+        // Bounded 5000ms safety timeout in case Gemini never emits turnComplete after end_exam
+        if (!safetyTimeoutRef.current) {
+          safetyTimeoutRef.current = setTimeout(() => {
+            safetyTimeoutRef.current = null;
+            terminalTurnCompleteSeenRef.current = true;
+            void finalizeLiveSession("ai_completed").then(() => {
+              onExamCompleted?.();
+            });
+          }, 5000);
+        }
       }
     },
-    [finishPart2PrepEarly, onExamCompleted, topic, updateStage]
+    [
+      finishPart2PrepEarly,
+      finalizeLiveSession,
+      mockMode,
+      onExamCompleted,
+      topic,
+      updateStage,
+    ]
   );
 
   const runMockSimulation = useCallback(() => {
@@ -873,6 +1021,7 @@ export function useGeminiLive(
   const connect = useCallback(async () => {
     cleanupAudio();
     resetRecording();
+    resetSessionLifecycle();
     setError(null);
     currentTurnTextRef.current = { user: "", examiner: "" };
     committedTranscriptsRef.current = [];
@@ -884,6 +1033,15 @@ export function useGeminiLive(
     currentTurnIndexRef.current = 0;
     updateStage(1);
     setPart2Phase("idle");
+
+    const epoch =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    sessionEpochRef.current = epoch;
+    const replayRecorder = new ConversationReplayRecorder({
+      sessionEpochMs: epoch,
+    });
+    replayRecorder.startLearnerStream(0);
+    conversationReplayRecorderRef.current = replayRecorder;
 
     if (mockMode) {
       runMockSimulation();
@@ -922,39 +1080,45 @@ export function useGeminiLive(
 
       // Start recording immediately with user click gesture
       try {
-        await startAudioRecording(controller, (base64Pcm, rms) => {
-          const currentWs = wsRef.current;
-          if (
-            currentWs &&
-            currentWs.readyState === WebSocket.OPEN &&
-            statusRef.current === "connected" &&
-            !isMutedRef.current
-          ) {
-            const elapsedMs = Date.now() - recordStartTimeRef.current;
+        await startAudioRecording(
+          controller,
+          (base64Pcm, rms) => {
+            const currentWs = wsRef.current;
+            if (
+              currentWs &&
+              currentWs.readyState === WebSocket.OPEN &&
+              statusRef.current === "connected" &&
+              !isMutedRef.current
+            ) {
+              const elapsedMs = Date.now() - recordStartTimeRef.current;
 
-            // 1. Warm-up gate: first 3.0s block transmission
-            if (elapsedMs < 3000) {
-              return;
-            }
-
-            // 2. Echo gate: while speaker is playing, require higher RMS threshold
-            if (controller.isPlaying()) {
-              if (rms < 0.03) {
+              // 1. Warm-up gate: first 3.0s block transmission
+              if (elapsedMs < 3000) {
                 return;
               }
-            }
 
-            const audioPayload = {
-              realtimeInput: {
-                audio: {
-                  mimeType: "audio/pcm;rate=16000",
-                  data: base64Pcm,
+              // 2. Echo gate: while speaker is playing, require higher RMS threshold
+              if (controller.isPlaying()) {
+                if (rms < 0.03) {
+                  return;
+                }
+              }
+
+              const audioPayload = {
+                realtimeInput: {
+                  audio: {
+                    mimeType: "audio/pcm;rate=16000",
+                    data: base64Pcm,
+                  },
                 },
-              },
-            };
-            currentWs.send(JSON.stringify(audioPayload));
+              };
+              currentWs.send(JSON.stringify(audioPayload));
+            }
+          },
+          (rawInt16) => {
+            conversationReplayRecorderRef.current?.addLearnerChunk(rawInt16);
           }
-        });
+        );
       } catch (micErr: unknown) {
         console.error("[useGeminiLive] Failed to start microphone:", micErr);
         const isDenied = isPermissionDeniedError(micErr);
@@ -1155,6 +1319,15 @@ export function useGeminiLive(
           // Handle barge-in interruption: immediately stop and clear audio queue
           if (serverContent.interrupted) {
             controller.stopPlayback();
+            if (sessionEpochRef.current !== null) {
+              const nowPerf =
+                typeof performance !== "undefined"
+                  ? performance.now()
+                  : Date.now();
+              conversationReplayRecorderRef.current?.notifyInterrupted(
+                nowPerf - sessionEpochRef.current
+              );
+            }
             commitCurrentTurn();
             clearNudgeTimer();
             setSpeakingState({ kind: "user-speaking" });
@@ -1165,7 +1338,20 @@ export function useGeminiLive(
             clearNudgeTimer();
             for (const part of serverContent.modelTurn.parts) {
               if (part.inlineData?.data) {
-                controller.playAudioChunk(part.inlineData.data);
+                controller.playAudioChunk(part.inlineData.data, (info) => {
+                  if (
+                    !terminalTurnCompleteSeenRef.current &&
+                    sessionEpochRef.current !== null
+                  ) {
+                    const scheduledStartMs =
+                      info.scheduledStartTimeMs - sessionEpochRef.current;
+                    conversationReplayRecorderRef.current?.addExaminerChunk(
+                      info.pcm,
+                      scheduledStartMs,
+                      info.durationMs
+                    );
+                  }
+                });
               }
             }
           }
@@ -1186,6 +1372,20 @@ export function useGeminiLive(
             commitCurrentTurn();
             startNudgeTimer();
             setSpeakingState({ kind: "listening" });
+
+            // Terminal turnComplete check:
+            // If end_exam tool call was received and we now observe turnComplete,
+            // this marks the end of the terminal model turn.
+            if (completionRequestedRef.current) {
+              terminalTurnCompleteSeenRef.current = true;
+              if (safetyTimeoutRef.current) {
+                clearTimeout(safetyTimeoutRef.current);
+                safetyTimeoutRef.current = null;
+              }
+              void finalizeLiveSession("ai_completed").then(() => {
+                onExamCompleted?.();
+              });
+            }
           }
 
           // Handle Input Transcription (User Speech)
@@ -1247,26 +1447,17 @@ export function useGeminiLive(
     requestWakeLock,
     startNudgeTimer,
     resetRecording,
+    resetSessionLifecycle,
     startAudioRecording,
+    finalizeLiveSession,
+    onExamCompleted,
   ]);
 
   const disconnect =
     useCallback(async (): Promise<RecordedAudioData | null> => {
-      updateStatus("disconnecting");
-
-      let audioData: RecordedAudioData | null = null;
-      try {
-        audioData = await finalizeRecording();
-      } catch (err) {
-        console.warn("[useGeminiLive] Error finalizing recording:", err);
-      }
-
-      cleanupAudio();
-      updateStatus("idle");
-      setSpeakingState({ kind: "ended" });
-
-      return audioData;
-    }, [cleanupAudio, finalizeRecording, updateStatus]);
+      const finalized = await finalizeLiveSession("learner_finish");
+      return finalized.recordedAudio;
+    }, [finalizeLiveSession]);
 
   const toggleMute = useCallback(() => {
     toggleRecorderMute();
@@ -1337,8 +1528,10 @@ export function useGeminiLive(
     error,
     inputVolume,
     recordedAudio,
+    conversationReplay,
     connect,
     disconnect,
+    finalizeLiveSession,
     toggleMute,
     toggleNoiseSuppression,
     sendTextMessage,

@@ -17,7 +17,8 @@ export interface UseLiveAudioRecorderReturn {
   recordedAudio: RecordedAudioData | null;
   startRecording: (
     controller: PcmAudioController,
-    onPcmChunk?: (base64Chunk: string, rms: number) => void
+    onPcmChunk?: (base64Chunk: string, rms: number) => void,
+    onRawPcmChunk?: (rawInt16: Int16Array) => void
   ) => Promise<void>;
   stopRecording: () => void;
   finalizeRecording: () => Promise<RecordedAudioData | null>;
@@ -167,7 +168,8 @@ export function useLiveAudioRecorder(
   const startRecording = useCallback(
     async (
       controller: PcmAudioController,
-      onPcmChunk?: (base64Chunk: string, rms: number) => void
+      onPcmChunk?: (base64Chunk: string, rms: number) => void,
+      onRawPcmChunk?: (rawInt16: Int16Array) => void
     ) => {
       recordedChunksRef.current = [];
       rawPcmChunksRef.current = [];
@@ -187,6 +189,21 @@ export function useLiveAudioRecorder(
       await controller.startRecording((base64Pcm, rms) => {
         rawPcmChunksRef.current.push(base64Pcm);
         onPcmChunk?.(base64Pcm, rms);
+        if (onRawPcmChunk) {
+          try {
+            const binary =
+              typeof atob !== "undefined"
+                ? atob(base64Pcm)
+                : Buffer.from(base64Pcm, "base64").toString("binary");
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+              bytes[i] = binary.charCodeAt(i);
+            }
+            onRawPcmChunk(new Int16Array(bytes.buffer));
+          } catch {
+            // ignore conversion errors
+          }
+        }
       });
 
       const micStream = controller.getMediaStream();

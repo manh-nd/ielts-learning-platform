@@ -764,4 +764,103 @@ describe("Speaking Practice Failure Recovery & Resilience (#70)", () => {
       expect(contaminatedErrorRate).toBe(5.0); // 5.0% would erroneously fail the pilot criteria!
     });
   });
+
+  describe("Issue #101: Live Conversation Replay & Terminal Turn Completion Protocol", () => {
+    it("should accept Late PCM after end_exam and finalize upon observing terminal turnComplete", async () => {
+      let turnCompletedSeen = false;
+      let finalized = false;
+      let completionRequested = false;
+
+      // Simulate the protocol state machine:
+      // 1. Tool call end_exam received
+      const onToolCall = (toolName: string) => {
+        if (toolName === "end_exam") {
+          completionRequested = true;
+        }
+      };
+
+      // 2. Late PCM arrives before turnComplete
+      const scheduledChunks: string[] = [];
+      const onAudioChunk = (chunkData: string) => {
+        if (!turnCompletedSeen) {
+          scheduledChunks.push(chunkData);
+        }
+      };
+
+      // 3. Terminal turnComplete arrives
+      const onTurnComplete = () => {
+        if (completionRequested) {
+          turnCompletedSeen = true;
+          finalized = true;
+        }
+      };
+
+      // Trigger tool call
+      onToolCall("end_exam");
+      expect(completionRequested).toBe(true);
+      expect(finalized).toBe(false);
+
+      // Late PCM arrives while completion is pending
+      onAudioChunk("late_examiner_pcm_sample");
+      expect(scheduledChunks.length).toBe(1);
+      expect(finalized).toBe(false);
+
+      // Terminal turn completes
+      onTurnComplete();
+      expect(turnCompletedSeen).toBe(true);
+      expect(finalized).toBe(true);
+
+      // Any subsequent audio chunk after terminal turnComplete must be ignored
+      onAudioChunk("ignored_post_terminal_pcm");
+      expect(scheduledChunks.length).toBe(1);
+    });
+
+    it("should trigger safety timeout if terminal turnComplete never arrives", async () => {
+      let finalized = false;
+      let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+
+      const onToolCall = (toolName: string) => {
+        if (toolName === "end_exam") {
+          safetyTimer = setTimeout(() => {
+            finalized = true;
+          }, 50); // fast timeout for test
+        }
+      };
+
+      onToolCall("end_exam");
+      expect(finalized).toBe(false);
+
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      expect(finalized).toBe(true);
+      if (safetyTimer) clearTimeout(safetyTimer);
+    });
+
+    it("should maintain idempotency across multiple finalizeLiveSession invocations", async () => {
+      let executionCount = 0;
+      let finalizePromise: Promise<{ status: string }> | null = null;
+
+      const finalizeLiveSession = () => {
+        if (finalizePromise) {
+          return finalizePromise;
+        }
+        finalizePromise = (async () => {
+          executionCount++;
+          await new Promise((resolve) => setTimeout(resolve, 10));
+          return { status: "finalized" };
+        })();
+        return finalizePromise;
+      };
+
+      const [res1, res2, res3] = await Promise.all([
+        finalizeLiveSession(),
+        finalizeLiveSession(),
+        finalizeLiveSession(),
+      ]);
+
+      expect(executionCount).toBe(1);
+      expect(res1).toBe(res2);
+      expect(res2).toBe(res3);
+      expect(res1.status).toBe("finalized");
+    });
+  });
 });

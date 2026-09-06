@@ -245,7 +245,22 @@ const meta = {
           }
         : context.args.recordedAudio;
 
-      return <Story args={{ ...context.args, recordedAudio }} />;
+      const conversationReplay = context.args.conversationReplay
+        ? {
+            ...context.args.conversationReplay,
+            url: blobUrl,
+          }
+        : context.args.conversationReplay;
+
+      return (
+        <Story
+          args={{
+            ...context.args,
+            recordedAudio,
+            conversationReplay,
+          }}
+        />
+      );
     },
   ],
   args: {
@@ -283,6 +298,30 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const EvaluationSuccess: Story = {};
+
+export const ConversationReplaySuccess: Story = {
+  args: {
+    conversationReplay: {
+      blob: sampleAudioBlob,
+      url: "",
+      durationSeconds: 125,
+      mimeType: "audio/wav",
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const audioTabBtn = canvas.getByRole("tab", {
+      name: /Ghi âm & Bản chép lời/i,
+    });
+    await userEvent.click(audioTabBtn);
+
+    const audioCard = await canvas.findByTestId("recorded-audio-card");
+    await expect(audioCard).toBeInTheDocument();
+    await expect(
+      canvas.getByText(/Bản Ghi Âm Hội Thoại Toàn Bộ \(Thí sinh & Giám khảo\)/i)
+    ).toBeInTheDocument();
+  },
+};
 
 export const LoadingEvaluation: Story = {
   args: {

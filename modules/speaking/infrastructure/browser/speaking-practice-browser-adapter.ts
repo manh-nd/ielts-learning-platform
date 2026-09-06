@@ -92,6 +92,79 @@ export async function uploadAudioWithRetry(
 }
 
 /**
+ * Uploads derived ConversationReplay audio and attaches its metadata to an ended SpeakingPractice.
+ *
+ * Invariants:
+ * - Best-effort: errors are logged and swallowed so failure NEVER invalidates ended SpeakingPractice.
+ * - Uses server-generated upload URL without trusting or supplying client storage keys.
+ */
+export async function uploadAndAttachConversationReplay(
+  sessionId: string,
+  replayBlob: Blob,
+  durationSeconds?: number
+): Promise<{ success: boolean }> {
+  try {
+    // 1. Obtain presigned upload URL from server
+    const urlRes = await fetch(
+      `/api/speaking/practices/${encodeURIComponent(sessionId)}/conversation-replay/upload-url`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mimeType: "audio/wav" }),
+      }
+    );
+
+    if (!urlRes.ok) {
+      console.warn(
+        `[SpeakingPracticeBrowserAdapter] Conversation replay upload-url request failed (${urlRes.status})`
+      );
+      return { success: false };
+    }
+
+    const { uploadUrl } = (await urlRes.json()) as { uploadUrl: string };
+
+    // 2. PUT WAV binary directly to presigned URL
+    const putRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": "audio/wav" },
+      body: replayBlob,
+    });
+
+    if (!putRes.ok) {
+      console.warn(
+        `[SpeakingPracticeBrowserAdapter] Conversation replay storage PUT failed (${putRes.status})`
+      );
+      return { success: false };
+    }
+
+    // 3. Attach metadata to session record
+    const attachRes = await fetch(
+      `/api/speaking/practices/${encodeURIComponent(sessionId)}/conversation-replay`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ durationSeconds }),
+      }
+    );
+
+    if (!attachRes.ok) {
+      console.warn(
+        `[SpeakingPracticeBrowserAdapter] Conversation replay attach request failed (${attachRes.status})`
+      );
+      return { success: false };
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.warn(
+      "[SpeakingPracticeBrowserAdapter] Failed to upload/attach conversation replay:",
+      err
+    );
+    return { success: false };
+  }
+}
+
+/**
  * Creates browser ports for SpeakingPractice workflow orchestration.
  */
 export function createSpeakingPracticeBrowserPorts(): SpeakingPracticeWorkflowPorts {

@@ -13,6 +13,11 @@ export interface GetSpeakingPracticeInput {
 export interface GetSpeakingPracticeResult {
   session: SpeakingPracticeRecord;
   responses: SpeakingResponseRecord[];
+  conversationReplay?: {
+    available: boolean;
+    url?: string;
+    durationSeconds?: number;
+  };
 }
 
 /**
@@ -35,8 +40,22 @@ export async function getSpeakingPractice(
     throw new NotFoundError("Session not found");
   }
 
+  const replayAvailable = Boolean(
+    practice.conversationReplayStorageKey && practice.status !== "audio_purged"
+  );
+
   return {
     session: practice,
     responses,
+    conversationReplay: {
+      available: replayAvailable,
+      ...(replayAvailable
+        ? {
+            url: `/api/speaking/practices/${encodeURIComponent(sessionId)}/conversation-audio`,
+            durationSeconds:
+              practice.conversationReplayDurationSeconds ?? undefined,
+          }
+        : {}),
+    },
   };
 }

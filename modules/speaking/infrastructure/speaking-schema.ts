@@ -32,6 +32,11 @@ export const speakingSessions = pgTable("speaking_sessions", {
   scorecardJson: jsonb("scorecard_json"),
   evidenceJson: jsonb("evidence_json"),
   practiceMonologue: text("practice_monologue"),
+  conversationReplayStorageKey: text("conversation_replay_storage_key"),
+  conversationReplayMimeType: text("conversation_replay_mime_type"),
+  conversationReplayDurationSeconds: real(
+    "conversation_replay_duration_seconds"
+  ),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
