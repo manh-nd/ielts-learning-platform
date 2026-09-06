@@ -306,19 +306,20 @@ export const RealAudioInteractionTest: Story = {
     await userEvent.click(speed12Btn);
     await expect(speed12Btn).toHaveAttribute("aria-pressed", "true");
 
-    const mediaEl = waveformContainer.querySelector("audio");
-    if (mediaEl) {
-      expect(mediaEl.playbackRate).toBe(1.2);
-      expect(mediaEl.preservesPitch).toBe(true);
-    }
+    const mediaEl = (shadowHost?.shadowRoot?.querySelector("audio") ||
+      waveformContainer.querySelector("audio")) as HTMLAudioElement | null;
+    expect(mediaEl).not.toBeNull();
+    expect(mediaEl!.playbackRate).toBe(1.2);
+    expect(mediaEl!.preservesPitch).toBe(true);
 
     // 7. Test marker activation and seeking
     const marker2Btn = canvas.getByTestId("audio-marker-marker-2");
     await userEvent.click(marker2Btn);
     expect(args.onMarkerActivate).toHaveBeenCalledWith("marker-2");
 
-    // Marker 2 is at 1.2s -> displays 00:01 / 00:02
+    // Marker 2 is at 1.2s -> asserts real media currentTime and time display
     await waitFor(() => {
+      expect(mediaEl!.currentTime).toBeCloseTo(1.2, 1);
       expect(canvas.getByTestId("audio-player-time").textContent).toContain(
         "00:01"
       );

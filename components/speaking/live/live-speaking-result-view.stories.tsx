@@ -341,9 +341,19 @@ export const InteractiveEvidenceClipAndHiddenTabMount: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    // 1. Verify no hidden <audio> tag exists anywhere in the DOM
-    const audioTags = canvasElement.querySelectorAll("audio");
-    expect(audioTags.length).toBe(0);
+    // 1. Verify 0 light-DOM hidden audio tags and exactly one canonical WaveSurfer shadow-root audio owner
+    const lightAudioTags = canvasElement.querySelectorAll("audio");
+    expect(lightAudioTags.length).toBe(0);
+
+    const initialWaveformEl = canvasElement.querySelector(
+      '[data-testid="audio-waveform-canvas-container"]'
+    );
+    expect(initialWaveformEl).not.toBeNull();
+    const initialShadowHost = initialWaveformEl?.querySelector("div");
+    expect(initialShadowHost?.shadowRoot).not.toBeNull();
+    const shadowAudioTags =
+      initialShadowHost?.shadowRoot?.querySelectorAll("audio") || [];
+    expect(shadowAudioTags.length).toBe(1);
 
     // 2. Start on overview tab: AudioReviewPlayer is mounted in DOM (via keepMounted) but hidden
     const playPauseBtn = canvasElement.querySelector(
