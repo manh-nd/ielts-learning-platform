@@ -321,26 +321,27 @@ describe("LiveSessionCoordinator Production Seam Tests", () => {
     coordinator.startSession(controller, recorder);
 
     // Trigger end_exam with a very short safety timeout (10ms)
-    coordinator.handleEndExam(() => {
+    const firstEndExam = coordinator.handleEndExam(() => {
       notificationsCount++;
     }, 10);
+    expect(firstEndExam).toBe(true);
 
     // Wait 25ms for safety timeout to fire and finalize
     await new Promise((r) => setTimeout(r, 25));
     expect(notificationsCount).toBe(1);
 
-    // Late turnComplete arrives after safety timer already finalized
+    // Late turnComplete arrives after safety timer already finalized -> must be a strict no-op (returns false)
     const handledLate = coordinator.handleTurnComplete(() => {
       notificationsCount++;
     });
+    expect(handledLate).toBe(false);
 
     // Wait a tick
     await new Promise((r) => setTimeout(r, 10));
-    expect(handledLate).toBe(true);
     expect(notificationsCount).toBe(1); // Exactly once!
   });
 
-  it("should treat repeated end_exam as idempotent no-op for safety timer", () => {
+  it("should treat repeated end_exam and repeated turnComplete as strict no-ops after terminal seal", async () => {
     const coordinator = new LiveSessionCoordinator({
       finalizeRecording: async () => null,
       cleanupAudio: () => {},
@@ -350,49 +351,176 @@ describe("LiveSessionCoordinator Production Seam Tests", () => {
     const recorder = new ConversationReplayRecorder({ sessionEpochMs: 0 });
     coordinator.startSession(controller, recorder);
 
-    coordinator.handleEndExam(() => {}, 5000);
+    // 1. Initial end_exam -> accepted
+    const endExam1 = coordinator.handleEndExam(() => {}, 5000);
+    expect(endExam1).toBe(true);
     expect(coordinator.isCompletionRequested()).toBe(true);
 
-    // Second call to end_exam
-    coordinator.handleEndExam(() => {}, 5000);
-    expect(coordinator.isCompletionRequested()).toBe(true);
+    // 2. Repeated end_exam while completionRequested -> must be rejected (false)
+    const endExam2 = coordinator.handleEndExam(() => {}, 5000);
+    expect(endExam2).toBe(false);
+
+    // 3. First turnComplete -> accepted and triggers finalize
+    const turn1 = coordinator.handleTurnComplete(() => {});
+    expect(turn1).toBe(true);
+    expect(coordinator.isTerminalTurnCompleteSeen()).toBe(true);
+
+    // 4. Repeated turnComplete after terminal turnComplete seen -> must be rejected (false)
+    const turn2 = coordinator.handleTurnComplete(() => {});
+    expect(turn2).toBe(false);
+
+    // 5. Subsequent end_exam after terminal seal -> must also be rejected (false)
+    const endExam3 = coordinator.handleEndExam(() => {}, 5000);
+    expect(endExam3).toBe(false);
   });
 
-  it("should revoke previously created replay blob URL on reset() and revokeReplayUrl()", async () => {
+  it("should execute cleanupAudio and ConversationReplay finalize exactly once across concurrent/repeated finalization", async () => {
+    let cleanupAudioCount = 0;
+    let finalizeRecorderCount = 0;
+
     const coordinator = new LiveSessionCoordinator({
-      finalizeRecording: async () => null,
-      cleanupAudio: () => {},
+      finalizeRecording: async () => {
+        await new Promise((r) => setTimeout(r, 15));
+        return {
+          blob: new Blob([]),
+          url: "blob:test",
+          durationSeconds: 2,
+          mimeType: "audio/webm",
+        };
+      },
+      cleanupAudio: () => {
+        cleanupAudioCount++;
+      },
+    });
+
+    const controller = new PcmAudioController();
+    const mockRecorder = {
+      startLearnerStream: () => {},
+      addExaminerChunk: () => {},
+      notifyInterrupted: () => {},
+      finalize: () => {
+        finalizeRecorderCount++;
+        return {
+          blob: new Blob(["wav"], { type: "audio/wav" }),
+          durationSeconds: 2,
+          mimeType: "audio/wav" as const,
+        };
+      },
+    } as unknown as ConversationReplayRecorder;
+
+    coordinator.startSession(controller, mockRecorder);
+
+    // Concurrent finalization calls (e.g. race between AI completion and user finish)
+    const [res1, res2, res3] = await Promise.all([
+      coordinator.finalizeLiveSession("ai_completed"),
+      coordinator.finalizeLiveSession("ai_completed"),
+      coordinator.finalizeLiveSession("learner_finish"),
+    ]);
+
+    expect(res1).toBe(res2);
+    expect(res2).toBe(res3);
+    expect(cleanupAudioCount).toBe(1);
+    expect(finalizeRecorderCount).toBe(1);
+
+    // Subsequent finalization invocation after settled
+    const res4 = await coordinator.finalizeLiveSession("ai_completed");
+    expect(res4).toBe(res1);
+    expect(cleanupAudioCount).toBe(1);
+    expect(finalizeRecorderCount).toBe(1);
+  });
+
+  it("should isolate session A and session B artifacts, epochs, and revoke local Blob URL", async () => {
+    let mockTime = 1000;
+    let cleanupCount = 0;
+
+    const coordinator = new LiveSessionCoordinator({
+      clock: () => mockTime,
+      finalizeRecording: async () => ({
+        blob: new Blob([]),
+        url: "blob:rec",
+        durationSeconds: 1,
+        mimeType: "audio/webm",
+      }),
+      cleanupAudio: () => {
+        cleanupCount++;
+      },
     });
 
     const revokedUrls: string[] = [];
     const origRevoke = globalThis.URL?.revokeObjectURL;
     const origCreate = globalThis.URL?.createObjectURL;
 
-    globalThis.URL.createObjectURL = () => "blob:test-replay-url";
+    let blobCounter = 0;
+    globalThis.URL.createObjectURL = () => `blob:local-replay-${++blobCounter}`;
     globalThis.URL.revokeObjectURL = (url: string) => {
       revokedUrls.push(url);
     };
 
     try {
-      const controller = new PcmAudioController();
-      const recorder = {
-        startLearnerStream: () => {},
-        addExaminerChunk: () => {},
-        notifyInterrupted: () => {},
-        finalize: () => ({
-          blob: new Blob(["test"], { type: "audio/wav" }),
-          durationSeconds: 1,
-          mimeType: "audio/wav" as const,
-        }),
-      } as unknown as ConversationReplayRecorder;
+      // --- SESSION A ---
+      mockTime = 1000;
+      const controllerA = new PcmAudioController();
+      let recorderAEpoch: number | null = null;
+      coordinator.startSession(controllerA, (epoch) => {
+        recorderAEpoch = epoch;
+        return {
+          startLearnerStream: () => {},
+          addExaminerChunk: () => {},
+          notifyInterrupted: () => {},
+          finalize: () => ({
+            blob: new Blob(["a"], { type: "audio/wav" }),
+            durationSeconds: 3,
+            mimeType: "audio/wav" as const,
+          }),
+        } as unknown as ConversationReplayRecorder;
+      });
 
-      coordinator.startSession(controller, recorder);
-      const res = await coordinator.finalizeLiveSession("ai_completed");
-      expect(res.conversationReplay?.url).toBe("blob:test-replay-url");
+      expect(coordinator.getSessionEpoch()).toBe(1000);
+      expect(recorderAEpoch as number | null).toBe(1000);
 
-      // Reset coordinator for new session -> must revoke old blob URL
+      const finalA = await coordinator.finalizeLiveSession("ai_completed");
+      expect(finalA.conversationReplay?.url).toBe("blob:local-replay-1");
+      expect(cleanupCount).toBe(1);
+
+      // --- SESSION B (Fresh Reset & Start) ---
+      mockTime = 5000;
+      const controllerB = new PcmAudioController();
+      let recorderBEpoch: number | null = null;
+      coordinator.startSession(controllerB, (epoch) => {
+        recorderBEpoch = epoch;
+        return {
+          startLearnerStream: () => {},
+          addExaminerChunk: () => {},
+          notifyInterrupted: () => {},
+          finalize: () => ({
+            blob: new Blob(["b"], { type: "audio/wav" }),
+            durationSeconds: 4,
+            mimeType: "audio/wav" as const,
+          }),
+        } as unknown as ConversationReplayRecorder;
+      });
+
+      // Assert Session A's local Blob URL was revoked when Session B started
+      expect(revokedUrls).toContain("blob:local-replay-1");
+
+      // Assert complete state reset for Session B
+      expect(coordinator.getSessionEpoch()).toBe(5000);
+      expect(recorderBEpoch as number | null).toBe(5000);
+      expect(coordinator.isCompletionRequested()).toBe(false);
+      expect(coordinator.isTerminalTurnCompleteSeen()).toBe(false);
+
+      const finalB = await coordinator.finalizeLiveSession("ai_completed");
+      expect(finalB.conversationReplay?.url).toBe("blob:local-replay-2");
+      expect(cleanupCount).toBe(2);
+
+      // Resetting again revokes Session B's local Blob URL
       coordinator.reset();
-      expect(revokedUrls).toContain("blob:test-replay-url");
+      expect(revokedUrls).toContain("blob:local-replay-2");
+
+      // Verify that restored HTTP URLs are NOT in revokedUrls
+      const httpRestoredUrl =
+        "/api/speaking/practices/ses_123/conversation-audio";
+      expect(revokedUrls).not.toContain(httpRestoredUrl);
     } finally {
       if (origRevoke) globalThis.URL.revokeObjectURL = origRevoke;
       if (origCreate) globalThis.URL.createObjectURL = origCreate;

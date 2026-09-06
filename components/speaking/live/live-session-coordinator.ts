@@ -154,28 +154,38 @@ export class LiveSessionCoordinator {
   /**
    * Called when Gemini emits the end_exam tool call.
    * Starts terminal turn protocol: completionRequested = true.
+   * If completion is already requested or terminal turn complete was already seen, this is a strict no-op.
    * Sets safety timeout (default 5000ms) in case turnComplete is never received.
    */
-  handleEndExam(onExamCompleted?: () => void, safetyTimeoutMs = 5000) {
+  handleEndExam(onExamCompleted?: () => void, safetyTimeoutMs = 5000): boolean {
+    if (this.completionRequested || this.terminalTurnCompleteSeen) {
+      return false;
+    }
     this.completionRequested = true;
 
     if (!this.safetyTimer) {
       this.safetyTimer = setTimeout(() => {
         this.safetyTimer = null;
+        if (this.terminalTurnCompleteSeen) {
+          return;
+        }
         this.terminalTurnCompleteSeen = true;
         void this.finalizeLiveSession("ai_completed").then(() => {
           this.notifyExamCompletedOnce(onExamCompleted);
         });
       }, safetyTimeoutMs);
     }
+
+    return true;
   }
 
   /**
    * Called when Gemini emits serverContent.turnComplete.
-   * If completionRequested is true, this marks terminalTurnCompleteSeen and triggers finalize.
+   * If completionRequested is not set, or if terminalTurnComplete has already been processed,
+   * this is a strict no-op.
    */
   handleTurnComplete(onExamCompleted?: () => void): boolean {
-    if (!this.completionRequested) {
+    if (!this.completionRequested || this.terminalTurnCompleteSeen) {
       return false;
     }
 
@@ -237,13 +247,16 @@ export class LiveSessionCoordinator {
       return this.finalizePromise;
     }
 
+    this.completionRequested = true;
+    this.terminalTurnCompleteSeen = true;
+
+    if (this.safetyTimer) {
+      clearTimeout(this.safetyTimer);
+      this.safetyTimer = null;
+    }
+
     const promise = (async (): Promise<FinalizedLiveSessionAudio> => {
       this.onStatusChange?.("disconnecting");
-
-      if (this.safetyTimer) {
-        clearTimeout(this.safetyTimer);
-        this.safetyTimer = null;
-      }
 
       const controller = this.audioController;
       const recorder = this.replayRecorder;
