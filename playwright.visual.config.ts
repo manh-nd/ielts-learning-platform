@@ -47,8 +47,8 @@ export default defineConfig({
       },
     },
     // Mobile projects emulate canonical smartphone density (375x667 at @2x Retina, e.g. iPhone SE).
-    // Explicit DPR 2 matches real-world mobile displays and prevents 1x FreeType grid-snapping
-    // distortion on Vietnamese diacritics under Chromium/Linux.
+    // Explicit DPR 2 matches real-world mobile displays and prevents low-DPR Chromium/Linux rasterization
+    // artifacts on Vietnamese diacritics.
     {
       name: "mobile-light",
       use: {

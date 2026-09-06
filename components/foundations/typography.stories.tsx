@@ -19,10 +19,16 @@ const SAMPLE_PARAGRAPH =
 export const VietnameseCoverage: Story = {
   render: () => (
     <div className="max-w-4xl mx-auto p-6 space-y-8 font-sans text-foreground">
-      {/* Dedicated font probe for automated Chromium CDP platform font verification */}
+      {/* Dedicated font probes for automated Chromium CDP platform font verification */}
       <div
         data-testid="vietnamese-font-probe"
         className="text-base font-normal tracking-normal border p-3 rounded-md bg-muted/20"
+      >
+        {VIETNAMESE_PROBE_CHARS}
+      </div>
+      <div
+        data-testid="vietnamese-font-probe-italic"
+        className="text-base font-normal italic tracking-normal border p-3 rounded-md bg-muted/20"
       >
         {VIETNAMESE_PROBE_CHARS}
       </div>

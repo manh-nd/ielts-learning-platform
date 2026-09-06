@@ -29,20 +29,45 @@ async function loadStory(page: Page, storyId: string) {
   const root = page.locator("#storybook-root");
   await expect(root).toBeVisible();
 
-  // Wait for font set readiness and verify Chilly Inter loaded across production weights
+  // Wait for font set readiness and verify Chilly Inter loaded across production weights (upright & italic)
   await page.evaluate(async () => {
     await document.fonts.ready;
     const probeString = "ă â ê ô ơ ư đ ắ ằ ẳ ẵ ặ ế ề ể ễ ệ ớ ờ ở ỡ ợ ứ ừ ử ữ ự";
     const requiredWeights = ["400", "500", "600", "700"];
     for (const weight of requiredWeights) {
-      const fontDesc = `${weight} 16px "Chilly Inter"`;
-      const loadedFaces = await document.fonts.load(fontDesc, probeString);
-      const hasLoaded = loadedFaces.some(
-        (face) => face.family === "Chilly Inter" && face.status === "loaded"
+      // Normal / upright font face verification
+      const normalFontDesc = `${weight} 16px "Chilly Inter"`;
+      const loadedNormalFaces = await document.fonts.load(
+        normalFontDesc,
+        probeString
       );
-      if (!hasLoaded) {
+      const hasLoadedNormal = loadedNormalFaces.some(
+        (face) =>
+          face.family === "Chilly Inter" &&
+          face.style === "normal" &&
+          face.status === "loaded"
+      );
+      if (!hasLoadedNormal) {
         throw new Error(
-          `Primary font "Chilly Inter" at weight ${weight} failed to load for Vietnamese probe: "${probeString}"`
+          `Primary font "Chilly Inter" (normal) at weight ${weight} failed to load for Vietnamese probe: "${probeString}"`
+        );
+      }
+
+      // Italic font face verification (separate InterVariable-Italic.woff2 asset)
+      const italicFontDesc = `italic ${weight} 16px "Chilly Inter"`;
+      const loadedItalicFaces = await document.fonts.load(
+        italicFontDesc,
+        probeString
+      );
+      const hasLoadedItalic = loadedItalicFaces.some(
+        (face) =>
+          face.family === "Chilly Inter" &&
+          face.style === "italic" &&
+          face.status === "loaded"
+      );
+      if (!hasLoadedItalic) {
+        throw new Error(
+          `Primary font "Chilly Inter" (italic) at weight ${weight} failed to load for Vietnamese probe: "${probeString}"`
         );
       }
     }
@@ -86,6 +111,24 @@ test.describe("Storybook Visual Regression Suite", () => {
       expect(primaryFont.isCustomFont).toBe(true);
       expect(primaryFont.familyName).toBe("Inter Variable");
       expect(primaryFont.glyphCount).toBeGreaterThan(0);
+
+      // Verify via Chromium CDP that italic probe glyphs are rendered from project-owned Chilly Inter italic
+      const probeItalicNode = await client.send("DOM.querySelector", {
+        nodeId: doc.root.nodeId,
+        selector: "[data-testid='vietnamese-font-probe-italic']",
+      });
+
+      expect(probeItalicNode.nodeId).toBeGreaterThan(0);
+
+      const italicFontData = await client.send("CSS.getPlatformFontsForNode", {
+        nodeId: probeItalicNode.nodeId,
+      });
+
+      expect(italicFontData.fonts).toHaveLength(1);
+      const [primaryItalicFont] = italicFontData.fonts;
+      expect(primaryItalicFont.isCustomFont).toBe(true);
+      expect(primaryItalicFont.familyName).toBe("Inter Variable");
+      expect(primaryItalicFont.glyphCount).toBeGreaterThan(0);
 
       await expect(page.locator("#storybook-root")).toHaveScreenshot(
         "typography-vietnamese-coverage.png"
