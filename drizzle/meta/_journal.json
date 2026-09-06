@@ -78,6 +78,13 @@
       "when": 1788527922338,
       "tag": "0010_orange_boomer",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788703860402,
+      "tag": "0011_add_conversation_replay_to_speaking_sessions",
+      "breakpoints": true
     }
   ]
 }
