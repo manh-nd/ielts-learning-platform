@@ -28,10 +28,66 @@ async function loadStory(page: Page, storyId: string) {
   // Ensure root element has rendered content
   const root = page.locator("#storybook-root");
   await expect(root).toBeVisible();
-  await page.waitForTimeout(200);
+
+  // Wait for font set readiness and verify Chilly Inter loaded across production weights
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const probeString = "ă â ê ô ơ ư đ ắ ằ ẳ ẵ ặ ế ề ể ễ ệ ớ ờ ở ỡ ợ ứ ừ ử ữ ự";
+    const requiredWeights = ["400", "500", "600", "700"];
+    for (const weight of requiredWeights) {
+      const fontDesc = `${weight} 16px "Chilly Inter"`;
+      const loadedFaces = await document.fonts.load(fontDesc, probeString);
+      const hasLoaded = loadedFaces.some(
+        (face) => face.family === "Chilly Inter" && face.status === "loaded"
+      );
+      if (!hasLoaded) {
+        throw new Error(
+          `Primary font "Chilly Inter" at weight ${weight} failed to load for Vietnamese probe: "${probeString}"`
+        );
+      }
+    }
+  });
 }
 
 test.describe("Storybook Visual Regression Suite", () => {
+  test.describe("0. Foundations Typography", () => {
+    test("Vietnamese Typography Coverage & Platform Font Verification", async ({
+      page,
+    }) => {
+      await loadStory(
+        page,
+        "design-system-foundations-typography--vietnamese-coverage"
+      );
+
+      // Verify via Chromium CDP that probe glyphs are rendered from project-owned Chilly Inter
+      const client = await page.context().newCDPSession(page);
+      await client.send("DOM.enable");
+      await client.send("CSS.enable");
+
+      const doc = await client.send("DOM.getDocument");
+      const probeNode = await client.send("DOM.querySelector", {
+        nodeId: doc.root.nodeId,
+        selector: "[data-testid='vietnamese-font-probe']",
+      });
+
+      expect(probeNode.nodeId).toBeGreaterThan(0);
+
+      const fontData = await client.send("CSS.getPlatformFontsForNode", {
+        nodeId: probeNode.nodeId,
+      });
+
+      expect(fontData.fonts).toHaveLength(1);
+      const [primaryFont] = fontData.fonts;
+      expect(primaryFont.isCustomFont).toBe(true);
+      expect(primaryFont.familyName).toBe("Inter Variable");
+      expect(primaryFont.glyphCount).toBeGreaterThan(0);
+
+      await expect(page.locator("#storybook-root")).toHaveScreenshot(
+        "typography-vietnamese-coverage.png"
+      );
+    });
+  });
+
   test.describe("1. TeacherReviewAnnotator", () => {
     test("AI Pre-Graded State", async ({ page }) => {
       await loadStory(

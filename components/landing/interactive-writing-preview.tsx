@@ -91,9 +91,10 @@ export function InteractiveWritingPreview() {
 
                 <Badge
                   variant="outline"
-                  className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[0.7rem] font-mono"
+                  className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[0.7rem] font-sans"
                 >
-                  286 từ (Đạt yêu cầu)
+                  <span className="font-mono tabular-nums">286</span> từ (Đạt
+                  yêu cầu)
                 </Badge>
               </div>
 

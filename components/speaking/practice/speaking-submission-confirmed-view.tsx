@@ -151,9 +151,15 @@ export function SpeakingSubmissionConfirmedView({
             <span className="text-muted-foreground text-[11px] block">
               Tổng thời lượng nói:
             </span>
-            <span className="font-mono font-semibold text-foreground">
-              {formatDuration(submissionData.totalDurationSeconds)} (
-              {totalAnswered}/{allQuestions.length} câu)
+            <span className="font-sans font-semibold text-foreground">
+              <span className="font-mono">
+                {formatDuration(submissionData.totalDurationSeconds)}
+              </span>{" "}
+              (
+              <span className="font-mono">
+                {totalAnswered}/{allQuestions.length}
+              </span>{" "}
+              câu)
             </span>
           </div>
         </div>

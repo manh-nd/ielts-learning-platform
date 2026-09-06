@@ -172,9 +172,11 @@ export function LiveSpeakingResultView({
               4 tiêu chí chấm điểm IELTS (FC, LR, GRA, PR).
             </p>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono bg-muted/30 px-3 py-1.5 rounded-md border">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground font-sans bg-muted/30 px-3 py-1.5 rounded-md border">
             <span className="inline-block w-2 h-2 rounded-full bg-primary animate-ping" />
-            <span>Mô hình: Gemini 3.7 Flash</span>
+            <span>
+              Mô hình: <span className="font-mono">Gemini 3.7 Flash</span>
+            </span>
           </div>
         </div>
       </Card>
@@ -274,9 +276,11 @@ export function LiveSpeakingResultView({
               </Badge>
             </div>
             {traceMetadata && (
-              <span className="text-[11px] font-mono text-muted-foreground">
-                Mô hình: {traceMetadata.modelUsed} ({traceMetadata.durationMs}
-                ms)
+              <span className="text-[11px] font-sans text-muted-foreground">
+                Mô hình:{" "}
+                <span className="font-mono">
+                  {traceMetadata.modelUsed} ({traceMetadata.durationMs}ms)
+                </span>
               </span>
             )}
           </div>

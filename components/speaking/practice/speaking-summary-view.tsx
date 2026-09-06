@@ -265,10 +265,13 @@ export function SpeakingSummaryView({
           <div className="flex items-center gap-2">
             <Badge
               variant="outline"
-              className="text-xs font-mono py-1 px-2.5 bg-background"
+              className="text-xs font-sans py-1 px-2.5 bg-background"
             >
               <Clock className="w-3.5 h-3.5 mr-1 text-primary" />
-              Tổng thời lượng: {formatDuration(totalSpeakingSeconds)}
+              Tổng thời lượng:{" "}
+              <span className="font-mono">
+                {formatDuration(totalSpeakingSeconds)}
+              </span>
             </Badge>
             <Badge
               className={cn(

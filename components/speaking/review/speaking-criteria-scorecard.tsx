@@ -268,8 +268,8 @@ export function SpeakingCriteriaScorecard({
               >
                 {overallBand.toFixed(1)}
               </span>
-              <span className="text-xs text-muted-foreground font-mono">
-                (Điểm thô: {rawAverage})
+              <span className="text-xs text-muted-foreground font-sans">
+                (Điểm thô: <span className="font-mono">{rawAverage}</span>)
               </span>
             </div>
           </div>

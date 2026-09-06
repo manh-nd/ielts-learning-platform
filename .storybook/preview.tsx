@@ -1,14 +1,9 @@
-import { useEffect } from "react";
 import type { Preview } from "@storybook/react";
 import { withThemeByClassName } from "@storybook/addon-themes";
 import "../app/globals.css";
 import { setupAudioApiMocks } from "./mocks/audio-api.mock";
 
 setupAudioApiMocks();
-
-const inter = { variable: "font-sans" };
-const geistSans = { variable: "font-sans" };
-const geistMono = { variable: "font-mono" };
 
 const customViewports = {
   mobileSmall: {
@@ -82,32 +77,11 @@ const preview: Preview = {
       },
       defaultTheme: "light",
     }),
-    (Story) => {
-      useEffect(() => {
-        if (typeof document !== "undefined") {
-          document.documentElement.classList.add(
-            inter.variable,
-            geistSans.variable,
-            geistMono.variable,
-            "font-sans"
-          );
-          document.body.classList.add(
-            inter.variable,
-            geistSans.variable,
-            geistMono.variable,
-            "font-sans"
-          );
-        }
-      }, []);
-
-      return (
-        <div
-          className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
-        >
-          <Story />
-        </div>
-      );
-    },
+    (Story) => (
+      <div className="font-sans antialiased">
+        <Story />
+      </div>
+    ),
   ],
 };
 

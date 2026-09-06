@@ -72,9 +72,12 @@ export function HomeworkAssignmentCard({
 
               <Badge
                 variant="outline"
-                className="text-[10px] text-foreground/80 font-mono border-border"
+                className="text-[10px] text-foreground/80 font-sans border-border"
               >
-                {assignment.prompts.length} câu hỏi ({partNumbers})
+                <span className="font-mono tabular-nums">
+                  {assignment.prompts.length}
+                </span>{" "}
+                câu hỏi ({partNumbers})
               </Badge>
             </div>
 

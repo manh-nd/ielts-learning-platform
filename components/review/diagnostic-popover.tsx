@@ -156,7 +156,7 @@ function DiagnosticPopoverForm({
           value={draftSuggestedCorrection}
           onChange={(e) => setDraftSuggestedCorrection(e.target.value)}
           placeholder="Ví dụ: more impactful in reducing"
-          className="w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs font-mono text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+          className="w-full rounded-md border border-input bg-background px-2.5 py-1 text-xs font-sans text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
           data-testid="annotation-correction-input"
         />
       </div>
@@ -354,7 +354,7 @@ export function DiagnosticPopover({
 
       {/* Quote Context (Always shown) */}
       {annotation.originalQuote && (
-        <div className="mt-2.5 rounded bg-muted/40 px-2.5 py-1.5 text-xs font-mono text-muted-foreground flex items-center gap-1.5">
+        <div className="mt-2.5 rounded bg-muted/40 px-2.5 py-1.5 text-xs font-sans text-muted-foreground flex items-center gap-1.5">
           <span className="text-[10px] font-semibold uppercase text-muted-foreground shrink-0">
             Trích đoạn:
           </span>

@@ -192,8 +192,8 @@ export function LandingHero() {
                   <span className="font-semibold text-foreground">
                     IELTS Writing Task 2: Opinion Essay
                   </span>
-                  <span className="text-muted-foreground font-mono">
-                    284 từ
+                  <span className="text-muted-foreground font-sans">
+                    <span className="font-mono tabular-nums">284</span> từ
                   </span>
                 </div>
                 <div className="text-[0.72rem] text-muted-foreground leading-relaxed">

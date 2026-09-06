@@ -103,9 +103,12 @@ export function LiveSpeakingCueCardModal({
           {/* Prep Timer Badge / Speaking State */}
           <div className="flex items-center gap-2">
             {isPrep ? (
-              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-mono text-[11px] font-bold animate-pulse">
+              <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-sans text-[11px] font-bold animate-pulse">
                 <Clock className="w-3.5 h-3.5" />
-                <span>Chuẩn bị: {prepTimeRemaining}s</span>
+                <span>
+                  Chuẩn bị:{" "}
+                  <span className="font-mono">{prepTimeRemaining}s</span>
+                </span>
               </div>
             ) : (
               <Badge className="bg-emerald-700 hover:bg-emerald-700 dark:bg-emerald-800 text-white font-medium gap-1 text-[11px] py-0.5">

@@ -70,9 +70,9 @@ export function SpeakingScratchpad({
         <div className="flex items-center gap-1.5">
           <Badge
             variant="outline"
-            className="text-[10px] h-5 font-mono px-1.5 bg-background"
+            className="text-[10px] h-5 px-1.5 bg-background font-sans"
           >
-            {wordCount} {wordCount === 1 ? "từ" : "từ"}
+            <span className="font-mono tabular-nums">{wordCount}</span> từ
           </Badge>
           <Button
             type="button"
@@ -115,7 +115,7 @@ export function SpeakingScratchpad({
               ? "Ghi chú nhanh các ý chính cho 4 câu hỏi gợi ý...\nVí dụ:\n• Where: Da Nang beach (summer 2024)\n• Why: Family reunion & relaxation\n• What: Surfing, local seafood, night market\n• Feeling: Unforgettable, peaceful vibe"
               : "Ghi chú của bạn sẽ hiển thị tại đây trong lúc nói..."
           }
-          className="flex-1 w-full resize-none font-mono text-xs leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-0 shadow-none"
+          className="flex-1 w-full resize-none font-sans text-xs leading-relaxed border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 p-0 shadow-none"
           data-testid="scratchpad-textarea"
         />
         <div className="pt-3 border-t mt-3 flex items-center justify-between text-[11px] text-muted-foreground">

@@ -418,7 +418,7 @@ export function FeedbackDiffViewer({
                   </p>
 
                   {/* Quote and Revision Diff */}
-                  <div className="flex flex-wrap items-center gap-2 rounded bg-muted/30 p-2 font-mono text-[11px]">
+                  <div className="flex flex-wrap items-center gap-2 rounded bg-muted/30 p-2 font-sans text-[11px]">
                     <span className="text-muted-foreground">Nguyên văn:</span>
                     <span className="line-through text-foreground/80 font-medium">
                       &quot;{item.originalQuote}&quot;

@@ -359,7 +359,7 @@ export function TeacherReviewCockpit({
             {isInReview && (
               <div
                 className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-mono font-medium shadow-2xs",
+                  "flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-sans font-medium shadow-2xs",
                   isPaused
                     ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
                     : "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
@@ -367,7 +367,10 @@ export function TeacherReviewCockpit({
                 data-testid="active-review-timer-badge"
               >
                 <Clock className="h-3.5 w-3.5" />
-                <span>Thời gian chấm: {formattedDuration}</span>
+                <span>
+                  Thời gian chấm:{" "}
+                  <span className="font-mono">{formattedDuration}</span>
+                </span>
                 {isPaused ? (
                   <span className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-300 font-sans font-semibold">
                     <PauseCircle className="h-3 w-3" />(
@@ -558,8 +561,11 @@ export function TeacherReviewCockpit({
                     <CardTitle className="text-xs font-bold text-foreground">
                       Đề xuất chấm từ AI
                     </CardTitle>
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      Mô hình: {aiProposal.modelVersion}
+                    <span className="text-[10px] text-muted-foreground font-sans">
+                      Mô hình:{" "}
+                      <span className="font-mono">
+                        {aiProposal.modelVersion}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -692,8 +698,9 @@ export function TeacherReviewCockpit({
                     >
                       {overallBand.toFixed(1)}
                     </span>
-                    <span className="text-xs text-muted-foreground font-mono">
-                      (Điểm thô: {rawAverage})
+                    <span className="text-xs text-muted-foreground font-sans">
+                      (Điểm thô: <span className="font-mono">{rawAverage}</span>
+                      )
                     </span>
                   </div>
                 </div>
