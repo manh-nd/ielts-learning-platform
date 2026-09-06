@@ -20,28 +20,102 @@ export interface AttachConversationReplayResult {
 }
 
 /**
- * Parses duration in seconds from a 44-byte standard RIFF WAV buffer.
+ * Strictly validates that the buffer is a valid 24kHz 16-bit mono PCM WAV file
+ * and returns the duration in seconds. Throws ValidationError if invalid.
  */
-export function parseWavDurationSeconds(buffer: Buffer): number | null {
-  if (buffer.length < 44) return null;
-
-  try {
-    const riff = buffer.toString("ascii", 0, 4);
-    const wave = buffer.toString("ascii", 8, 12);
-    if (riff !== "RIFF" || wave !== "WAVE") return null;
-
-    const byteRate = buffer.readUInt32LE(28);
-    const dataSize = buffer.readUInt32LE(40);
-
-    if (byteRate > 0 && dataSize > 0) {
-      const duration = dataSize / byteRate;
-      return Math.max(1, Math.round(duration * 10) / 10);
-    }
-  } catch {
-    // Ignore header parsing errors
+export function validateAndParseConversationReplayWav(buffer: Buffer): number {
+  if (buffer.length < 44) {
+    throw new ValidationError(
+      "Conversation replay audio is smaller than 44-byte WAV header"
+    );
   }
 
-  return null;
+  const riff = buffer.toString("ascii", 0, 4);
+  const wave = buffer.toString("ascii", 8, 12);
+  if (riff !== "RIFF" || wave !== "WAVE") {
+    throw new ValidationError(
+      "Invalid WAV header: missing RIFF/WAVE magic bytes"
+    );
+  }
+
+  const fmt = buffer.toString("ascii", 12, 16);
+  if (fmt !== "fmt ") {
+    throw new ValidationError("Invalid WAV header: missing fmt subchunk");
+  }
+
+  const audioFormat = buffer.readUInt16LE(20);
+  if (audioFormat !== 1) {
+    throw new ValidationError(
+      `Invalid WAV format: expected PCM (1), got ${audioFormat}`
+    );
+  }
+
+  const numChannels = buffer.readUInt16LE(22);
+  if (numChannels !== 1) {
+    throw new ValidationError(
+      `Invalid WAV channels: expected mono (1), got ${numChannels}`
+    );
+  }
+
+  const sampleRate = buffer.readUInt32LE(24);
+  if (sampleRate !== 24000) {
+    throw new ValidationError(
+      `Invalid WAV sample rate: expected 24000Hz, got ${sampleRate}Hz`
+    );
+  }
+
+  const byteRate = buffer.readUInt32LE(28);
+  const blockAlign = buffer.readUInt16LE(32);
+  const bitsPerSample = buffer.readUInt16LE(34);
+
+  if (bitsPerSample !== 16) {
+    throw new ValidationError(
+      `Invalid WAV bits per sample: expected 16, got ${bitsPerSample}`
+    );
+  }
+
+  if (blockAlign !== 2) {
+    throw new ValidationError(
+      `Invalid WAV block align: expected 2, got ${blockAlign}`
+    );
+  }
+
+  if (byteRate !== 48000) {
+    throw new ValidationError(
+      `Invalid WAV byte rate: expected 48000 (24000 * 2), got ${byteRate}`
+    );
+  }
+
+  const dataTag = buffer.toString("ascii", 36, 40);
+  if (dataTag !== "data") {
+    throw new ValidationError("Invalid WAV header: missing data chunk header");
+  }
+
+  const dataSize = buffer.readUInt32LE(40);
+  if (dataSize === 0) {
+    throw new ValidationError("Conversation replay audio contains no PCM data");
+  }
+
+  if (dataSize > buffer.length - 44) {
+    throw new ValidationError(
+      "Invalid WAV data size: exceeds buffer byte length"
+    );
+  }
+
+  const duration = dataSize / byteRate;
+  return Math.max(1, Math.round(duration * 10) / 10);
+}
+
+/**
+ * Parses duration in seconds from a 44-byte standard RIFF WAV buffer.
+ * Kept for backwards-compatibility.
+ */
+export function parseWavDurationSeconds(buffer: Buffer): number | null {
+  try {
+    return validateAndParseConversationReplayWav(buffer);
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -65,12 +139,13 @@ async function safeDeleteReplayArtifact(storageKey: string) {
  * - Client never provides storageKey; canonical key is strictly derived server-side.
  * - Eligibility enforced via canAttachConversationReplay(practice.status).
  * - Purge race guard: if ineligible, best-effort deletes the uploaded canonical artifact.
- * - Parses/validates duration directly from stored WAV bytes.
+ * - Parses/strictly validates audio format and duration directly from stored WAV bytes.
+ * - Atomically attaches metadata only if session is still completed/evaluated.
  */
 export async function attachConversationReplayToSpeakingPractice(
   input: AttachConversationReplayInput
 ): Promise<AttachConversationReplayResult> {
-  const { authenticatedUserId, sessionId, durationSeconds } = input;
+  const { authenticatedUserId, sessionId } = input;
 
   if (!sessionId) {
     throw new ValidationError("Missing required sessionId parameter");
@@ -132,21 +207,32 @@ export async function attachConversationReplayToSpeakingPractice(
     );
   }
 
-  // 4. Validate / recompute duration from WAV header
-  const parsedDuration = parseWavDurationSeconds(audioData.buffer);
-  const effectiveDuration =
-    parsedDuration !== null
-      ? parsedDuration
-      : durationSeconds !== undefined && durationSeconds > 0
-        ? Math.round(durationSeconds * 10) / 10
-        : 1;
+  // 4. Strictly validate 24kHz 16-bit mono WAV format & compute duration from WAV header
+  let effectiveDuration: number;
+  try {
+    effectiveDuration = validateAndParseConversationReplayWav(audioData.buffer);
+  } catch (validationErr) {
+    await safeDeleteReplayArtifact(canonicalKey);
+    throw validationErr;
+  }
 
-  // 5. Persist derived metadata to speaking_sessions
-  await speakingPracticeRepository.attachConversationReplay(sessionId, {
-    storageKey: canonicalKey,
-    mimeType: "audio/wav",
-    durationSeconds: effectiveDuration,
-  });
+  // 5. Atomically persist derived metadata to speaking_sessions (where status IN ('completed', 'evaluated'))
+  const attached = await speakingPracticeRepository.attachConversationReplay(
+    sessionId,
+    {
+      storageKey: canonicalKey,
+      mimeType: "audio/wav",
+      durationSeconds: effectiveDuration,
+    }
+  );
+
+  if (!attached) {
+    // Practice was purged or changed status concurrently between step 2 and 5!
+    await safeDeleteReplayArtifact(canonicalKey);
+    throw new ValidationError(
+      "Practice session is no longer eligible to receive conversation replay."
+    );
+  }
 
   return {
     success: true,

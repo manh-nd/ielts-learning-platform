@@ -310,22 +310,31 @@ export class PcmAudioController {
     }
 
     return new Promise<boolean>((resolve) => {
-      let resolved = false;
-      const timer = setTimeout(() => {
-        if (!resolved) {
-          resolved = true;
-          resolve(false);
+      let settled = false;
+      let timer: NodeJS.Timeout | null = null;
+      let checkInterval: NodeJS.Timeout | null = null;
+
+      const settle = (success: boolean) => {
+        if (settled) return;
+        settled = true;
+        if (timer) {
+          clearTimeout(timer);
+          timer = null;
         }
+        if (checkInterval) {
+          clearInterval(checkInterval);
+          checkInterval = null;
+        }
+        resolve(success);
+      };
+
+      timer = setTimeout(() => {
+        settle(false);
       }, timeoutMs);
 
-      const checkInterval = setInterval(() => {
+      checkInterval = setInterval(() => {
         if (!this.isPlaying() && this.getRemainingScheduledDurationMs() === 0) {
-          if (!resolved) {
-            resolved = true;
-            clearTimeout(timer);
-            clearInterval(checkInterval);
-            resolve(true);
-          }
+          settle(true);
         }
       }, 50);
     });

@@ -540,7 +540,79 @@ describe("restoreSpeakingPractice Use Case & Critical Test Seams (#82)", () => {
     expect(result.conversationReplay?.durationSeconds).toBe(45);
     // Crucial: raw storage key must NOT be leaked in conversationReplay read model
     expect(
-      (result.conversationReplay as Record<string, unknown>).storageKey
+      (result.conversationReplay as unknown as Record<string, unknown>)
+        .storageKey
     ).toBeUndefined();
+
+    // Verify raw storage key is not leaked anywhere in session DTO or restoredState
+    expect(JSON.stringify(result)).not.toContain(
+      "conversationReplayStorageKey"
+    );
+    expect(result.session.conversationReplayAvailable).toBe(true);
+    expect(result.session.conversationReplayUrl).toBe(
+      `/api/speaking/practices/${sessionId}/conversation-audio`
+    );
+    expect(result.restoredState?.conversationReplay?.available).toBe(true);
+  });
+
+  it("API Sanitization: GET /api/speaking/evaluate never leaks conversationReplayStorageKey in JSON payload", async () => {
+    const { GET } = await import("@/app/api/speaking/evaluate/route");
+    const { NextRequest } = await import("next/server");
+
+    const sessionId = "ses_api_sanitize_replay";
+    const userId = "learner_sanitize_user";
+    const now = new Date();
+
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId,
+      candidateName: "Candidate",
+      topicTitle: "Technology",
+      status: "completed",
+      targetPart: "part_1",
+      durationSeconds: 60,
+      overallBand: null,
+      scorecardJson: null,
+      evidenceJson: null,
+      conversationReplayStorageKey: `speaking/${userId}/${sessionId}/conversation.wav`,
+      conversationReplayMimeType: "audio/wav",
+      conversationReplayDurationSeconds: 60,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const sessionPayload = {
+      user: { id: userId, role: "learner" },
+      session: {
+        id: `sess_${userId}`,
+        userId,
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+      },
+    };
+    const req = new NextRequest(
+      `http://localhost:3000/api/speaking/evaluate?sessionId=${sessionId}`,
+      {
+        method: "GET",
+        headers: {
+          cookie: `e2e_mock_session=${encodeURIComponent(JSON.stringify(sessionPayload))}`,
+          "content-type": "application/json",
+        },
+      }
+    );
+
+    const res = await GET(req);
+    const text = await res.text();
+    const data = JSON.parse(text);
+
+    expect(res.status).toBe(200);
+    expect(data.success).toBe(true);
+    // Recursive check: storage key must NEVER appear in the response text
+    expect(text).not.toContain("conversationReplayStorageKey");
+    expect(text).not.toContain("conversation.wav");
+    // Public DTO fields must be present
+    expect(data.session.conversationReplayAvailable).toBe(true);
+    expect(data.session.conversationReplayUrl).toBe(
+      `/api/speaking/practices/${sessionId}/conversation-audio`
+    );
   });
 });

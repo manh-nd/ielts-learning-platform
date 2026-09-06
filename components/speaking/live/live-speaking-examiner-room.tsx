@@ -280,6 +280,18 @@ export function LiveSpeakingExaminerRoom({
 
           setActiveSessionId(restored.sessionId);
 
+          if (
+            restored.conversationReplay?.available &&
+            restored.conversationReplay.url
+          ) {
+            setSavedConversationReplay({
+              blob: new Blob([], { type: "audio/wav" }),
+              url: restored.conversationReplay.url,
+              durationSeconds: restored.conversationReplay.durationSeconds || 0,
+              mimeType: "audio/wav",
+            });
+          }
+
           switch (restored.status) {
             case "ended_feedback_ready":
               setPracticeFeedback(restored.feedback);

@@ -626,19 +626,24 @@ export class SpeakingPracticeRepository {
       mimeType: string;
       durationSeconds: number;
     }
-  ): Promise<void> {
+  ): Promise<boolean> {
     const now = new Date();
+    let attached = false;
+
     const cached = devSessionCache.get(sessionId);
     if (cached) {
-      cached.conversationReplayStorageKey = data.storageKey;
-      cached.conversationReplayMimeType = data.mimeType;
-      cached.conversationReplayDurationSeconds = data.durationSeconds;
-      cached.updatedAt = now;
+      if (cached.status === "completed" || cached.status === "evaluated") {
+        cached.conversationReplayStorageKey = data.storageKey;
+        cached.conversationReplayMimeType = data.mimeType;
+        cached.conversationReplayDurationSeconds = data.durationSeconds;
+        cached.updatedAt = now;
+        attached = true;
+      }
     }
 
     if (process.env.DATABASE_URL) {
       try {
-        await db
+        const rows = await db
           .update(speakingSessions)
           .set({
             conversationReplayStorageKey: data.storageKey,
@@ -646,7 +651,18 @@ export class SpeakingPracticeRepository {
             conversationReplayDurationSeconds: data.durationSeconds,
             updatedAt: now,
           })
-          .where(eq(speakingSessions.id, sessionId));
+          .where(
+            and(
+              eq(speakingSessions.id, sessionId),
+              or(
+                eq(speakingSessions.status, "completed"),
+                eq(speakingSessions.status, "evaluated")
+              )
+            )
+          )
+          .returning({ id: speakingSessions.id });
+
+        attached = rows.length > 0;
       } catch (dbErr) {
         console.error(
           "[SpeakingPracticeRepository] attachConversationReplay database update failed:",
@@ -655,6 +671,8 @@ export class SpeakingPracticeRepository {
         throw dbErr;
       }
     }
+
+    return attached;
   }
 
   async markAbandonedAndPurgeAudio(sessionId: string): Promise<void> {

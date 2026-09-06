@@ -105,4 +105,117 @@ describe("PcmAudioController", () => {
       (globalThis as unknown as { window?: unknown }).window = originalWindow;
     }
   });
+
+  it("should settle and clear both timers on timeout when queue does not drain", async () => {
+    const originalWindow = (globalThis as unknown as { window?: unknown })
+      .window;
+    const activeTime = 0;
+
+    class MockAudioContext {
+      get currentTime() {
+        return activeTime;
+      }
+      createAnalyser() {
+        return { fftSize: 256, connect: () => {} };
+      }
+      createBuffer(_channels: number, length: number, sampleRate: number) {
+        return {
+          duration: length / sampleRate,
+          getChannelData: () => new Float32Array(length),
+        };
+      }
+      createBufferSource() {
+        return {
+          buffer: null,
+          connect: () => {},
+          start: () => {},
+          stop: () => {},
+          onended: null as (() => void) | null,
+        };
+      }
+      destination = {};
+      close = async () => {};
+    }
+
+    (globalThis as unknown as { window: unknown }).window = {
+      AudioContext: MockAudioContext,
+    };
+
+    try {
+      const controller = new PcmAudioController();
+      // Schedule 1 second of audio
+      const pcm1s = new Int16Array(24000).fill(100);
+      const base64Chunk = Buffer.from(pcm1s.buffer).toString("base64");
+      controller.playAudioChunk(base64Chunk);
+
+      expect(controller.getRemainingScheduledDurationMs()).toBeGreaterThan(500);
+
+      // Drain with 60ms timeout -> should timeout and return false
+      const drained = await controller.waitForQueueDrain(60);
+      expect(drained).toBe(false);
+
+      controller.stopPlayback();
+    } finally {
+      (globalThis as unknown as { window?: unknown }).window = originalWindow;
+    }
+  });
+
+  it("should settle and return true when playback finishes before timeout", async () => {
+    const originalWindow = (globalThis as unknown as { window?: unknown })
+      .window;
+    let activeTime = 0;
+
+    class MockAudioContext {
+      get currentTime() {
+        return activeTime;
+      }
+      createAnalyser() {
+        return { fftSize: 256, connect: () => {} };
+      }
+      createBuffer(_channels: number, length: number, sampleRate: number) {
+        return {
+          duration: length / sampleRate,
+          getChannelData: () => new Float32Array(length),
+        };
+      }
+      createBufferSource() {
+        const node = {
+          buffer: null,
+          connect: () => {},
+          start: () => {},
+          stop: () => {
+            if (node.onended) node.onended();
+          },
+          onended: null as (() => void) | null,
+        };
+        return node;
+      }
+      destination = {};
+      close = async () => {};
+    }
+
+    (globalThis as unknown as { window: unknown }).window = {
+      AudioContext: MockAudioContext,
+    };
+
+    try {
+      const controller = new PcmAudioController();
+      // Schedule 20ms of audio
+      const pcm20ms = new Int16Array(480).fill(100);
+      const base64Chunk = Buffer.from(pcm20ms.buffer).toString("base64");
+      controller.playAudioChunk(base64Chunk);
+
+      // Simulate buffer source ending and time passing after 60ms
+      setTimeout(() => {
+        activeTime = 5.0;
+        // Access active source nodes or stop them so isPlaying becomes false
+        controller.stopPlayback();
+      }, 60);
+
+      const drained = await controller.waitForQueueDrain(200);
+      expect(drained).toBe(true);
+    } finally {
+      (globalThis as unknown as { window?: unknown }).window = originalWindow;
+    }
+  });
 });

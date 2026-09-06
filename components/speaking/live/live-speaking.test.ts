@@ -11,6 +11,9 @@ import {
   ACTIVE_SPEAKING_SESSION_STORAGE_KEY,
   clearActiveSpeakingSession,
 } from "./types";
+import { LiveSessionCoordinator } from "./live-session-coordinator";
+import { PcmAudioController } from "@/lib/audio/pcm-audio-controller";
+import { ConversationReplayRecorder } from "@/lib/audio/conversation-replay-recorder";
 import {
   SPEAKING_MOCK_TOPICS,
   getMockTopicById,
@@ -765,102 +768,98 @@ describe("Speaking Practice Failure Recovery & Resilience (#70)", () => {
     });
   });
 
-  describe("Issue #101: Live Conversation Replay & Terminal Turn Completion Protocol", () => {
-    it("should accept Late PCM after end_exam and finalize upon observing terminal turnComplete", async () => {
-      let turnCompletedSeen = false;
-      let finalized = false;
-      let completionRequested = false;
+  describe("Issue #101: Live Conversation Replay & Terminal Turn Completion Protocol via LiveSessionCoordinator", () => {
+    it("should accept Late PCM after end_exam and finalize upon observing terminal turnComplete using LiveSessionCoordinator", async () => {
+      let examCompletedCalled = false;
+      const coordinator = new LiveSessionCoordinator({
+        finalizeRecording: async () => null,
+        cleanupAudio: () => {},
+      });
 
-      // Simulate the protocol state machine:
-      // 1. Tool call end_exam received
-      const onToolCall = (toolName: string) => {
-        if (toolName === "end_exam") {
-          completionRequested = true;
-        }
-      };
+      const controller = new PcmAudioController();
+      const recorder = new ConversationReplayRecorder({ sessionEpochMs: 0 });
+      coordinator.startSession(controller, recorder);
 
-      // 2. Late PCM arrives before turnComplete
-      const scheduledChunks: string[] = [];
-      const onAudioChunk = (chunkData: string) => {
-        if (!turnCompletedSeen) {
-          scheduledChunks.push(chunkData);
-        }
-      };
+      // Trigger end_exam
+      coordinator.handleEndExam(() => {
+        examCompletedCalled = true;
+      });
+      expect(coordinator.isCompletionRequested()).toBe(true);
+      expect(coordinator.isTerminalTurnCompleteSeen()).toBe(false);
 
-      // 3. Terminal turnComplete arrives
-      const onTurnComplete = () => {
-        if (completionRequested) {
-          turnCompletedSeen = true;
-          finalized = true;
-        }
-      };
+      // Late PCM arrives while completion is pending -> accepted
+      const latePcm = new Int16Array(480).fill(100);
+      const accepted1 = coordinator.acceptExaminerPcm(latePcm, 500, 20);
+      expect(accepted1).toBe(true);
 
-      // Trigger tool call
-      onToolCall("end_exam");
-      expect(completionRequested).toBe(true);
-      expect(finalized).toBe(false);
+      // Terminal turn completes -> finalized
+      const handled = coordinator.handleTurnComplete(() => {
+        examCompletedCalled = true;
+      });
+      expect(handled).toBe(true);
+      expect(coordinator.isTerminalTurnCompleteSeen()).toBe(true);
 
-      // Late PCM arrives while completion is pending
-      onAudioChunk("late_examiner_pcm_sample");
-      expect(scheduledChunks.length).toBe(1);
-      expect(finalized).toBe(false);
-
-      // Terminal turn completes
-      onTurnComplete();
-      expect(turnCompletedSeen).toBe(true);
-      expect(finalized).toBe(true);
+      // Wait a tick for async finalizeLiveSession promise to settle
+      await new Promise((r) => setTimeout(r, 10));
+      expect(examCompletedCalled).toBe(true);
 
       // Any subsequent audio chunk after terminal turnComplete must be ignored
-      onAudioChunk("ignored_post_terminal_pcm");
-      expect(scheduledChunks.length).toBe(1);
+      const postSealPcm = new Int16Array(480).fill(200);
+      const accepted2 = coordinator.acceptExaminerPcm(postSealPcm, 600, 20);
+      expect(accepted2).toBe(false);
     });
 
     it("should trigger safety timeout if terminal turnComplete never arrives", async () => {
       let finalized = false;
-      let safetyTimer: ReturnType<typeof setTimeout> | null = null;
+      const coordinator = new LiveSessionCoordinator({
+        finalizeRecording: async () => {
+          finalized = true;
+          return null;
+        },
+        cleanupAudio: () => {},
+      });
 
-      const onToolCall = (toolName: string) => {
-        if (toolName === "end_exam") {
-          safetyTimer = setTimeout(() => {
-            finalized = true;
-          }, 50); // fast timeout for test
-        }
-      };
+      const controller = new PcmAudioController();
+      const recorder = new ConversationReplayRecorder({ sessionEpochMs: 0 });
+      coordinator.startSession(controller, recorder);
 
-      onToolCall("end_exam");
+      coordinator.handleEndExam(undefined, 50); // fast 50ms safety timeout for test
       expect(finalized).toBe(false);
 
       await new Promise((resolve) => setTimeout(resolve, 80));
       expect(finalized).toBe(true);
-      if (safetyTimer) clearTimeout(safetyTimer);
     });
 
     it("should maintain idempotency across multiple finalizeLiveSession invocations", async () => {
       let executionCount = 0;
-      let finalizePromise: Promise<{ status: string }> | null = null;
-
-      const finalizeLiveSession = () => {
-        if (finalizePromise) {
-          return finalizePromise;
-        }
-        finalizePromise = (async () => {
+      const coordinator = new LiveSessionCoordinator({
+        finalizeRecording: async () => {
           executionCount++;
-          await new Promise((resolve) => setTimeout(resolve, 10));
-          return { status: "finalized" };
-        })();
-        return finalizePromise;
-      };
+          await new Promise((r) => setTimeout(r, 10));
+          return {
+            blob: new Blob([]),
+            url: "blob:audio",
+            durationSeconds: 1,
+            mimeType: "audio/webm",
+          };
+        },
+        cleanupAudio: () => {},
+      });
+
+      const controller = new PcmAudioController();
+      const recorder = new ConversationReplayRecorder({ sessionEpochMs: 0 });
+      coordinator.startSession(controller, recorder);
 
       const [res1, res2, res3] = await Promise.all([
-        finalizeLiveSession(),
-        finalizeLiveSession(),
-        finalizeLiveSession(),
+        coordinator.finalizeLiveSession("ai_completed"),
+        coordinator.finalizeLiveSession("ai_completed"),
+        coordinator.finalizeLiveSession("learner_finish"),
       ]);
 
       expect(executionCount).toBe(1);
       expect(res1).toBe(res2);
       expect(res2).toBe(res3);
-      expect(res1.status).toBe("finalized");
+      expect(res1.recordedAudio?.url).toBe("blob:audio");
     });
   });
 });

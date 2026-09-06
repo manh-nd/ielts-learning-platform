@@ -3,6 +3,7 @@ import { attachConversationReplayToSpeakingPractice } from "./attach-conversatio
 import {
   devSessionCache,
   devResponseCache,
+  speakingPracticeRepository,
 } from "../infrastructure/speaking-practice-repository";
 import {
   directAudioDevCache,
@@ -254,5 +255,114 @@ describe("attachConversationReplayToSpeakingPractice Use Case", () => {
         sessionId,
       })
     ).rejects.toThrow(ValidationError);
+  });
+
+  it("should reject non-WAV or invalid WAV formats and safely delete uploaded object", async () => {
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId,
+      candidateName: "Candidate",
+      topicTitle: "Technology",
+      status: "completed",
+      targetPart: "part_1",
+      durationSeconds: 120,
+      overallBand: null,
+      scorecardJson: null,
+      evidenceJson: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const canonicalKey = buildSpeakingAudioStorageKey(
+      userId,
+      sessionId,
+      "conversation.wav"
+    );
+
+    // Case 1: Corrupt / truncated buffer
+    directAudioDevCache.set(canonicalKey, {
+      data: Buffer.from("NOT_A_WAV_HEADER"),
+      mimeType: "audio/wav",
+      updatedAt: Date.now(),
+    });
+
+    await expect(
+      attachConversationReplayToSpeakingPractice({
+        authenticatedUserId: userId,
+        sessionId,
+      })
+    ).rejects.toThrow(ValidationError);
+
+    expect(directAudioDevCache.has(canonicalKey)).toBe(false);
+
+    // Case 2: 16kHz WAV instead of 24kHz
+    const wav16k = createValidWavBuffer(2.0, 16000);
+    directAudioDevCache.set(canonicalKey, {
+      data: wav16k,
+      mimeType: "audio/wav",
+      updatedAt: Date.now(),
+    });
+
+    await expect(
+      attachConversationReplayToSpeakingPractice({
+        authenticatedUserId: userId,
+        sessionId,
+      })
+    ).rejects.toThrow(/24000Hz/);
+
+    expect(directAudioDevCache.has(canonicalKey)).toBe(false);
+  });
+
+  it("should fail and clean up artifact if session status changed concurrently before repository attach (atomic update failure)", async () => {
+    devSessionCache.set(sessionId, {
+      id: sessionId,
+      userId,
+      candidateName: "Candidate",
+      topicTitle: "Technology",
+      status: "completed",
+      targetPart: "part_1",
+      durationSeconds: 120,
+      overallBand: null,
+      scorecardJson: null,
+      evidenceJson: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const canonicalKey = buildSpeakingAudioStorageKey(
+      userId,
+      sessionId,
+      "conversation.wav"
+    );
+    directAudioDevCache.set(canonicalKey, {
+      data: createValidWavBuffer(2.0, 24000),
+      mimeType: "audio/wav",
+      updatedAt: Date.now(),
+    });
+
+    const cached = devSessionCache.get(sessionId)!;
+    // Spy / intercept findById to simulate status being completed during check, but purged during attachConversationReplay
+    const originalAttach =
+      speakingPracticeRepository.attachConversationReplay.bind(
+        speakingPracticeRepository
+      );
+    speakingPracticeRepository.attachConversationReplay = async (sId, data) => {
+      // Simulate status became audio_purged right when attach was called
+      cached.status = "audio_purged";
+      return originalAttach(sId, data);
+    };
+
+    try {
+      await expect(
+        attachConversationReplayToSpeakingPractice({
+          authenticatedUserId: userId,
+          sessionId,
+        })
+      ).rejects.toThrow(/no longer eligible/);
+
+      expect(directAudioDevCache.has(canonicalKey)).toBe(false);
+    } finally {
+      speakingPracticeRepository.attachConversationReplay = originalAttach;
+    }
   });
 });

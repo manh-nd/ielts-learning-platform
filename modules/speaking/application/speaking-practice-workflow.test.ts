@@ -671,5 +671,64 @@ describe("SpeakingPractice Workflow Orchestration Application Seam (#81)", () =>
         expect(outcome.error).toContain("Network connection dropped");
       }
     });
+
+    it("Authoritative Evidence Invariant: evaluation and retry consume Fixture A (OriginalAudio) and NEVER consume Fixture B (ConversationReplay)", async () => {
+      const sessionId = "ses_authoritative_evidence_guard";
+      const fixtureA_OriginalAudioStorageKey = `speaking/u1/${sessionId}/candidate.webm`;
+      const fixtureB_ConversationReplayStorageKey = `speaking/u1/${sessionId}/conversation.wav`;
+
+      let evaluatedStorageKey: string | undefined;
+
+      const ports: SpeakingPracticeWorkflowPorts = {
+        persistAudio: mock(async () => ({
+          storageKey: fixtureA_OriginalAudioStorageKey,
+        })),
+        evaluatePractice: mock(async (payload) => {
+          evaluatedStorageKey = payload.storageKey;
+          return {
+            success: true,
+            isPractice: true,
+            result: mockFeedback,
+            trace: mockTrace,
+          };
+        }),
+      };
+
+      // 1. Initial practice completion workflow
+      const outcome = await finishSpeakingPracticeWorkflow(
+        {
+          sessionId,
+          audio: createMockAudio(1024, 30),
+        },
+        ports
+      );
+
+      expect(outcome.status).toBe("feedback_ready");
+      // Must evaluate Fixture A (OriginalAudio)
+      expect(evaluatedStorageKey).toBe(fixtureA_OriginalAudioStorageKey);
+      // Strictly must NOT evaluate Fixture B (ConversationReplay)
+      expect(evaluatedStorageKey).not.toBe(
+        fixtureB_ConversationReplayStorageKey
+      );
+
+      // 2. Retry workflow
+      evaluatedStorageKey = undefined;
+      const retryOutcome = await retrySpeakingPracticeEvaluationWorkflow(
+        {
+          sessionId,
+          storageKey: fixtureA_OriginalAudioStorageKey,
+        },
+        ports
+      );
+
+      expect(retryOutcome.status).toBe("feedback_ready");
+      // Retry must also strictly consume Fixture A
+      expect(evaluatedStorageKey as string | undefined).toBe(
+        fixtureA_OriginalAudioStorageKey
+      );
+      expect(evaluatedStorageKey as string | undefined).not.toBe(
+        fixtureB_ConversationReplayStorageKey
+      );
+    });
   });
 });

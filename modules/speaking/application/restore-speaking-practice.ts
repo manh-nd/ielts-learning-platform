@@ -1,8 +1,8 @@
-import { getSpeakingPractice } from "./get-speaking-practice";
-import type {
-  SpeakingPracticeRecord,
-  SpeakingResponseRecord,
-} from "../infrastructure/speaking-practice-repository";
+import {
+  getSpeakingPractice,
+  PublicSpeakingPracticeDto,
+} from "./get-speaking-practice";
+import type { SpeakingResponseRecord } from "../infrastructure/speaking-practice-repository";
 import {
   getSpeakingAudioBuffer,
   isSpeakingAudioStorageKeyOwnedBy,
@@ -18,32 +18,43 @@ import {
   normalizeSpeakingPracticeScope,
 } from "../domain";
 
+export interface RestoredConversationReplay {
+  available: boolean;
+  url?: string;
+  durationSeconds?: number;
+}
+
 export type RestoredSpeakingPracticeState =
   | {
       status: "in_progress";
       sessionId: string;
+      conversationReplay?: RestoredConversationReplay;
     }
   | {
       status: "ended_evaluating";
       sessionId: string;
+      conversationReplay?: RestoredConversationReplay;
     }
   | {
       status: "ended_feedback_ready";
       sessionId: string;
       feedback: PracticeFeedback;
       trace?: SpeakingEvaluationTrace;
+      conversationReplay?: RestoredConversationReplay;
     }
   | {
       status: "ended_evaluation_failed_retryable";
       sessionId: string;
       error: string;
       canRetry: true;
+      conversationReplay?: RestoredConversationReplay;
     }
   | {
       status: "ended_audio_unavailable";
       sessionId: string;
       error: string;
       canRetry: false;
+      conversationReplay?: RestoredConversationReplay;
     };
 
 export interface RestoreSpeakingPracticeInput {
@@ -53,13 +64,9 @@ export interface RestoreSpeakingPracticeInput {
 
 export interface RestoreSpeakingPracticeResult {
   restoredState: RestoredSpeakingPracticeState | null;
-  session: SpeakingPracticeRecord;
+  session: PublicSpeakingPracticeDto;
   responses: SpeakingResponseRecord[];
-  conversationReplay?: {
-    available: boolean;
-    url?: string;
-    durationSeconds?: number;
-  };
+  conversationReplay?: RestoredConversationReplay;
 }
 
 /**
@@ -213,8 +220,13 @@ export async function restoreSpeakingPractice(
     hasAuthoritativeOriginalAudio,
   });
 
+  const stateWithReplay: RestoredSpeakingPracticeState = {
+    ...restoredState,
+    ...(conversationReplay ? { conversationReplay } : {}),
+  };
+
   return {
-    restoredState,
+    restoredState: stateWithReplay,
     session,
     responses,
     conversationReplay,
