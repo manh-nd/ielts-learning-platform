@@ -19,7 +19,7 @@ When requirements, documentation, or code comments conflict, resolve ambiguity i
 3. **Current implementation contracts & tests**: Authoritative for **current runtime behavior and backwards-compatibility contracts only**. Passing tests and existing code do **NOT** redefine canonical domain truth or justify architectural violations when they conflict with an accepted ADR or `CONTEXT.md`.
 4. **`PRD.md`**: Initial product vision, background, and feature context only. Yields whenever it conflicts with an accepted ADR, `CONTEXT.md`, or canonical domain rules.
 
-See `AGENTS.md` for architecture and UI/domain boundary rules (UI must not own domain logic).
+See `docs/agents/architecture.md` for architecture and UI/domain boundary rules (UI must not own domain logic).
 
 ## File structure
 
