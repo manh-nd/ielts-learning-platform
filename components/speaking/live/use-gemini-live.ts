@@ -502,7 +502,6 @@ export function useGeminiLive(
     }
 
     setVoiceActivity("idle");
-    coordinatorRef.current?.revokeReplayUrl();
   }, [cleanupRecorder, clearNudgeTimer, releaseWakeLock]);
 
   const resetSessionLifecycle = useCallback(() => {
@@ -1394,6 +1393,7 @@ export function useGeminiLive(
   useEffect(() => {
     return () => {
       cleanupAudio();
+      coordinatorRef.current?.revokeReplayUrl();
     };
   }, [cleanupAudio]);
 

@@ -481,6 +481,8 @@ describe("LiveSessionCoordinator Production Seam Tests", () => {
       const finalA = await coordinator.finalizeLiveSession("ai_completed");
       expect(finalA.conversationReplay?.url).toBe("blob:local-replay-1");
       expect(cleanupCount).toBe(1);
+      // Local Blob URL remains alive immediately after finalize
+      expect(revokedUrls).not.toContain("blob:local-replay-1");
 
       // --- SESSION B (Fresh Reset & Start) ---
       mockTime = 5000;
@@ -512,6 +514,8 @@ describe("LiveSessionCoordinator Production Seam Tests", () => {
       const finalB = await coordinator.finalizeLiveSession("ai_completed");
       expect(finalB.conversationReplay?.url).toBe("blob:local-replay-2");
       expect(cleanupCount).toBe(2);
+      // Session B's local Blob URL remains alive immediately after finalize
+      expect(revokedUrls).not.toContain("blob:local-replay-2");
 
       // Resetting again revokes Session B's local Blob URL
       coordinator.reset();
@@ -521,6 +525,78 @@ describe("LiveSessionCoordinator Production Seam Tests", () => {
       const httpRestoredUrl =
         "/api/speaking/practices/ses_123/conversation-audio";
       expect(revokedUrls).not.toContain(httpRestoredUrl);
+    } finally {
+      if (origRevoke) globalThis.URL.revokeObjectURL = origRevoke;
+      if (origCreate) globalThis.URL.createObjectURL = origCreate;
+    }
+  });
+
+  it("enforces replay Blob URL lifecycle: alive on finalize/rerender, revoked on reset/unmount exactly once, restored HTTP untouched", async () => {
+    const revokedUrls: string[] = [];
+    const origRevoke = globalThis.URL.revokeObjectURL;
+    const origCreate = globalThis.URL.createObjectURL;
+
+    try {
+      let blobCounter = 0;
+      globalThis.URL.createObjectURL = ((_blob: unknown) => {
+        blobCounter++;
+        return `blob:test-lifecycle-${blobCounter}`;
+      }) as unknown as typeof URL.createObjectURL;
+      globalThis.URL.revokeObjectURL = ((url: string) => {
+        revokedUrls.push(url);
+      }) as unknown as typeof URL.revokeObjectURL;
+
+      let cleanupCalled = false;
+      const coordinator = new LiveSessionCoordinator({
+        finalizeRecording: async () => null,
+        cleanupAudio: () => {
+          // In real composition, cleanupAudio cleans hardware/WS but MUST NOT revoke replay URL
+          cleanupCalled = true;
+        },
+      });
+
+      coordinator.startSession(
+        new PcmAudioController(),
+        () =>
+          ({
+            startLearnerStream: () => {},
+            addExaminerChunk: () => {},
+            notifyInterrupted: () => {},
+            finalize: () => ({
+              blob: new Blob(["test"], { type: "audio/wav" }),
+              durationSeconds: 5,
+              mimeType: "audio/wav" as const,
+            }),
+          }) as unknown as ConversationReplayRecorder
+      );
+
+      // 1. Finalize -> URL remains alive
+      const result = await coordinator.finalizeLiveSession("ai_completed");
+      const url = result.conversationReplay?.url;
+      expect(url).toBe("blob:test-lifecycle-1");
+      expect(cleanupCalled).toBe(true);
+      expect(coordinator.getReplayBlobUrl()).toBe("blob:test-lifecycle-1");
+      expect(revokedUrls).toEqual([]); // Still alive!
+
+      // 2. Re-render simulation (coordinator and URL state retained) -> URL remains alive
+      expect(coordinator.getReplayBlobUrl()).toBe("blob:test-lifecycle-1");
+      expect(revokedUrls).toEqual([]);
+
+      // 3. Unmount simulation -> revokes local URL exactly once
+      coordinator.revokeReplayUrl();
+      expect(revokedUrls).toEqual(["blob:test-lifecycle-1"]);
+      expect(coordinator.getReplayBlobUrl()).toBeNull();
+
+      // Repeated unmount / cleanup call is a no-op (exactly-once)
+      coordinator.revokeReplayUrl();
+      expect(revokedUrls).toEqual(["blob:test-lifecycle-1"]);
+
+      // 4. Restored HTTP URLs are never revoked even if passed
+      coordinator.revokeReplayUrl();
+      expect(revokedUrls).not.toContain("https://example.com/audio.mp3");
+      expect(revokedUrls).not.toContain(
+        "/api/speaking/practices/123/conversation-audio"
+      );
     } finally {
       if (origRevoke) globalThis.URL.revokeObjectURL = origRevoke;
       if (origCreate) globalThis.URL.createObjectURL = origCreate;

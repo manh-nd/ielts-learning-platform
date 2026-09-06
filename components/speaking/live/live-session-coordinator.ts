@@ -80,24 +80,32 @@ export class LiveSessionCoordinator {
 
   /**
    * Revokes the managed ConversationReplay Object URL if one was created.
+   * Exactly once, idempotent, and ensures restored HTTP URLs are never revoked.
    */
   revokeReplayUrl() {
     if (this.replayBlobUrl) {
-      try {
-        const urlApi =
-          typeof window !== "undefined" && window.URL
-            ? window.URL
-            : typeof URL !== "undefined"
-              ? URL
-              : null;
-        if (urlApi && typeof urlApi.revokeObjectURL === "function") {
-          urlApi.revokeObjectURL(this.replayBlobUrl);
-        }
-      } catch {
-        // Ignored
-      }
+      const urlToRevoke = this.replayBlobUrl;
       this.replayBlobUrl = null;
+      if (urlToRevoke.startsWith("blob:")) {
+        try {
+          const urlApi =
+            typeof window !== "undefined" && window.URL
+              ? window.URL
+              : typeof URL !== "undefined"
+                ? URL
+                : null;
+          if (urlApi && typeof urlApi.revokeObjectURL === "function") {
+            urlApi.revokeObjectURL(urlToRevoke);
+          }
+        } catch {
+          // Ignored
+        }
+      }
     }
+  }
+
+  getReplayBlobUrl(): string | null {
+    return this.replayBlobUrl;
   }
 
   /**
