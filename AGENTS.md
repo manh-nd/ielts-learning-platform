@@ -20,6 +20,18 @@ Do not pre-read unrelated agent documentation. Load focused guidance only when r
 - **GitHub Issues & PRs**: `docs/agents/issue-tracker.md`
 - **Triage Labels**: `docs/agents/triage-labels.md`
 
+## Exploration Efficiency
+
+Search before reading: use `rg`/`git grep` to locate exact symbols and call sites, then inspect only relevant files/ranges.
+
+When a task or review already identifies the affected seams, start there instead of rediscovering the subsystem.
+
+Do not inspect neighboring files without a concrete reference showing they participate in the changed behavior.
+
+Do not repeatedly read the same file or overlapping line ranges unless that code changed or a new reference requires it.
+
+For localized tasks, if the working set expands substantially before implementation, stop and reassess the search strategy instead of continuing recursively.
+
 ## Precedence Order
 
 When requirements, documentation, or code comments conflict, resolve ambiguity in this order:
