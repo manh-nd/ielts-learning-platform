@@ -24,7 +24,7 @@ We use **Storybook 10** (`@storybook/nextjs-vite` + `@storybook/addon-vitest`):
 - **Accessibility validation**: Strictly enforced with zero violations:
   ```ts
   a11y: {
-    test: "error";
+    test: "error",
   }
   ```
 - **Story locations**: Colocate stories alongside components as `<ComponentName>.stories.tsx`.
@@ -35,5 +35,5 @@ _(For Storybook test execution commands and CI gates, see `docs/agents/testing.m
 
 ## Rich Text Editor (Tiptap)
 
-For Tiptap work, read [`.agents/skills/tiptap/SKILL.md`](file:///Users/manh/workspace/ielts-learning-platform/.agents/skills/tiptap/SKILL.md).
+For Tiptap work, read `.agents/skills/tiptap/SKILL.md`.
 Do not duplicate Tiptap implementation guidance here.

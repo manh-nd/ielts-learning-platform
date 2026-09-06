@@ -62,6 +62,10 @@ We follow the Google Style Guide rule: **"Treat abbreviations as words in identi
 - **camelCase**: `aiProposalScores`, `aiScore`, `audioUrl`
   _(Mechanical formatting and linting are enforced via `bun run lint` and `bun run format:check`)._
 
+## Path Hygiene
+
+Never expose machine-local absolute paths in committed docs, issues/PRs, or shareable artifacts. Use repository-relative paths.
+
 ## Verification Policy
 
 - **Iterative development**: Run targeted test files only (exact test paths, quiet-success execution).
