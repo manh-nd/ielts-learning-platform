@@ -3,7 +3,9 @@ import {
   mapInitialSubmissionStatusToWorkflowState,
   claimTeacherReview,
   publishTeacherAssessment,
+  saveTeacherReviewDraft,
 } from "./teacher-review-workflow";
+
 import type { PublishAssessmentInput } from "@/modules/homework/application/homework-inputs";
 
 describe("teacher-review-workflow client seam (Issue #97)", () => {
@@ -384,6 +386,91 @@ describe("teacher-review-workflow client seam (Issue #97)", () => {
       if (failResult.kind === "rejected") {
         expect(failResult.message).toBe("Custom publish callback error");
       }
+    });
+  });
+
+  describe("saveTeacherReviewDraft", () => {
+    const sampleDraftInput = {
+      fluencyCoherence: 7.0,
+      lexicalResource: 7.0,
+      grammaticalRangeAccuracy: 7.0,
+      pronunciation: 7.0,
+      overallFeedback: "Bản nháp",
+      annotations: [],
+    };
+
+    it("15. successful save calls PATCH review endpoint and returns 'saved'", async () => {
+      let calledUrl = "";
+      let calledMethod = "";
+      let calledBody = "";
+
+      const fetchFn = mock(
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          calledUrl = typeof input === "string" ? input : input.toString();
+          calledMethod = init?.method || "";
+          calledBody = (init?.body as string) || "";
+          return new Response(
+            JSON.stringify({
+              success: true,
+              teacherDraft: { id: "draft_123", status: "draft" },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+      );
+
+      const result = await saveTeacherReviewDraft({
+        submissionId,
+        input: sampleDraftInput,
+        fetchFn: fetchFn as unknown as typeof fetch,
+      });
+
+      expect(calledUrl).toBe(`/api/teacher/submissions/${submissionId}/review`);
+      expect(calledMethod).toBe("PATCH");
+      expect(JSON.parse(calledBody)).toEqual(sampleDraftInput);
+      expect(result.kind).toBe("saved");
+      if (result.kind === "saved") {
+        expect(result.draft.id).toBe("draft_123");
+      }
+    });
+
+    it("16. conflicting draft save (HTTP 409) maps to 'conflict'", async () => {
+      const fetchFn = mock(async () => {
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "SUBMISSION_ALREADY_PUBLISHED",
+              message: "Submission already published",
+            },
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } }
+        );
+      });
+
+      const result = await saveTeacherReviewDraft({
+        submissionId,
+        input: sampleDraftInput,
+        fetchFn: fetchFn as unknown as typeof fetch,
+      });
+
+      expect(result.kind).toBe("conflict");
+      if (result.kind === "conflict") {
+        expect(result.message).toBe("Submission already published");
+      }
+    });
+
+    it("17. mockMode draft save returns 'saved' without calling fetch", async () => {
+      const fetchFn = mock(async () => new Response());
+
+      const result = await saveTeacherReviewDraft({
+        submissionId,
+        input: sampleDraftInput,
+        mockMode: true,
+        fetchFn: fetchFn as unknown as typeof fetch,
+      });
+
+      expect(result.kind).toBe("saved");
+      expect(fetchFn).not.toHaveBeenCalled();
     });
   });
 });

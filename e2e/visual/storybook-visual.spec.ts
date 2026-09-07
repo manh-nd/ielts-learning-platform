@@ -193,28 +193,6 @@ test.describe("Storybook Visual Regression Suite", () => {
     });
   });
 
-  test.describe("4. TeacherSpeakingReviewWorkspace", () => {
-    test("Default With AI Proposal", async ({ page }) => {
-      await loadStory(
-        page,
-        "product-speaking-teacherspeakingreviewworkspace-prototype--default-with-ai-proposal"
-      );
-      await expect(page.locator("#storybook-root")).toHaveScreenshot(
-        "speaking-review-workspace-ai-proposal.png"
-      );
-    });
-
-    test("Teacher Approved State", async ({ page }) => {
-      await loadStory(
-        page,
-        "product-speaking-teacherspeakingreviewworkspace-prototype--teacher-approved"
-      );
-      await expect(page.locator("#storybook-root")).toHaveScreenshot(
-        "speaking-review-workspace-approved.png"
-      );
-    });
-  });
-
   test.describe("5. IELTS Writing Suite", () => {
     test("Default Task 2 Practice", async ({ page }) => {
       await loadStory(

@@ -49,3 +49,13 @@ export interface PublishAssessmentInput {
   annotations?: SpeakingReviewAnnotationItem[];
   activeReviewDurationMs: number;
 }
+
+export interface SaveAssessmentDraftInput {
+  fluencyCoherence: number;
+  lexicalResource: number;
+  grammaticalRangeAccuracy: number;
+  pronunciation: number;
+  overallFeedback: string;
+  criteriaFeedback?: SpeakingCriteriaFeedback;
+  annotations: SpeakingReviewAnnotationItem[];
+}

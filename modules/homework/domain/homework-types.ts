@@ -70,11 +70,15 @@ export interface SpeakingCriteriaFeedback {
   pronunciation?: string;
 }
 
+export type SpeakingReviewAnnotationCategory =
+  "pronunciation" | "grammar" | "lexical" | "fluency";
+
 export interface SpeakingReviewAnnotationItem {
   id: string;
-  partNumber: number;
+  promptId: string;
+  partNumber: 1 | 2 | 3;
   timestampSeconds: number;
-  category: "pronunciation" | "grammar" | "lexical" | "fluency" | "general";
+  category: SpeakingReviewAnnotationCategory;
   originalQuote?: string;
   teacherComment: string;
   createdAt: string;

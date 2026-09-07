@@ -1,5 +1,11 @@
-import type { HomeworkSubmissionStatus } from "@/modules/homework/domain/homework-types";
-import type { PublishAssessmentInput } from "@/modules/homework/application/homework-inputs";
+import type {
+  HomeworkSubmissionStatus,
+  TeacherAssessment,
+} from "@/modules/homework/domain/homework-types";
+import type {
+  PublishAssessmentInput,
+  SaveAssessmentDraftInput,
+} from "@/modules/homework/application/homework-inputs";
 
 export type ReviewWorkflowState = "claimable" | "in_review" | "published";
 
@@ -10,6 +16,11 @@ export type ClaimTeacherReviewResult =
 
 export type PublishTeacherAssessmentResult =
   | { kind: "published" }
+  | { kind: "conflict"; message: string }
+  | { kind: "rejected"; message: string };
+
+export type SaveTeacherReviewDraftResult =
+  | { kind: "saved"; draft: TeacherAssessment }
   | { kind: "conflict"; message: string }
   | { kind: "rejected"; message: string };
 
@@ -25,6 +36,14 @@ export interface PublishTeacherAssessmentOptions {
   input: PublishAssessmentInput;
   mockMode?: boolean;
   onPublish?: (input: PublishAssessmentInput) => Promise<void>;
+  fetchFn?: typeof fetch;
+}
+
+export interface SaveTeacherReviewDraftOptions {
+  submissionId: string;
+  input: SaveAssessmentDraftInput;
+  mockMode?: boolean;
+  onSaveDraft?: (input: SaveAssessmentDraftInput) => Promise<TeacherAssessment>;
   fetchFn?: typeof fetch;
 }
 
@@ -165,6 +184,97 @@ export async function publishTeacherAssessment(
     return {
       kind: "rejected",
       message: (err as Error)?.message || "Không thể công bố bài chấm.",
+    };
+  }
+}
+
+/**
+ * Saves Teacher review draft.
+ *
+ * Outcomes:
+ * - { kind: "saved", draft }: Successfully saved draft.
+ * - { kind: "conflict", message }: Concurrency or terminal state conflict (HTTP 409).
+ * - { kind: "rejected", message }: Validation or server failure.
+ */
+export async function saveTeacherReviewDraft(
+  options: SaveTeacherReviewDraftOptions
+): Promise<SaveTeacherReviewDraftResult> {
+  const {
+    submissionId,
+    input,
+    mockMode = false,
+    onSaveDraft,
+    fetchFn,
+  } = options;
+
+  if (onSaveDraft) {
+    try {
+      const draft = await onSaveDraft(input);
+      return { kind: "saved", draft };
+    } catch (err: unknown) {
+      return {
+        kind: "rejected",
+        message: (err as Error)?.message || "Không thể lưu bản nháp.",
+      };
+    }
+  }
+
+  if (mockMode) {
+    const mockDraft: TeacherAssessment = {
+      id: "mock_draft_id",
+      submissionId,
+      assignmentId: "mock_assignment_id",
+      teacherId: "mock_teacher_id",
+      attemptNumber: 1,
+      status: "draft",
+      fluencyCoherence: input.fluencyCoherence,
+      lexicalResource: input.lexicalResource,
+      grammaticalRangeAccuracy: input.grammaticalRangeAccuracy,
+      pronunciation: input.pronunciation,
+      overallBand:
+        (input.fluencyCoherence +
+          input.lexicalResource +
+          input.grammaticalRangeAccuracy +
+          input.pronunciation) /
+        4,
+      overallFeedback: input.overallFeedback,
+      criteriaFeedback: input.criteriaFeedback || null,
+      annotations: input.annotations,
+      publishedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    return { kind: "saved", draft: mockDraft };
+  }
+
+  const fetchImpl = fetchFn ?? globalThis.fetch;
+  try {
+    const res = await fetchImpl(
+      `/api/teacher/submissions/${submissionId}/review`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      return { kind: "saved", draft: data.teacherDraft };
+    }
+
+    const errData = await res.json().catch(() => ({}));
+    const message = errData?.error?.message || `HTTP_${res.status}`;
+
+    if (res.status === 409) {
+      return { kind: "conflict", message };
+    }
+
+    return { kind: "rejected", message };
+  } catch (err: unknown) {
+    return {
+      kind: "rejected",
+      message: (err as Error)?.message || "Không thể lưu bản nháp.",
     };
   }
 }

@@ -44,8 +44,6 @@ export async function publishHomeworkAssessment(
     );
   }
 
-  const validatedInput = validateHomeworkAssessment(input);
-
   const reviewAttempt = resolveAttemptForReview(submission);
   const attemptNumber = reviewAttempt.attemptNumber;
 
@@ -54,6 +52,12 @@ export async function publishHomeworkAssessment(
   if (!attempt) {
     throw new NotFoundError("Không tìm thấy dữ liệu lượt nộp được đánh giá.");
   }
+
+  const validatedInput = validateHomeworkAssessment(input, {
+    assignmentPrompts: assignment.prompts,
+    audioResponses: attempt.audioResponses,
+  });
+
   const aiProposal = await findAiProposalByAttemptId(attempt.id);
 
   const calibration = calibrateHomeworkAssessment(validatedInput, aiProposal);

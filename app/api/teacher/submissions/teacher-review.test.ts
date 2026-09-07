@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { NextRequest } from "next/server";
-import { GET as getReviewCockpitRoute } from "./[id]/review/route";
+import {
+  GET as getReviewCockpitRoute,
+  PATCH as saveReviewDraftRoute,
+} from "./[id]/review/route";
 import { POST as startReviewRoute } from "./[id]/start-review/route";
 import { POST as publishAssessmentRoute } from "./[id]/publish/route";
 import { POST as submitLearnerRoute } from "@/app/api/learner/assignments/[id]/submit/route";
@@ -430,6 +433,209 @@ describe("Teacher Review Cockpit API Endpoints (Issue #76, ADR-0008, ADR-0009)",
         params: Promise.resolve({ id: submissionId }),
       });
       expect(secondRes.status).toBe(409);
+    });
+  });
+
+  describe("PATCH /api/teacher/submissions/:id/review (Issue #102)", () => {
+    it("should reject unauthenticated requests with 401 Unauthorized", async () => {
+      const req = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/review`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(null),
+          body: JSON.stringify({
+            fluencyCoherence: 6.5,
+            lexicalResource: 6.5,
+            grammaticalRangeAccuracy: 6.5,
+            pronunciation: 6.5,
+            overallFeedback: "",
+            annotations: [],
+          }),
+        }
+      );
+      const res = await saveReviewDraftRoute(req, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it("should reject learner requests with 403 Forbidden", async () => {
+      const req = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/review`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(learnerUser),
+          body: JSON.stringify({
+            fluencyCoherence: 6.5,
+            lexicalResource: 6.5,
+            grammaticalRangeAccuracy: 6.5,
+            pronunciation: 6.5,
+            overallFeedback: "",
+            annotations: [],
+          }),
+        }
+      );
+      const res = await saveReviewDraftRoute(req, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it("should reject non-owner teacher requests with 403 Forbidden", async () => {
+      const req = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/review`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherB),
+          body: JSON.stringify({
+            fluencyCoherence: 6.5,
+            lexicalResource: 6.5,
+            grammaticalRangeAccuracy: 6.5,
+            pronunciation: 6.5,
+            overallFeedback: "",
+            annotations: [],
+          }),
+        }
+      );
+      const res = await saveReviewDraftRoute(req, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+      expect(res.status).toBe(403);
+    });
+
+    it("should save valid draft with annotations, and GET returns saved annotations", async () => {
+      const firstPrompt = "prompt_hobby_1";
+      const draftPayload = {
+        fluencyCoherence: 7.0,
+        lexicalResource: 6.5,
+        grammaticalRangeAccuracy: 6.0,
+        pronunciation: 7.5,
+        overallFeedback: "Bản nháp nhận xét tốt",
+        annotations: [
+          {
+            id: "ann_api_1",
+            promptId: firstPrompt,
+            partNumber: 1,
+            timestampSeconds: 10.5,
+            category: "pronunciation",
+            teacherComment: "Cần cải thiện âm đuôi /z/",
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      };
+
+      // 1. PATCH saves draft
+      const patchReq = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/review`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify(draftPayload),
+        }
+      );
+      const patchRes = await saveReviewDraftRoute(patchReq, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+      expect(patchRes.status).toBe(200);
+      const patchJson = await patchRes.json();
+      expect(patchJson.success).toBe(true);
+      expect(patchJson.teacherDraft.annotations).toHaveLength(1);
+      expect(patchJson.teacherDraft.annotations[0].promptId).toBe(firstPrompt);
+      expect(patchJson.teacherDraft.annotations[0].teacherComment).toBe(
+        "Cần cải thiện âm đuôi /z/"
+      );
+
+      // 2. GET review returns the saved draft annotations
+      const getReq = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/review`,
+        {
+          method: "GET",
+          headers: createAuthHeaders(teacherA),
+        }
+      );
+      const getRes = await getReviewCockpitRoute(getReq, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+      expect(getRes.status).toBe(200);
+      const getJson = await getRes.json();
+      expect(getJson.teacherDraft).not.toBeNull();
+      expect(getJson.teacherDraft.annotations).toHaveLength(1);
+      expect(getJson.teacherDraft.annotations[0].id).toBe("ann_api_1");
+    });
+
+    it("should reject invalid annotation (invalid category) with 400 Bad Request", async () => {
+      const req = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/review`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({
+            fluencyCoherence: 6.5,
+            lexicalResource: 6.5,
+            grammaticalRangeAccuracy: 6.5,
+            pronunciation: 6.5,
+            overallFeedback: "",
+            annotations: [
+              {
+                id: "ann_inv",
+                promptId: "p_part1_1",
+                partNumber: 1,
+                timestampSeconds: 5.0,
+                category: "general", // obsolete category
+                teacherComment: "Test",
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          }),
+        }
+      );
+      const res = await saveReviewDraftRoute(req, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+      expect(res.status).toBe(400);
+    });
+
+    it("should reject draft save on published submission with 409 Conflict", async () => {
+      // First publish
+      const pubReq = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/publish`,
+        {
+          method: "POST",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({
+            fluencyCoherence: 7.0,
+            lexicalResource: 7.0,
+            grammaticalRangeAccuracy: 7.0,
+            pronunciation: 7.0,
+            overallFeedback: "Official feedback",
+            activeReviewDurationMs: 60000,
+          }),
+        }
+      );
+      await publishAssessmentRoute(pubReq, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+
+      // Try to save draft
+      const patchReq = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/review`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({
+            fluencyCoherence: 7.0,
+            lexicalResource: 7.0,
+            grammaticalRangeAccuracy: 7.0,
+            pronunciation: 7.0,
+            overallFeedback: "",
+            annotations: [],
+          }),
+        }
+      );
+      const patchRes = await saveReviewDraftRoute(patchReq, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+      expect(patchRes.status).toBe(409);
     });
   });
 });

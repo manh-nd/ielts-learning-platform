@@ -1,18 +1,28 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type {
   SpeakingCriteriaScores,
   SpeakingCriteriaFeedback,
+  SpeakingReviewAnnotationItem,
+  SpeakingReviewAnnotationCategory,
+  TeacherAssessment,
 } from "@/modules/homework/domain/homework-types";
 import { IELTS_BAND_SCORE } from "@/modules/homework/application/validate-homework-assessment";
 import { calculateIeltsSpeakingOverallBand } from "@/modules/homework/domain/homework-types";
-import type { PublishAssessmentInput } from "@/modules/homework/application/homework-inputs";
+import type {
+  PublishAssessmentInput,
+  SaveAssessmentDraftInput,
+} from "@/modules/homework/application/homework-inputs";
 import type { TeacherReviewCockpitData } from "@/modules/homework/application/homework-read-models";
 import { useActiveReviewTimer } from "./hooks/use-active-review-timer";
-import { AudioReviewPlayer } from "@/components/speaking/audio-review-player";
+import {
+  AudioReviewPlayer,
+  type AudioReviewMarker,
+  type AudioReviewPlayerRef,
+} from "@/components/speaking/audio-review-player";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,12 +47,16 @@ import {
   Send,
   Lock,
   PauseCircle,
+  BookmarkPlus,
+  Trash2,
+  Save,
 } from "lucide-react";
 
 import {
   mapInitialSubmissionStatusToWorkflowState,
   claimTeacherReview,
   publishTeacherAssessment,
+  saveTeacherReviewDraft,
   type ReviewWorkflowState,
 } from "./client/teacher-review-workflow";
 
@@ -51,6 +65,7 @@ export interface TeacherReviewCockpitProps {
   mockMode?: boolean;
   onStartReview?: () => Promise<void>;
   onPublish?: (input: PublishAssessmentInput) => Promise<void>;
+  onSaveDraft?: (input: SaveAssessmentDraftInput) => Promise<TeacherAssessment>;
   className?: string;
   "data-testid"?: string;
 }
@@ -60,6 +75,7 @@ export function TeacherReviewCockpit({
   mockMode = false,
   onStartReview,
   onPublish,
+  onSaveDraft,
   className,
   "data-testid": testId = "teacher-review-cockpit",
 }: TeacherReviewCockpitProps) {
@@ -135,9 +151,27 @@ export function TeacherReviewCockpit({
   // Active prompt / audio clip tab
   const [activePromptIndex, setActivePromptIndex] = useState<number>(0);
 
+  // Audio player ref & real playback time
+  const audioPlayerRef = useRef<AudioReviewPlayerRef | null>(null);
+  const [currentAudioTime, setCurrentAudioTime] = useState<number>(0);
+
+  // Annotation state (Issue #102)
+  const [annotations, setAnnotations] = useState<
+    SpeakingReviewAnnotationItem[]
+  >(() => teacherDraft?.annotations || []);
+
+  // Annotation composer state
+  const [isComposingAnnotation, setIsComposingAnnotation] =
+    useState<boolean>(false);
+  const [capturedTimestamp, setCapturedTimestamp] = useState<number>(0);
+  const [annotationCategory, setAnnotationCategory] =
+    useState<SpeakingReviewAnnotationCategory>("pronunciation");
+  const [annotationComment, setAnnotationComment] = useState<string>("");
+
   // UI action states
   const [isStartingReview, setIsStartingReview] = useState<boolean>(false);
   const [isPublishing, setIsPublishing] = useState<boolean>(false);
+  const [isSavingDraft, setIsSavingDraft] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -166,6 +200,21 @@ export function TeacherReviewCockpit({
     (c) => c.promptId === currentPrompt?.promptId
   );
 
+  // Annotations strictly belonging to the currently selected prompt
+  const currentPromptAnnotations = useMemo(() => {
+    if (!currentPrompt) return [];
+    return annotations.filter((a) => a.promptId === currentPrompt.promptId);
+  }, [annotations, currentPrompt]);
+
+  // Audio player markers for current prompt annotations
+  const currentMarkers: AudioReviewMarker[] = useMemo(() => {
+    return currentPromptAnnotations.map((a) => ({
+      id: `teacher-${a.id}`,
+      timeSeconds: a.timestampSeconds,
+      label: a.teacherComment,
+    }));
+  }, [currentPromptAnnotations]);
+
   // Handler: Start Review (First-Committed-Wins Lock)
   const handleStartReview = useCallback(async () => {
     try {
@@ -191,7 +240,49 @@ export function TeacherReviewCockpit({
     }
   }, [onStartReview, mockMode, submission.id]);
 
-  // Handler: Atomic Publish
+  // Handler: Save Draft (Issue #102)
+  const handleSaveDraft = useCallback(async () => {
+    try {
+      setIsSavingDraft(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const payload: SaveAssessmentDraftInput = {
+        fluencyCoherence: scores.fluencyAndCoherence,
+        lexicalResource: scores.lexicalResource,
+        grammaticalRangeAccuracy: scores.grammaticalRangeAndAccuracy,
+        pronunciation: scores.pronunciation,
+        overallFeedback: overallFeedback.trim(),
+        criteriaFeedback,
+        annotations,
+      };
+
+      const result = await saveTeacherReviewDraft({
+        submissionId: submission.id,
+        input: payload,
+        mockMode,
+        onSaveDraft,
+      });
+
+      if (result.kind === "saved") {
+        setSuccessMessage("Đã lưu bản nháp chấm bài thành công.");
+      } else {
+        setErrorMessage(result.message);
+      }
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }, [
+    scores,
+    overallFeedback,
+    criteriaFeedback,
+    annotations,
+    submission.id,
+    mockMode,
+    onSaveDraft,
+  ]);
+
+  // Handler: Atomic Publish (includes current annotations)
   const handlePublish = useCallback(async () => {
     if (!overallFeedback.trim()) {
       setErrorMessage(
@@ -211,6 +302,7 @@ export function TeacherReviewCockpit({
         pronunciation: scores.pronunciation,
         overallFeedback: overallFeedback.trim(),
         criteriaFeedback,
+        annotations,
         activeReviewDurationMs: activeDurationMs,
       };
 
@@ -234,11 +326,56 @@ export function TeacherReviewCockpit({
     overallFeedback,
     scores,
     criteriaFeedback,
+    annotations,
     activeDurationMs,
     onPublish,
     mockMode,
     submission.id,
   ]);
+
+  // Prompt tab change handler: resets current audio time and clears composer
+  const handlePromptChange = useCallback((newIndexStr: string) => {
+    setActivePromptIndex(Number(newIndexStr));
+    setCurrentAudioTime(0);
+    setIsComposingAnnotation(false);
+    setAnnotationComment("");
+  }, []);
+
+  // Handler: Pin current timestamp
+  const handlePinTimestamp = useCallback(() => {
+    const pinnedTime = Number(currentAudioTime.toFixed(1));
+    setCapturedTimestamp(pinnedTime);
+    setIsComposingAnnotation(true);
+  }, [currentAudioTime]);
+
+  // Handler: Add Annotation
+  const handleAddAnnotation = useCallback(() => {
+    if (!annotationComment.trim() || !currentPrompt) return;
+
+    const newAnnotation: SpeakingReviewAnnotationItem = {
+      id: crypto.randomUUID(),
+      promptId: currentPrompt.promptId,
+      partNumber: currentPrompt.partNumber,
+      timestampSeconds: capturedTimestamp,
+      category: annotationCategory,
+      teacherComment: annotationComment.trim(),
+      createdAt: new Date().toISOString(),
+    };
+
+    setAnnotations((prev) => [...prev, newAnnotation]);
+    setAnnotationComment("");
+    setIsComposingAnnotation(false);
+  }, [annotationComment, currentPrompt, capturedTimestamp, annotationCategory]);
+
+  // Handler: Delete Annotation
+  const handleDeleteAnnotation = useCallback((annotationId: string) => {
+    setAnnotations((prev) => prev.filter((a) => a.id !== annotationId));
+  }, []);
+
+  // Handler: Seek real audio player
+  const handleSeek = useCallback((timestampSeconds: number) => {
+    audioPlayerRef.current?.seekTo(timestampSeconds);
+  }, []);
 
   // Handler: Apply all AI scores
   const handleAcceptAllAi = useCallback(() => {
@@ -403,17 +540,30 @@ export function TeacherReviewCockpit({
             )}
 
             {isInReview && !isPublished && (
-              <Button
-                onClick={handlePublish}
-                disabled={isPublishing}
-                className="gap-1.5 text-xs h-9 font-semibold bg-emerald-700 hover:bg-emerald-800 text-white"
-                data-testid="publish-assessment-button"
-              >
-                <Send className="h-4 w-4" />
-                <span>
-                  {isPublishing ? "Đang công bố..." : "Công bố kết quả"}
-                </span>
-              </Button>
+              <>
+                <Button
+                  onClick={handleSaveDraft}
+                  disabled={isSavingDraft}
+                  variant="outline"
+                  className="gap-1.5 text-xs h-9 font-semibold border-primary/30 hover:bg-primary/10"
+                  data-testid="save-draft-button"
+                >
+                  <Save className="h-4 w-4 text-primary" />
+                  <span>{isSavingDraft ? "Đang lưu..." : "Lưu bản nháp"}</span>
+                </Button>
+
+                <Button
+                  onClick={handlePublish}
+                  disabled={isPublishing}
+                  className="gap-1.5 text-xs h-9 font-semibold bg-emerald-700 hover:bg-emerald-800 text-white"
+                  data-testid="publish-assessment-button"
+                >
+                  <Send className="h-4 w-4" />
+                  <span>
+                    {isPublishing ? "Đang công bố..." : "Công bố kết quả"}
+                  </span>
+                </Button>
+              </>
             )}
 
             {isPublished && (
@@ -453,9 +603,7 @@ export function TeacherReviewCockpit({
             <CardHeader className="p-3 sm:p-4 pb-3 border-b bg-muted/10">
               <Tabs
                 value={activePromptIndex.toString()}
-                onValueChange={(val) => {
-                  setActivePromptIndex(Number(val));
-                }}
+                onValueChange={handlePromptChange}
                 className="w-full"
               >
                 <TabsList className="grid grid-cols-3 w-full h-10">
@@ -505,9 +653,211 @@ export function TeacherReviewCockpit({
               {/* Real Audio Review Player */}
               <div className="pt-1">
                 <AudioReviewPlayer
+                  ref={audioPlayerRef}
                   src={currentAudioClip?.audioUrl || null}
                   ariaLabel={`Ghi âm câu hỏi ${activePromptIndex + 1} của học viên`}
+                  onTimeUpdate={setCurrentAudioTime}
+                  markers={currentMarkers}
                 />
+              </div>
+
+              {/* Timestamp Pin & Annotation Section (Issue #102) */}
+              <div
+                className="p-4 rounded-xl border bg-card/60 space-y-3"
+                data-testid="speaking-annotations-section"
+              >
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <BookmarkPlus className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-bold text-foreground">
+                      Ghi chú thời điểm (Speaking Annotations)
+                    </span>
+                  </div>
+
+                  {isInReview && !isPublished && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handlePinTimestamp}
+                      disabled={!currentAudioClip}
+                      className="h-7 text-xs font-semibold gap-1.5 border-primary/30 hover:bg-primary/10"
+                      data-testid="pin-timestamp-button"
+                    >
+                      <BookmarkPlus className="h-3.5 w-3.5 text-primary" />
+                      <span>
+                        Ghim tại{" "}
+                        {Math.floor(currentAudioTime / 60)
+                          .toString()
+                          .padStart(2, "0")}
+                        :
+                        {Math.floor(currentAudioTime % 60)
+                          .toString()
+                          .padStart(2, "0")}
+                      </span>
+                    </Button>
+                  )}
+                </div>
+
+                {/* Annotation Composer */}
+                {isComposingAnnotation && isInReview && !isPublished && (
+                  <div
+                    className="p-3 rounded-lg border bg-muted/30 space-y-3"
+                    data-testid="annotation-composer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-foreground flex items-center gap-1.5 font-mono">
+                        Mốc:{" "}
+                        {Math.floor(capturedTimestamp / 60)
+                          .toString()
+                          .padStart(2, "0")}
+                        :
+                        {Math.floor(capturedTimestamp % 60)
+                          .toString()
+                          .padStart(2, "0")}
+                      </span>
+
+                      <select
+                        value={annotationCategory}
+                        aria-label="Loại nhận xét"
+                        onChange={(e) =>
+                          setAnnotationCategory(
+                            e.target.value as SpeakingReviewAnnotationCategory
+                          )
+                        }
+                        className="text-xs bg-background border rounded px-2 py-1 font-medium"
+                        data-testid="annotation-category-select"
+                      >
+                        <option value="pronunciation">
+                          Phát âm (Pronunciation)
+                        </option>
+                        <option value="grammar">Ngữ pháp (Grammar)</option>
+                        <option value="lexical">
+                          Từ vựng (Lexical Resource)
+                        </option>
+                        <option value="fluency">Lưu loát (Fluency)</option>
+                      </select>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nhập nhận xét của giáo viên (ví dụ: phát âm chưa chuẩn âm đuôi /s/)..."
+                        value={annotationComment}
+                        onChange={(e) => setAnnotationComment(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleAddAnnotation();
+                        }}
+                        className="flex-1 text-xs border rounded-md px-3 py-1.5 bg-background"
+                        data-testid="annotation-comment-input"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleAddAnnotation}
+                        disabled={!annotationComment.trim()}
+                        className="h-8 text-xs font-semibold"
+                        data-testid="add-annotation-button"
+                      >
+                        Thêm
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setIsComposingAnnotation(false);
+                          setAnnotationComment("");
+                        }}
+                        className="h-8 text-xs font-medium"
+                        data-testid="cancel-annotation-button"
+                      >
+                        Hủy
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* List of Annotations for Current Prompt */}
+                {currentPromptAnnotations.length > 0 ? (
+                  <div
+                    className="space-y-2 pt-1"
+                    data-testid="annotations-list"
+                  >
+                    <span className="text-[11px] font-semibold text-muted-foreground block">
+                      Nhận xét cho Prompt {activePromptIndex + 1} (Part{" "}
+                      {currentPrompt?.partNumber}):
+                    </span>
+                    <div className="space-y-1.5">
+                      {currentPromptAnnotations.map((item) => {
+                        const mins = Math.floor(item.timestampSeconds / 60)
+                          .toString()
+                          .padStart(2, "0");
+                        const secs = Math.floor(item.timestampSeconds % 60)
+                          .toString()
+                          .padStart(2, "0");
+                        const formattedTime = `${mins}:${secs}`;
+
+                        const categoryLabelMap: Record<
+                          SpeakingReviewAnnotationCategory,
+                          string
+                        > = {
+                          pronunciation: "Phát âm",
+                          grammar: "Ngữ pháp",
+                          lexical: "Từ vựng",
+                          fluency: "Lưu loát",
+                        };
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between text-xs p-2 rounded bg-muted/40 border"
+                            data-testid={`annotation-item-${item.id}`}
+                          >
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  handleSeek(item.timestampSeconds)
+                                }
+                                className="h-6 px-1.5 text-[11px] font-mono gap-1 shrink-0"
+                                data-testid={`seek-annotation-${item.id}`}
+                                aria-label={`Nghe lại tại ${formattedTime}`}
+                              >
+                                {formattedTime}
+                              </Button>
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] shrink-0 font-medium"
+                              >
+                                {categoryLabelMap[item.category] ||
+                                  item.category}
+                              </Badge>
+                              <span className="font-medium text-foreground truncate">
+                                {item.teacherComment}
+                              </span>
+                            </div>
+
+                            {isInReview && !isPublished && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleDeleteAnnotation(item.id)}
+                                aria-label="Xóa ghim"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                                data-testid={`delete-annotation-${item.id}`}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground italic">
+                    Chưa có nhận xét mốc thời gian nào cho câu hỏi này.
+                  </p>
+                )}
               </div>
 
               {/* Per-Criterion Comments Form */}

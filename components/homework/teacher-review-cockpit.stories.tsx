@@ -169,6 +169,48 @@ const mockCockpitDataPublished: TeacherReviewCockpitData = {
   },
 };
 
+const mockCockpitDataWithAnnotations: TeacherReviewCockpitData = {
+  ...mockCockpitDataProposalReady,
+  teacherDraft: {
+    id: "draft_01",
+    submissionId: "sub_cockpit_01",
+    assignmentId: "asg_cockpit_01",
+    teacherId: "tch_cockpit_01",
+    attemptNumber: 1,
+    status: "draft",
+    fluencyCoherence: 7.0,
+    lexicalResource: 6.5,
+    grammaticalRangeAccuracy: 7.0,
+    pronunciation: 7.5,
+    overallBand: 7.0,
+    overallFeedback: "Bản nháp nhận xét ban đầu.",
+    criteriaFeedback: null,
+    annotations: [
+      {
+        id: "ann_env_1",
+        promptId: "p_env_1",
+        partNumber: 2,
+        timestampSeconds: 15.5,
+        category: "pronunciation",
+        teacherComment: "Phát âm /θ/ trong 'threat' chưa chuẩn",
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: "ann_env_2",
+        promptId: "p_env_2",
+        partNumber: 3,
+        timestampSeconds: 8.2,
+        category: "lexical",
+        teacherComment: "Dùng từ 'biodegradable' rất tốt",
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    publishedAt: null,
+    createdAt: new Date(Date.now() - 100000),
+    updatedAt: new Date(),
+  },
+};
+
 const meta = {
   title: "Product/Homework/TeacherReviewCockpit",
   component: TeacherReviewCockpit,
@@ -389,5 +431,100 @@ export const PublishedReadOnly: Story = {
     expect(
       canvas.queryByTestId("slider-fluencyAndCoherence")
     ).not.toBeInTheDocument();
+
+    // In published mode, pin and add buttons should not exist
+    expect(
+      canvas.queryByTestId("pin-timestamp-button")
+    ).not.toBeInTheDocument();
+    expect(canvas.queryByTestId("save-draft-button")).not.toBeInTheDocument();
+  },
+};
+
+export const DraftLoadedAnnotations: Story = {
+  args: {
+    initialData: mockCockpitDataWithAnnotations,
+    mockMode: true,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Prompt 1 is active: should display Prompt 1's annotation (ann_env_1)
+    await expect(
+      canvas.getByText("Phát âm /θ/ trong 'threat' chưa chuẩn")
+    ).toBeInTheDocument();
+
+    // Prompt 2's annotation should NOT be visible on Prompt 1
+    expect(
+      canvas.queryByText("Dùng từ 'biodegradable' rất tốt")
+    ).not.toBeInTheDocument();
+
+    // Switch to Prompt 2
+    const prompt2Tab = canvas.getByTestId("tab-prompt-2");
+    await userEvent.click(prompt2Tab);
+
+    // Prompt 2's annotation should now be visible
+    await expect(
+      canvas.getByText("Dùng từ 'biodegradable' rất tốt")
+    ).toBeInTheDocument();
+
+    // Prompt 1's annotation should no longer be visible
+    expect(
+      canvas.queryByText("Phát âm /θ/ trong 'threat' chưa chuẩn")
+    ).not.toBeInTheDocument();
+
+    // Switch back to Prompt 1
+    const prompt1Tab = canvas.getByTestId("tab-prompt-1");
+    await userEvent.click(prompt1Tab);
+
+    await expect(
+      canvas.getByText("Phát âm /θ/ trong 'threat' chưa chuẩn")
+    ).toBeInTheDocument();
+  },
+};
+
+export const AddAndSaveAnnotationInteraction: Story = {
+  args: {
+    initialData: mockCockpitDataProposalReady,
+    mockMode: true,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Verify pin button is present
+    const pinBtn = canvas.getByTestId("pin-timestamp-button");
+    await expect(pinBtn).toBeInTheDocument();
+
+    // Click pin button to open composer
+    await userEvent.click(pinBtn);
+
+    const commentInput = canvas.getByTestId("annotation-comment-input");
+    await expect(commentInput).toBeInTheDocument();
+
+    // Type comment
+    await userEvent.type(
+      commentInput,
+      "Cần chú ý nhấn trọng âm từ 'environment'"
+    );
+
+    // Select category grammar
+    const categorySelect = canvas.getByTestId("annotation-category-select");
+    await userEvent.selectOptions(categorySelect, "grammar");
+
+    // Click add
+    const addBtn = canvas.getByTestId("add-annotation-button");
+    await userEvent.click(addBtn);
+
+    // Annotation should appear in current prompt list
+    await expect(
+      canvas.getByText("Cần chú ý nhấn trọng âm từ 'environment'")
+    ).toBeInTheDocument();
+
+    // Click Save Draft button
+    const saveDraftBtn = canvas.getByTestId("save-draft-button");
+    await userEvent.click(saveDraftBtn);
+
+    await expect(
+      canvas.getByText(/Đã lưu bản nháp chấm bài thành công\./i)
+    ).toBeInTheDocument();
   },
 };
