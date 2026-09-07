@@ -27,13 +27,18 @@ export default defineConfig({
     },
   },
 
+  // Visual snapshots intentionally use DPR 2 across desktop and mobile.
+  // The CSS viewport continues to model the intended layout size while DPR 2
+  // provides a sufficiently dense rasterization grid for deterministic Vietnamese
+  // diacritics under Chromium/Linux.
+  // DPR is explicitly asserted by the typography regression test.
   projects: [
     {
       name: "desktop-light",
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 800 },
-        deviceScaleFactor: 1,
+        deviceScaleFactor: 2,
         colorScheme: "light",
       },
     },
@@ -42,13 +47,10 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         viewport: { width: 1280, height: 800 },
-        deviceScaleFactor: 1,
+        deviceScaleFactor: 2,
         colorScheme: "dark",
       },
     },
-    // Mobile projects emulate canonical smartphone density (375x667 at @2x Retina, e.g. iPhone SE).
-    // Explicit DPR 2 matches real-world mobile displays and prevents low-DPR Chromium/Linux rasterization
-    // artifacts on Vietnamese diacritics.
     {
       name: "mobile-light",
       use: {

@@ -84,10 +84,11 @@ test.describe("Storybook Visual Regression Suite", () => {
         "design-system-foundations-typography--vietnamese-coverage"
       );
 
-      // Verify that runtime devicePixelRatio strictly matches the visual-project contract
+      // Verify that runtime devicePixelRatio strictly matches the visual-project contract (canonical DPR 2)
       const expectedDpr = testInfo.project.use.deviceScaleFactor;
       const actualDpr = await page.evaluate(() => window.devicePixelRatio);
       expect(actualDpr).toBe(expectedDpr);
+      expect(actualDpr).toBe(2);
 
       // Verify via Chromium CDP that probe glyphs are rendered from project-owned Chilly Inter
       const client = await page.context().newCDPSession(page);
