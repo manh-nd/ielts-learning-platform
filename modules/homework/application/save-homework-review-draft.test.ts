@@ -232,6 +232,100 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
     expect(cockpit.teacherDraft).toBeNull();
   });
 
+  it("creates a new TeacherAssessment when an existing draft belongs to another attempt", async () => {
+    // 1. Arrange submission whose authoritative ReviewedAttempt is attempt #2
+    const sub = devSubmissionCache.get(submissionId)!;
+    devSubmissionCache.set(submissionId, {
+      ...sub,
+      status: "in_review",
+      currentAttemptNumber: 2,
+      reviewedAttemptNumber: 2,
+    });
+
+    // 2. Ensure attempt #2 exists in cache
+    const attempts = devAttemptCache.get(submissionId) || [];
+    devAttemptCache.set(submissionId, [
+      ...attempts,
+      {
+        id: "sub_1_attempt_2",
+        submissionId,
+        attemptNumber: 2,
+        audioResponses: [
+          {
+            promptId: "p_part1_1",
+            storageKey: "sub_1/attempt_2/audio_1.webm",
+            durationMs: 30000,
+            audioBytes: 30000,
+          },
+          {
+            promptId: "p_part1_2",
+            storageKey: "sub_1/attempt_2/audio_2.webm",
+            durationMs: 45000,
+            audioBytes: 45000,
+          },
+        ],
+        submittedAt: new Date(),
+      },
+    ]);
+
+    // 3. Seed an existing stale TeacherAssessment for attempt 1
+    const staleId = "stale_draft_attempt_1";
+    devTeacherAssessmentCache.set(submissionId, {
+      id: staleId,
+      submissionId,
+      assignmentId,
+      teacherId,
+      attemptNumber: 1,
+      status: "draft",
+      fluencyCoherence: 6.0,
+      lexicalResource: 6.0,
+      grammaticalRangeAccuracy: 6.0,
+      pronunciation: 6.0,
+      overallBand: 6.0,
+      overallFeedback: "Stale draft from attempt 1",
+      criteriaFeedback: null,
+      annotations: [],
+      publishedAt: null,
+      createdAt: new Date(Date.now() - 100000),
+      updatedAt: new Date(Date.now() - 100000),
+    });
+
+    // 4. Call saveHomeworkReviewDraft for ReviewedAttempt #2
+    const draft = await saveHomeworkReviewDraft(teacherId, submissionId, {
+      fluencyCoherence: 7.0,
+      lexicalResource: 7.0,
+      grammaticalRangeAccuracy: 7.0,
+      pronunciation: 7.0,
+      overallFeedback: "Fresh draft for attempt 2",
+      annotations: [
+        {
+          id: "ann_attempt_2",
+          promptId: "p_part1_1",
+          partNumber: 1,
+          timestampSeconds: 15.0,
+          category: "pronunciation",
+          teacherComment: "Attempt 2 pronunciation feedback",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    // 5. Assert returned draft:
+    expect(draft.attemptNumber).toBe(2);
+    expect(draft.id).not.toBe(staleId);
+    expect(draft.status).toBe("draft");
+
+    // 6. Assert the new draft can be retrieved as current Teacher draft in cockpit
+    const cockpit = await getTeacherReviewCockpit(teacherId, submissionId);
+    expect(cockpit.teacherDraft).not.toBeNull();
+    expect(cockpit.teacherDraft?.attemptNumber).toBe(2);
+    expect(cockpit.teacherDraft?.id).toBe(draft.id);
+    expect(cockpit.teacherDraft?.id).not.toBe(staleId);
+    expect(cockpit.teacherDraft?.overallFeedback).toBe(
+      "Fresh draft for attempt 2"
+    );
+  });
+
   it("should save draft annotations and recover them through getTeacherReviewCockpit", async () => {
     await claimHomeworkReview(teacherId, submissionId);
 

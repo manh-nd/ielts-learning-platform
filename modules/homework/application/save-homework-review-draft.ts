@@ -87,11 +87,18 @@ export async function saveHomeworkReviewDraft(
   const overallBand = calculateIeltsSpeakingOverallBand(fc, lr, gra, pr);
   const now = new Date();
 
-  // Check if teacher draft already exists for this submission
-  const existingDraft = await findTeacherAssessmentBySubmission(submission.id);
+  // Check if teacher draft already exists for this submission attempt
+  const existingAssessment = await findTeacherAssessmentBySubmission(
+    submission.id
+  );
+  const existingDraft =
+    existingAssessment?.status === "draft" &&
+    existingAssessment.attemptNumber === attemptNumber
+      ? existingAssessment
+      : null;
 
   const draftToSave: TeacherAssessment = {
-    id: existingDraft?.id || crypto.randomUUID(),
+    id: existingDraft?.id ?? crypto.randomUUID(),
     submissionId: submission.id,
     assignmentId: submission.assignmentId,
     teacherId,
@@ -106,7 +113,7 @@ export async function saveHomeworkReviewDraft(
     criteriaFeedback: input.criteriaFeedback || null,
     annotations,
     publishedAt: null,
-    createdAt: existingDraft?.createdAt || now,
+    createdAt: existingDraft?.createdAt ?? now,
     updatedAt: now,
   };
 
