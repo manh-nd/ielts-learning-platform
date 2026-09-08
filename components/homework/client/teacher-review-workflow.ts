@@ -1,6 +1,7 @@
-import type {
-  HomeworkSubmissionStatus,
-  TeacherAssessment,
+import {
+  type HomeworkSubmissionStatus,
+  type TeacherAssessment,
+  calculateIeltsSpeakingOverallBand,
 } from "@/modules/homework/domain/homework-types";
 import type {
   PublishAssessmentInput,
@@ -220,6 +221,13 @@ export async function saveTeacherReviewDraft(
   }
 
   if (mockMode) {
+    const overallBand = calculateIeltsSpeakingOverallBand(
+      input.fluencyCoherence,
+      input.lexicalResource,
+      input.grammaticalRangeAccuracy,
+      input.pronunciation
+    );
+
     const mockDraft: TeacherAssessment = {
       id: "mock_draft_id",
       submissionId,
@@ -231,12 +239,7 @@ export async function saveTeacherReviewDraft(
       lexicalResource: input.lexicalResource,
       grammaticalRangeAccuracy: input.grammaticalRangeAccuracy,
       pronunciation: input.pronunciation,
-      overallBand:
-        (input.fluencyCoherence +
-          input.lexicalResource +
-          input.grammaticalRangeAccuracy +
-          input.pronunciation) /
-        4,
+      overallBand,
       overallFeedback: input.overallFeedback,
       criteriaFeedback: input.criteriaFeedback || null,
       annotations: input.annotations,

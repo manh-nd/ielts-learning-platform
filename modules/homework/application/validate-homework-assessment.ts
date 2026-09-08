@@ -112,8 +112,8 @@ export function validateAndNormalizeSpeakingAnnotations(
     const durationMs = audioMap.get(promptId);
     if (typeof durationMs === "number" && durationMs > 0) {
       const maxSeconds = durationMs / 1000;
-      // Allow a small grace margin of 0.5s for rounding or player boundary
-      if (timestampSeconds > maxSeconds + 0.5) {
+      const EPSILON = 1e-6;
+      if (timestampSeconds > maxSeconds + EPSILON) {
         throw new ValidationError(
           `Nhận xét #${index + 1} có mốc thời gian (${timestampSeconds}s) vượt quá thời lượng ghi âm (${maxSeconds.toFixed(1)}s).`
         );

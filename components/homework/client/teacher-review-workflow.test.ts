@@ -459,17 +459,27 @@ describe("teacher-review-workflow client seam (Issue #97)", () => {
       }
     });
 
-    it("17. mockMode draft save returns 'saved' without calling fetch", async () => {
+    it("17. mockMode draft save returns 'saved' without calling fetch and computes canonical overallBand", async () => {
       const fetchFn = mock(async () => new Response());
 
+      // Scores: 6.5, 6.0, 6.5, 6.0 -> Mean = 6.25 -> Canonical IELTS Speaking overall band rounds to 6.5
       const result = await saveTeacherReviewDraft({
         submissionId,
-        input: sampleDraftInput,
+        input: {
+          ...sampleDraftInput,
+          fluencyCoherence: 6.5,
+          lexicalResource: 6.0,
+          grammaticalRangeAccuracy: 6.5,
+          pronunciation: 6.0,
+        },
         mockMode: true,
         fetchFn: fetchFn as unknown as typeof fetch,
       });
 
       expect(result.kind).toBe("saved");
+      if (result.kind === "saved") {
+        expect(result.draft.overallBand).toBe(6.5);
+      }
       expect(fetchFn).not.toHaveBeenCalled();
     });
   });

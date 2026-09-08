@@ -503,7 +503,44 @@ describe("Teacher Review Cockpit API Endpoints (Issue #76, ADR-0008, ADR-0009)",
       expect(res.status).toBe(403);
     });
 
+    it("should reject draft save before review is claimed with 409 Conflict (REVIEW_NOT_STARTED)", async () => {
+      const patchReq = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/review`,
+        {
+          method: "PATCH",
+          headers: createAuthHeaders(teacherA),
+          body: JSON.stringify({
+            fluencyCoherence: 6.5,
+            lexicalResource: 6.5,
+            grammaticalRangeAccuracy: 6.5,
+            pronunciation: 6.5,
+            overallFeedback: "Draft before claim",
+            annotations: [],
+          }),
+        }
+      );
+      const patchRes = await saveReviewDraftRoute(patchReq, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+      expect(patchRes.status).toBe(409);
+      const json = await patchRes.json();
+      expect(json.error.code).toBe("REVIEW_NOT_STARTED");
+    });
+
     it("should save valid draft with annotations, and GET returns saved annotations", async () => {
+      // 1. First claim review
+      const startReq = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/start-review`,
+        {
+          method: "POST",
+          headers: createAuthHeaders(teacherA),
+        }
+      );
+      const startRes = await startReviewRoute(startReq, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+      expect(startRes.status).toBe(200);
+
       const firstPrompt = "prompt_hobby_1";
       const draftPayload = {
         fluencyCoherence: 7.0,
@@ -524,7 +561,7 @@ describe("Teacher Review Cockpit API Endpoints (Issue #76, ADR-0008, ADR-0009)",
         ],
       };
 
-      // 1. PATCH saves draft
+      // 2. PATCH saves draft
       const patchReq = new NextRequest(
         `http://localhost/api/teacher/submissions/${submissionId}/review`,
         {
@@ -545,7 +582,7 @@ describe("Teacher Review Cockpit API Endpoints (Issue #76, ADR-0008, ADR-0009)",
         "Cần cải thiện âm đuôi /z/"
       );
 
-      // 2. GET review returns the saved draft annotations
+      // 3. GET review returns the saved draft annotations
       const getReq = new NextRequest(
         `http://localhost/api/teacher/submissions/${submissionId}/review`,
         {
@@ -564,6 +601,18 @@ describe("Teacher Review Cockpit API Endpoints (Issue #76, ADR-0008, ADR-0009)",
     });
 
     it("should reject invalid annotation (invalid category) with 400 Bad Request", async () => {
+      // 1. Claim review first
+      const startReq = new NextRequest(
+        `http://localhost/api/teacher/submissions/${submissionId}/start-review`,
+        {
+          method: "POST",
+          headers: createAuthHeaders(teacherA),
+        }
+      );
+      await startReviewRoute(startReq, {
+        params: Promise.resolve({ id: submissionId }),
+      });
+
       const req = new NextRequest(
         `http://localhost/api/teacher/submissions/${submissionId}/review`,
         {

@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, within, userEvent } from "storybook/test";
+import { expect, within, userEvent, fn } from "storybook/test";
 import { TeacherReviewCockpit } from "./teacher-review-cockpit";
 import type { TeacherReviewCockpitData } from "@/modules/homework/application/homework-read-models";
 
@@ -444,14 +444,21 @@ export const DraftLoadedAnnotations: Story = {
   args: {
     initialData: mockCockpitDataWithAnnotations,
     mockMode: true,
+    onSeek: fn(),
   },
-  play: async ({ canvasElement }) => {
+  play: async ({ canvasElement, args }) => {
     const canvas = within(canvasElement);
 
     // Prompt 1 is active: should display Prompt 1's annotation (ann_env_1)
     await expect(
       canvas.getByText("Phát âm /θ/ trong 'threat' chưa chuẩn")
     ).toBeInTheDocument();
+
+    // Finding 4: Test clicking annotation timestamp triggers audio seek seam
+    const seekBtn = canvas.getByTestId("seek-annotation-ann_env_1");
+    await expect(seekBtn).toBeInTheDocument();
+    await userEvent.click(seekBtn);
+    expect(args.onSeek).toHaveBeenCalledWith(15.5);
 
     // Prompt 2's annotation should NOT be visible on Prompt 1
     expect(
@@ -466,6 +473,12 @@ export const DraftLoadedAnnotations: Story = {
     await expect(
       canvas.getByText("Dùng từ 'biodegradable' rất tốt")
     ).toBeInTheDocument();
+
+    // Verify seeking prompt 2 annotation
+    const seekBtn2 = canvas.getByTestId("seek-annotation-ann_env_2");
+    await expect(seekBtn2).toBeInTheDocument();
+    await userEvent.click(seekBtn2);
+    expect(args.onSeek).toHaveBeenCalledWith(8.2);
 
     // Prompt 1's annotation should no longer be visible
     expect(

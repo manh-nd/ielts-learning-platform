@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { saveHomeworkReviewDraft } from "./save-homework-review-draft";
+import { claimHomeworkReview } from "./claim-homework-review";
 import { getTeacherReviewCockpit } from "./get-teacher-review-cockpit";
 import type { SpeakingReviewAnnotationCategory } from "../domain/homework-types";
 import {
@@ -15,8 +16,12 @@ import {
   clearDevHomeworkSubmissionCache,
   createInitialSubmissionWithAttempt,
   devSubmissionCache,
+  devAttemptCache,
 } from "@/modules/homework/infrastructure/homework-submission-repository";
-import { clearDevHomeworkAssessmentCache } from "@/modules/homework/infrastructure/homework-assessment-repository";
+import {
+  clearDevHomeworkAssessmentCache,
+  devTeacherAssessmentCache,
+} from "@/modules/homework/infrastructure/homework-assessment-repository";
 import { ValidationError, ConflictError, ForbiddenError } from "@/lib/errors";
 
 describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
@@ -81,7 +86,155 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
     submissionId = submission.id;
   });
 
+  it("Test A: cannot save draft before review claim (Finding 1A)", async () => {
+    // submission status = submitted, reviewedAttemptNumber = null
+    await expect(
+      saveHomeworkReviewDraft(teacherId, submissionId, {
+        fluencyCoherence: 6.0,
+        lexicalResource: 6.0,
+        grammaticalRangeAccuracy: 6.0,
+        pronunciation: 6.0,
+        overallFeedback: "Draft before claim",
+        annotations: [],
+      })
+    ).rejects.toMatchObject({
+      name: "ConflictError",
+      code: "REVIEW_NOT_STARTED",
+    });
+
+    // Verify no TeacherAssessment draft was persisted
+    const cockpit = await getTeacherReviewCockpit(teacherId, submissionId);
+    expect(cockpit.teacherDraft).toBeNull();
+  });
+
+  it("Test B: claim review then save draft succeeds with locked attemptNumber (Finding 1A & 1B)", async () => {
+    // Claim review first
+    const claimed = await claimHomeworkReview(teacherId, submissionId);
+    expect(claimed.status).toBe("in_review");
+    expect(claimed.reviewedAttemptNumber).toBe(1);
+
+    const draft = await saveHomeworkReviewDraft(teacherId, submissionId, {
+      fluencyCoherence: 6.5,
+      lexicalResource: 7.0,
+      grammaticalRangeAccuracy: 6.0,
+      pronunciation: 6.5,
+      overallFeedback: "Nháp sau khi đã nhận bài chấm",
+      annotations: [
+        {
+          id: "ann_b",
+          promptId: "p_part1_1",
+          partNumber: 1,
+          timestampSeconds: 10.0,
+          category: "pronunciation",
+          teacherComment: "Phát âm tốt",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+
+    expect(draft.status).toBe("draft");
+    expect(draft.attemptNumber).toBe(1);
+    expect(draft.annotations).toHaveLength(1);
+  });
+
+  it("Test C: learner resubmit race is prevented once review is claimed (Finding 1 - Invariant)", async () => {
+    // Before claim: draft save is rejected
+    await expect(
+      saveHomeworkReviewDraft(teacherId, submissionId, {
+        fluencyCoherence: 6.0,
+        lexicalResource: 6.0,
+        grammaticalRangeAccuracy: 6.0,
+        pronunciation: 6.0,
+        overallFeedback: "",
+        annotations: [],
+      })
+    ).rejects.toMatchObject({ code: "REVIEW_NOT_STARTED" });
+
+    // Claim review locks the attempt
+    await claimHomeworkReview(teacherId, submissionId);
+
+    // Now draft save succeeds
+    const draft = await saveHomeworkReviewDraft(teacherId, submissionId, {
+      fluencyCoherence: 6.0,
+      lexicalResource: 6.0,
+      grammaticalRangeAccuracy: 6.0,
+      pronunciation: 6.0,
+      overallFeedback: "Locked attempt draft",
+      annotations: [],
+    });
+    expect(draft.attemptNumber).toBe(1);
+  });
+
+  it("Test D: read-side defense in depth ignores stale attempt draft (Finding 1C)", async () => {
+    // Authoritative review is attempt 2
+    const sub = devSubmissionCache.get(submissionId)!;
+    devSubmissionCache.set(submissionId, {
+      ...sub,
+      status: "in_review",
+      currentAttemptNumber: 2,
+      reviewedAttemptNumber: 2,
+    });
+
+    // Seed a teacher assessment whose attemptNumber = 1 (stale)
+    devTeacherAssessmentCache.set(submissionId, {
+      id: "stale_draft_01",
+      submissionId,
+      assignmentId,
+      teacherId,
+      attemptNumber: 1, // Mismatched attempt!
+      status: "draft",
+      fluencyCoherence: 6.0,
+      lexicalResource: 6.0,
+      grammaticalRangeAccuracy: 6.0,
+      pronunciation: 6.0,
+      overallBand: 6.0,
+      overallFeedback: "Stale draft from attempt 1",
+      criteriaFeedback: null,
+      annotations: [
+        {
+          id: "stale_ann_1",
+          promptId: "p_part1_1",
+          partNumber: 1,
+          timestampSeconds: 5.0,
+          category: "lexical",
+          teacherComment: "Stale comment",
+          createdAt: new Date().toISOString(),
+        },
+      ],
+      publishedAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Also add attempt 2 in attempt cache so findAttemptByNumber succeeds
+    const attempts = devAttemptCache.get(submissionId) || [];
+    devAttemptCache.set(submissionId, [
+      ...attempts,
+      {
+        id: "sub_1_attempt_2",
+        submissionId,
+        attemptNumber: 2,
+        audioResponses: [
+          {
+            promptId: "p_part1_1",
+            storageKey: "sub_1/attempt_2/audio_1.webm",
+            durationMs: 30000,
+            audioBytes: 30000,
+          },
+        ],
+        submittedAt: new Date(),
+      },
+    ]);
+
+    const cockpit = await getTeacherReviewCockpit(teacherId, submissionId);
+    expect(cockpit.reviewAttempt.attemptNumber).toBe(2);
+    // Stale draft from attempt 1 MUST be ignored (null)
+    expect(cockpit.teacherDraft).toBeNull();
+  });
+
   it("should save draft annotations and recover them through getTeacherReviewCockpit", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
     const draft = await saveHomeworkReviewDraft(teacherId, submissionId, {
       fluencyCoherence: 6.5,
       lexicalResource: 7.0,
@@ -119,6 +272,8 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
   });
 
   it("should enforce exact response identity: prompt A annotation does not validate or belong to prompt B even in the same IELTS part", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
     // Save annotation for prompt 1
     await saveHomeworkReviewDraft(teacherId, submissionId, {
       fluencyCoherence: 6.0,
@@ -151,7 +306,9 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
     expect(p2Annots).toHaveLength(0);
   });
 
-  it("should accept valid annotation at timestamp 0 and near audio duration end", async () => {
+  it("should accept valid annotation at timestamp 0, 29.9, and exactly at audio duration end (30.0s) (Finding 2)", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
     const draft = await saveHomeworkReviewDraft(teacherId, submissionId, {
       fluencyCoherence: 6.0,
       lexicalResource: 6.0,
@@ -160,32 +317,70 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
       overallFeedback: "",
       annotations: [
         {
-          id: "ann_start",
+          id: "ann_0",
           promptId: "p_part1_1",
           partNumber: 1,
           timestampSeconds: 0,
           category: "fluency",
-          teacherComment: "Khởi đầu câu trả lời hơi chậm",
+          teacherComment: "Khởi đầu câu trả lời",
           createdAt: new Date().toISOString(),
         },
         {
-          id: "ann_end",
+          id: "ann_29_9",
           promptId: "p_part1_1",
           partNumber: 1,
-          timestampSeconds: 29.8,
+          timestampSeconds: 29.9,
           category: "lexical",
-          teacherComment: "Kết bài tốt",
+          teacherComment: "Gần cuối câu trả lời",
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: "ann_30_0",
+          promptId: "p_part1_1",
+          partNumber: 1,
+          timestampSeconds: 30.0,
+          category: "lexical",
+          teacherComment: "Đúng thời lượng ghi âm",
           createdAt: new Date().toISOString(),
         },
       ],
     });
 
-    expect(draft.annotations).toHaveLength(2);
+    expect(draft.annotations).toHaveLength(3);
     expect(draft.annotations[0].timestampSeconds).toBe(0);
-    expect(draft.annotations[1].timestampSeconds).toBe(29.8);
+    expect(draft.annotations[1].timestampSeconds).toBe(29.9);
+    expect(draft.annotations[2].timestampSeconds).toBe(30.0);
+  });
+
+  it("should reject timestamp 30.1 when audio duration is 30.0s (Finding 2)", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
+    // p_part1_1 duration is 30,000ms = 30.0s. 30.1 > 30.0 must be rejected
+    await expect(
+      saveHomeworkReviewDraft(teacherId, submissionId, {
+        fluencyCoherence: 6.0,
+        lexicalResource: 6.0,
+        grammaticalRangeAccuracy: 6.0,
+        pronunciation: 6.0,
+        overallFeedback: "",
+        annotations: [
+          {
+            id: "ann_30_1",
+            promptId: "p_part1_1",
+            partNumber: 1,
+            timestampSeconds: 30.1,
+            category: "pronunciation",
+            teacherComment: "Beyond audio duration by 0.1s",
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      })
+    ).rejects.toThrow(ValidationError);
   });
 
   it("should reject negative timestamp", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
     await expect(
       saveHomeworkReviewDraft(teacherId, submissionId, {
         fluencyCoherence: 6.0,
@@ -208,7 +403,9 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
     ).rejects.toThrow(ValidationError);
   });
 
-  it("should reject timestamp beyond known audio duration", async () => {
+  it("should reject timestamp far beyond known audio duration", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
     // p_part1_1 duration is 30,000ms = 30s
     await expect(
       saveHomeworkReviewDraft(teacherId, submissionId, {
@@ -233,6 +430,8 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
   });
 
   it("should reject unknown promptId", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
     await expect(
       saveHomeworkReviewDraft(teacherId, submissionId, {
         fluencyCoherence: 6.0,
@@ -256,6 +455,8 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
   });
 
   it("should reject blank teacher comment", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
     await expect(
       saveHomeworkReviewDraft(teacherId, submissionId, {
         fluencyCoherence: 6.0,
@@ -279,6 +480,8 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
   });
 
   it("should reject unsupported category (including old 'general')", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
     await expect(
       saveHomeworkReviewDraft(teacherId, submissionId, {
         fluencyCoherence: 6.0,
@@ -302,6 +505,8 @@ describe("saveHomeworkReviewDraft Application Use Case (Issue #102)", () => {
   });
 
   it("should update existing draft rather than creating parallel draft records", async () => {
+    await claimHomeworkReview(teacherId, submissionId);
+
     const firstDraft = await saveHomeworkReviewDraft(teacherId, submissionId, {
       fluencyCoherence: 6.0,
       lexicalResource: 6.0,

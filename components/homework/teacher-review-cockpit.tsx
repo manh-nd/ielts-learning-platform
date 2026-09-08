@@ -66,6 +66,7 @@ export interface TeacherReviewCockpitProps {
   onStartReview?: () => Promise<void>;
   onPublish?: (input: PublishAssessmentInput) => Promise<void>;
   onSaveDraft?: (input: SaveAssessmentDraftInput) => Promise<TeacherAssessment>;
+  onSeek?: (timestampSeconds: number) => void;
   className?: string;
   "data-testid"?: string;
 }
@@ -76,6 +77,7 @@ export function TeacherReviewCockpit({
   onStartReview,
   onPublish,
   onSaveDraft,
+  onSeek,
   className,
   "data-testid": testId = "teacher-review-cockpit",
 }: TeacherReviewCockpitProps) {
@@ -207,6 +209,10 @@ export function TeacherReviewCockpit({
   }, [annotations, currentPrompt]);
 
   // Audio player markers for current prompt annotations
+  // Note (Finding 3): AI pronunciation notes from AiAssessmentProposal currently lack promptId
+  // in their contract, so exact prompt association is unavailable upstream. To prevent guessing
+  // or attaching AI notes to the wrong audio response, only authoritative Teacher annotations
+  // for currentPrompt are rendered as playback markers.
   const currentMarkers: AudioReviewMarker[] = useMemo(() => {
     return currentPromptAnnotations.map((a) => ({
       id: `teacher-${a.id}`,
@@ -373,9 +379,13 @@ export function TeacherReviewCockpit({
   }, []);
 
   // Handler: Seek real audio player
-  const handleSeek = useCallback((timestampSeconds: number) => {
-    audioPlayerRef.current?.seekTo(timestampSeconds);
-  }, []);
+  const handleSeek = useCallback(
+    (timestampSeconds: number) => {
+      audioPlayerRef.current?.seekTo(timestampSeconds);
+      onSeek?.(timestampSeconds);
+    },
+    [onSeek]
+  );
 
   // Handler: Apply all AI scores
   const handleAcceptAllAi = useCallback(() => {

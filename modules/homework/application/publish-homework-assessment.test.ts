@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, spyOn } from "bun:test";
 import { saveAiProposal } from "../infrastructure/homework-assessment-repository";
 import { claimHomeworkReview } from "./claim-homework-review";
 import { publishHomeworkAssessment } from "./publish-homework-assessment";
+import type { SpeakingReviewAnnotationItem } from "../domain/homework-types";
 import { ValidationError } from "@/lib/errors";
 import {
   createTeacherHomeworkReviewFixture,
@@ -360,6 +361,53 @@ describe("publish-homework-assessment", () => {
 
       expect(result.evaluationFeedback.aiProposalAccepted).toBe(false);
       expect(result.evaluationFeedback.scoreDeltas.overallBand).toBe(1.5);
+    });
+
+    it("should persist valid annotations into TeacherAssessment during atomic publish (Finding 5)", async () => {
+      await claimHomeworkReview(teacherId, submissionId);
+
+      const annotationItem: SpeakingReviewAnnotationItem = {
+        id: "ann_pub_01",
+        promptId: "prompt_p1_1",
+        partNumber: 1,
+        timestampSeconds: 14.5,
+        category: "pronunciation",
+        teacherComment: "  Phát âm nguyên âm dài cần kéo rõ hơn   ",
+        createdAt: new Date().toISOString(),
+      };
+
+      const result = await publishHomeworkAssessment(teacherId, submissionId, {
+        fluencyCoherence: 7.0,
+        lexicalResource: 7.0,
+        grammaticalRangeAccuracy: 7.0,
+        pronunciation: 7.0,
+        overallFeedback: "Bài làm rất tốt, xem chi tiết các ghi chú âm thanh.",
+        activeReviewDurationMs: 60000,
+        annotations: [annotationItem],
+      });
+
+      expect(result.teacherAssessment.attemptNumber).toBe(1);
+      expect(result.teacherAssessment.annotations).toHaveLength(1);
+      expect(result.teacherAssessment.annotations[0].id).toBe("ann_pub_01");
+      expect(result.teacherAssessment.annotations[0].promptId).toBe(
+        "prompt_p1_1"
+      );
+      expect(result.teacherAssessment.annotations[0].partNumber).toBe(1);
+      expect(result.teacherAssessment.annotations[0].timestampSeconds).toBe(
+        14.5
+      );
+      expect(result.teacherAssessment.annotations[0].category).toBe(
+        "pronunciation"
+      );
+      expect(result.teacherAssessment.annotations[0].teacherComment).toBe(
+        "Phát âm nguyên âm dài cần kéo rõ hơn"
+      );
+
+      // Verify PublishedAssessment does NOT include annotations (remains narrower)
+      expect(
+        (result.publishedAssessment as unknown as Record<string, unknown>)
+          .annotations
+      ).toBeUndefined();
     });
   });
 });

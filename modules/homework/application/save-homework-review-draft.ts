@@ -27,7 +27,16 @@ export async function saveHomeworkReviewDraft(
     submissionId
   );
 
-  if (getTeacherReviewAvailability(submission.status) === "terminal") {
+  const reviewAvailability = getTeacherReviewAvailability(submission.status);
+  if (reviewAvailability === "claimable") {
+    throw new ConflictError(
+      "Phải bắt đầu chấm bài trước khi lưu bản nháp đánh giá.",
+      { status: submission.status },
+      "REVIEW_NOT_STARTED"
+    );
+  }
+
+  if (reviewAvailability === "terminal") {
     throw new ConflictError(
       "Bài nộp này đã được xuất bản kết quả chính thức trước đó.",
       { status: submission.status },
@@ -36,6 +45,14 @@ export async function saveHomeworkReviewDraft(
   }
 
   const reviewAttempt = resolveAttemptForReview(submission);
+  if (reviewAttempt.kind !== "reviewed") {
+    throw new ConflictError(
+      "Bài nộp chưa khóa lượt nộp chính thức để chấm điểm.",
+      { submissionId: submission.id, status: submission.status },
+      "REVIEW_ATTEMPT_NOT_LOCKED"
+    );
+  }
+
   const attemptNumber = reviewAttempt.attemptNumber;
 
   const attempt = await findAttemptByNumber(submission.id, attemptNumber);

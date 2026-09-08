@@ -34,8 +34,15 @@ export async function getTeacherReviewCockpit(
   // AI Proposal (if any)
   const aiProposal = await findAiProposalByAttemptId(attempt.id);
 
-  // Teacher review draft (if any)
-  const teacherDraft = await findTeacherAssessmentBySubmission(submission.id);
+  // Teacher review draft (if any - must belong to the authoritative review attempt)
+  const loadedTeacherAssessment = await findTeacherAssessmentBySubmission(
+    submission.id
+  );
+  const teacherDraft =
+    loadedTeacherAssessment?.attemptNumber === reviewAttempt.attemptNumber &&
+    loadedTeacherAssessment?.status === "draft"
+      ? loadedTeacherAssessment
+      : null;
 
   // Published assessment (if already published)
   const publishedAssessment = await findPublishedAssessmentBySubmission(
