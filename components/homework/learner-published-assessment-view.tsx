@@ -35,6 +35,8 @@ const CRITERIA_DEFINITIONS = [
     titleEn: "Fluency & Coherence",
     titleVi: "Độ lưu loát & Mạch lạc",
     shortCode: "FC",
+    badgeClassName:
+      "bg-criterion-fc-bg text-foreground border-criterion-fc-subtle border",
     description:
       "Khả năng nói liền mạch, tốc độ tự nhiên và kết nối ý mạch lạc.",
   },
@@ -44,6 +46,8 @@ const CRITERIA_DEFINITIONS = [
     titleEn: "Lexical Resource",
     titleVi: "Vốn từ vựng",
     shortCode: "LR",
+    badgeClassName:
+      "bg-criterion-lr-bg text-foreground border-criterion-lr-subtle border",
     description:
       "Sử dụng từ vựng phong phú, chính xác ngữ cảnh và collocations tự nhiên.",
   },
@@ -53,6 +57,8 @@ const CRITERIA_DEFINITIONS = [
     titleEn: "Grammatical Range & Accuracy",
     titleVi: "Ngữ pháp & Độ chính xác",
     shortCode: "GRA",
+    badgeClassName:
+      "bg-criterion-gra-bg text-foreground border-criterion-gra-subtle border",
     description:
       "Độ đa dạng của cấu trúc câu ghép phức và mức độ kiểm soát lỗi ngữ pháp.",
   },
@@ -62,6 +68,8 @@ const CRITERIA_DEFINITIONS = [
     titleEn: "Pronunciation",
     titleVi: "Phát âm & Ngữ điệu",
     shortCode: "PR",
+    badgeClassName:
+      "bg-criterion-pr-bg text-foreground border-criterion-pr-subtle border",
     description: "Ngữ điệu, trọng âm từ, nối âm và tính dễ hiểu của phát âm.",
   },
 ];
@@ -242,7 +250,7 @@ export function LearnerPublishedAssessmentView({
             </div>
 
             <div className="flex flex-col items-center justify-center p-4 rounded-xl bg-card border border-border/80 shadow-xs min-w-[200px]">
-              <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
                 Overall Band
               </span>
               <BandScoreBadge
@@ -287,7 +295,10 @@ export function LearnerPublishedAssessmentView({
                       <div className="flex items-center gap-1.5">
                         <Badge
                           variant="outline"
-                          className="text-[10px] font-extrabold px-1.5 py-0 bg-primary/10 text-primary border-primary/20"
+                          className={cn(
+                            "text-xs font-extrabold px-1.5 py-0",
+                            criterion.badgeClassName
+                          )}
                         >
                           {criterion.shortCode}
                         </Badge>
@@ -419,7 +430,7 @@ export function LearnerPublishedAssessmentView({
                 <div className="flex items-center gap-2">
                   <Badge
                     variant="outline"
-                    className="text-[10px] font-bold uppercase tracking-wider"
+                    className="text-xs font-bold uppercase tracking-wider"
                   >
                     IELTS Speaking Part {activePrompt.partNumber}
                   </Badge>

@@ -296,16 +296,16 @@ export function LiveSpeakingResultView({
           estimatedPerformance && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Card className="p-3 text-center border shadow-xs">
-                <div className="text-[11px] text-muted-foreground font-semibold">
+                <div className="text-xs text-muted-foreground font-semibold">
                   Fluency & Coherence
                 </div>
-                <div className="text-2xl font-black text-criterion-cc mt-1">
+                <div className="text-2xl font-black text-criterion-fc mt-1">
                   {estimatedPerformance.fluencyAndCoherence?.toFixed(1) ||
                     "N/A"}
                 </div>
               </Card>
               <Card className="p-3 text-center border shadow-xs">
-                <div className="text-[11px] text-muted-foreground font-semibold">
+                <div className="text-xs text-muted-foreground font-semibold">
                   Lexical Resource
                 </div>
                 <div className="text-2xl font-black text-criterion-lr mt-1">
@@ -313,7 +313,7 @@ export function LiveSpeakingResultView({
                 </div>
               </Card>
               <Card className="p-3 text-center border shadow-xs">
-                <div className="text-[11px] text-muted-foreground font-semibold">
+                <div className="text-xs text-muted-foreground font-semibold">
                   Grammar Range & Acc.
                 </div>
                 <div className="text-2xl font-black text-criterion-gra mt-1">
@@ -323,7 +323,7 @@ export function LiveSpeakingResultView({
                 </div>
               </Card>
               <Card className="p-3 text-center border shadow-xs">
-                <div className="text-[11px] text-muted-foreground font-semibold">
+                <div className="text-xs text-muted-foreground font-semibold">
                   Pronunciation
                 </div>
                 <div className="text-2xl font-black text-criterion-pr mt-1">

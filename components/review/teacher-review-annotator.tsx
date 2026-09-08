@@ -463,10 +463,11 @@ export function TeacherReviewAnnotator({
                   <span
                     className={cn(
                       "mr-1 inline-block h-1.5 w-1.5 rounded-full",
-                      crit === "TASK_ACHIEVEMENT" && "bg-emerald-500",
-                      crit === "COHERENCE_COHESION" && "bg-amber-500",
-                      crit === "LEXICAL_RESOURCE" && "bg-blue-500",
-                      crit === "GRAMMATICAL_RANGE_ACCURACY" && "bg-rose-500"
+                      crit === "TASK_ACHIEVEMENT" && "bg-criterion-ta",
+                      crit === "COHERENCE_COHESION" && "bg-criterion-cc",
+                      crit === "LEXICAL_RESOURCE" && "bg-criterion-lr",
+                      crit === "GRAMMATICAL_RANGE_ACCURACY" &&
+                        "bg-criterion-gra"
                     )}
                   />
                   {meta.short} ({count})
@@ -513,7 +514,7 @@ export function TeacherReviewAnnotator({
           style={{ visibility: "hidden", position: "absolute" }}
           className="z-50 flex items-center gap-1 rounded-lg border bg-popover/95 p-1.5 text-popover-foreground shadow-lg backdrop-blur-sm"
         >
-          <span className="text-[10px] font-medium text-muted-foreground px-1.5 flex items-center gap-1 border-r mr-0.5">
+          <span className="text-xs font-medium text-muted-foreground px-1.5 flex items-center gap-1 border-r mr-0.5">
             <PlusCircle className="h-3 w-3" /> Gắn lỗi:
           </span>
 

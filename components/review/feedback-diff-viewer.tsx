@@ -190,7 +190,7 @@ export function FeedbackDiffViewer({
                   </span>
                   <span
                     className={cn(
-                      "text-[10px] font-semibold px-1.5 py-0.2 rounded flex items-center gap-0.5",
+                      "text-xs font-semibold px-1.5 py-0.5 rounded flex items-center gap-0.5",
                       delta > 0
                         ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                         : delta < 0
@@ -246,7 +246,7 @@ export function FeedbackDiffViewer({
               <span className="font-bold text-foreground">Overall Band</span>
               <span
                 className={cn(
-                  "text-[10px] font-bold px-1.5 py-0.2 rounded flex items-center gap-0.5",
+                  "text-xs font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5",
                   overallDelta > 0
                     ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
                     : overallDelta < 0
@@ -394,7 +394,7 @@ export function FeedbackDiffViewer({
                     <div className="flex items-center gap-2">
                       <span
                         className={cn(
-                          "px-2 py-0.5 rounded text-[11px] font-semibold",
+                          "px-2 py-0.5 rounded text-xs font-semibold",
                           critMeta.badgeBg
                         )}
                       >
@@ -403,7 +403,7 @@ export function FeedbackDiffViewer({
 
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium",
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium",
                           resMeta.badgeClass
                         )}
                       >
@@ -418,7 +418,7 @@ export function FeedbackDiffViewer({
                   </p>
 
                   {/* Quote and Revision Diff */}
-                  <div className="flex flex-wrap items-center gap-2 rounded bg-muted/30 p-2 font-sans text-[11px]">
+                  <div className="flex flex-wrap items-center gap-2 rounded bg-muted/30 p-2 font-sans text-xs">
                     <span className="text-muted-foreground">Nguyên văn:</span>
                     <span className="line-through text-foreground/80 font-medium">
                       &quot;{item.originalQuote}&quot;

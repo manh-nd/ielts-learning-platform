@@ -342,19 +342,19 @@ export function TeacherReviewWorkspace({
                   <FileText className="h-3.5 w-3.5 text-primary" />
                   Bài làm & Gán Lỗi
                 </span>
-                <Badge variant="outline" className="text-[10px]">
+                <Badge variant="outline" className="text-xs">
                   {annotations.length} lỗi
                 </Badge>
                 {acceptedCorrectionsCount > 0 && (
                   <Badge
                     variant="outline"
-                    className="text-[10px] text-emerald-700 bg-emerald-50 border-emerald-300 dark:bg-emerald-950/40"
+                    className="text-xs text-muted-foreground bg-muted border-border"
                   >
                     {acceptedCorrectionsCount} đã sửa
                   </Badge>
                 )}
               </div>
-              <div className="text-[10px] sm:text-[11px] text-muted-foreground hidden sm:block">
+              <div className="text-xs text-muted-foreground hidden sm:block">
                 Bôi chọn văn bản để gán (+TA, +CC, +LR, +GRA)
               </div>
             </div>

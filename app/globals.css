@@ -52,13 +52,16 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* IELTS 5 Criteria Semantic Tokens */
+  /* IELTS Criteria Semantic Tokens (Writing: TA, CC, LR, GRA; Speaking: FC, LR, GRA, PR) */
   --color-criterion-ta: var(--criterion-ta);
   --color-criterion-ta-bg: var(--criterion-ta-bg);
   --color-criterion-ta-subtle: var(--criterion-ta-subtle);
   --color-criterion-cc: var(--criterion-cc);
   --color-criterion-cc-bg: var(--criterion-cc-bg);
   --color-criterion-cc-subtle: var(--criterion-cc-subtle);
+  --color-criterion-fc: var(--criterion-fc);
+  --color-criterion-fc-bg: var(--criterion-fc-bg);
+  --color-criterion-fc-subtle: var(--criterion-fc-subtle);
   --color-criterion-lr: var(--criterion-lr);
   --color-criterion-lr-bg: var(--criterion-lr-bg);
   --color-criterion-lr-subtle: var(--criterion-lr-subtle);
@@ -113,13 +116,16 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 
-  /* IELTS 5 Criteria Light Theme (Emerald, Amber, Blue, Rose, Violet) */
+  /* IELTS Criteria Light Theme (TA: Emerald, CC: Amber, FC: Amber, LR: Blue, GRA: Rose, PR: Violet) */
   --criterion-ta: oklch(0.58 0.17 160);
   --criterion-ta-bg: oklch(0.58 0.17 160 / 16%);
   --criterion-ta-subtle: oklch(0.58 0.17 160 / 30%);
   --criterion-cc: oklch(0.68 0.17 65);
   --criterion-cc-bg: oklch(0.68 0.17 65 / 16%);
   --criterion-cc-subtle: oklch(0.68 0.17 65 / 30%);
+  --criterion-fc: oklch(0.68 0.17 65);
+  --criterion-fc-bg: oklch(0.68 0.17 65 / 16%);
+  --criterion-fc-subtle: oklch(0.68 0.17 65 / 30%);
   --criterion-lr: oklch(0.56 0.18 245);
   --criterion-lr-bg: oklch(0.56 0.18 245 / 16%);
   --criterion-lr-subtle: oklch(0.56 0.18 245 / 30%);
@@ -165,13 +171,16 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 
-  /* IELTS 5 Criteria Dark Theme (Higher Luminance for Dark Background) */
+  /* IELTS Criteria Dark Theme (Higher Luminance for Dark Background) */
   --criterion-ta: oklch(0.72 0.17 160);
   --criterion-ta-bg: oklch(0.72 0.17 160 / 28%);
   --criterion-ta-subtle: oklch(0.72 0.17 160 / 40%);
   --criterion-cc: oklch(0.8 0.16 65);
   --criterion-cc-bg: oklch(0.8 0.16 65 / 28%);
   --criterion-cc-subtle: oklch(0.8 0.16 65 / 40%);
+  --criterion-fc: oklch(0.8 0.16 65);
+  --criterion-fc-bg: oklch(0.8 0.16 65 / 28%);
+  --criterion-fc-subtle: oklch(0.8 0.16 65 / 40%);
   --criterion-lr: oklch(0.72 0.17 245);
   --criterion-lr-bg: oklch(0.72 0.17 245 / 28%);
   --criterion-lr-subtle: oklch(0.72 0.17 245 / 40%);
@@ -307,7 +316,7 @@ mark.criterion-mark:hover {
   filter: brightness(1.15);
 }
 
-/* 5 IELTS Criteria Colors Using Semantic Tokens */
+/* IELTS Criteria Colors Using Semantic Tokens */
 mark.criterion-task_achievement,
 mark.criterion-task_response {
   border-bottom-color: var(--color-criterion-ta);
@@ -317,6 +326,12 @@ mark.criterion-task_response {
 mark.criterion-coherence_cohesion {
   border-bottom-color: var(--color-criterion-cc);
   background-color: var(--color-criterion-cc-bg);
+}
+
+mark.criterion-fluency_coherence,
+mark.criterion-fluency {
+  border-bottom-color: var(--color-criterion-fc);
+  background-color: var(--color-criterion-fc-bg);
 }
 
 mark.criterion-lexical_resource {
@@ -355,12 +370,12 @@ mark.criterion-mark.severity-impedes_communication {
   text-underline-offset: 3px;
 }
 
-/* Resolved state */
+/* Resolved state (Neutral shadcn/theme treatment, decoupled from TA/criterion semantics) */
 mark.criterion-mark.is-resolved {
   opacity: 0.65;
   border-bottom-style: dashed;
-  border-bottom-color: var(--color-criterion-ta);
-  background-color: var(--color-criterion-ta-bg);
+  border-bottom-color: var(--color-muted-foreground);
+  background-color: var(--color-muted);
 }
 
 /* Filter muted state */

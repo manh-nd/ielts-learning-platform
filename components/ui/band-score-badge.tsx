@@ -51,7 +51,7 @@ export function getIeltsBandTierInfo(score: number): BandDescriptorInfo {
   };
 }
 
-const bandScoreBadgeVariants = cva(
+export const bandScoreBadgeVariants = cva(
   "inline-flex items-center justify-center font-semibold rounded-full border transition-colors tabular-nums select-none",
   {
     variants: {

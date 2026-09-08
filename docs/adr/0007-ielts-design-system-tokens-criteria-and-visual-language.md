@@ -14,17 +14,18 @@ The IELTS Learning Platform requires an unambiguous visual language across both 
 
 ## Decisions
 
-### 1. First-Class 5-Criteria Semantic Color Tokens in Tailwind v4
+### 1. First-Class 6-Criteria Semantic Color Tokens in Tailwind v4
 
-We register 5 semantic criterion color palettes directly into `@theme inline` and `:root` / `.dark` in `app/globals.css`:
+We register 6 semantic criterion color palettes directly into `@theme inline` and `:root` / `.dark` in `app/globals.css`:
 
-| Criterion                        | Semantic Token          | Color Family      | Permitted Scope                                          |
-| :------------------------------- | :---------------------- | :---------------- | :------------------------------------------------------- |
-| **Task Achievement / Response**  | `--color-criterion-ta`  | Emerald (`oklch`) | Writing TA/TR sub-scores, badges, evidence highlights    |
-| **Coherence & Cohesion**         | `--color-criterion-cc`  | Amber (`oklch`)   | CC linking device markers, flow diagnostic notes         |
-| **Lexical Resource**             | `--color-criterion-lr`  | Blue (`oklch`)    | LR vocabulary upgrades, collocation corrections          |
-| **Grammatical Range & Accuracy** | `--color-criterion-gra` | Rose (`oklch`)    | GRA grammar slips, sentence structure callouts           |
-| **Pronunciation (Speaking)**     | `--color-criterion-pr`  | Violet (`oklch`)  | Speaking phonetic notes, intonation markers, audio clips |
+| Criterion                          | Semantic Token          | Color Family      | Permitted Scope                                          |
+| :--------------------------------- | :---------------------- | :---------------- | :------------------------------------------------------- |
+| **Task Achievement / Response**    | `--color-criterion-ta`  | Emerald (`oklch`) | Writing TA/TR sub-scores, badges, evidence highlights    |
+| **Coherence & Cohesion**           | `--color-criterion-cc`  | Amber (`oklch`)   | CC linking device markers, flow diagnostic notes         |
+| **Fluency & Coherence (Speaking)** | `--color-criterion-fc`  | Cyan (`oklch`)    | Speaking fluency notes, pause markers, flow analysis     |
+| **Lexical Resource**               | `--color-criterion-lr`  | Blue (`oklch`)    | LR vocabulary upgrades, collocation corrections          |
+| **Grammatical Range & Accuracy**   | `--color-criterion-gra` | Rose (`oklch`)    | GRA grammar slips, sentence structure callouts           |
+| **Pronunciation (Speaking)**       | `--color-criterion-pr`  | Violet (`oklch`)  | Speaking phonetic notes, intonation markers, audio clips |
 
 Each token includes a base color, a background highlight (`--color-criterion-*-bg`: 16% light / 28% dark), and a subtle border token (`--color-criterion-*-subtle`).
 
@@ -38,7 +39,7 @@ Editor text annotations and audio markers follow a standardized 3-tier severity 
 
 ### 3. Standardized `<BandScoreBadge />` Component
 
-We introduce `<BandScoreBadge score={...} size="sm"|"md"|"lg" />` mapping to 4 official IELTS band performance tiers:
+We introduce `<BandScoreBadge score={...} size="sm"|"md"|"lg"|"xl" />` mapping to 4 official IELTS band performance tiers:
 
 - **Band 8.0 – 9.0 (Expert / Very Good)**: Emerald theme (`bg-emerald-500/10 text-emerald-600 border-emerald-500/30`)
 - **Band 6.5 – 7.5 (Competent / Good)**: Blue theme (`bg-blue-500/10 text-blue-600 border-blue-500/30`)

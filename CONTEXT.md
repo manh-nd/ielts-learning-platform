@@ -137,11 +137,11 @@ _Avoid_: FullSpeakingExam, InstantSpeakingTest
 ### Design System & Visual Tokens
 
 **CriterionToken**:
-A semantic color token dedicated to an IELTS assessment criterion (Task Achievement: Emerald, Coherence & Cohesion: Amber, Lexical Resource: Blue, Grammatical Range & Accuracy: Rose, Pronunciation: Violet) with high contrast for both light and dark themes.
+A semantic color token dedicated to an IELTS assessment criterion (Task Achievement: Emerald, Coherence & Cohesion: Amber, Fluency & Coherence: Cyan, Lexical Resource: Blue, Grammatical Range & Accuracy: Rose, Pronunciation: Violet) with high contrast for both light and dark themes.
 _Avoid_: CustomColorClass, RawHexCode
 
 **BandScoreBadge**:
-A standardized visual badge component encoding candidate proficiency across 4 band tiers (8.0-9.0: Expert/Emerald, 6.5-7.5: Competent/Blue, 5.0-6.0: Modest/Amber, <5.0: Limited/Rose) across 3 scale sizes.
+A standardized visual badge component encoding candidate proficiency across 4 band tiers (8.0-9.0: Expert/Emerald, 6.5-7.5: Competent/Blue, 5.0-6.0: Modest/Amber, <5.0: Limited/Rose) across 4 scale sizes (sm, md, lg, xl).
 _Avoid_: ScoreTag, GradePill
 
 **ErrorSeverityEncoding**:

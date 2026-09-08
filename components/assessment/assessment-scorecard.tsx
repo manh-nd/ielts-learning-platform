@@ -14,6 +14,7 @@ import { CriteriaScoreSlider } from "./criteria-score-slider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { BandScoreBadge } from "@/components/ui/band-score-badge";
 import { cn } from "@/lib/utils";
 import { Sparkles, CheckCheck, Award, Scale, FileCheck2 } from "lucide-react";
 
@@ -118,14 +119,6 @@ export function AssessmentScorecard({
     onAcceptAllAi?.();
   }, [aiProposalScores, onScoresChange, onAcceptAllAi]);
 
-  // Color helper for Band Scores
-  const getBandBadgeColor = (val: number) => {
-    if (val >= 7.5) return "bg-emerald-700 text-white dark:bg-emerald-600";
-    if (val >= 6.5) return "bg-teal-700 text-white dark:bg-teal-600";
-    if (val >= 5.5) return "bg-amber-700 text-white dark:bg-amber-600";
-    return "bg-rose-700 text-white dark:bg-rose-600";
-  };
-
   return (
     <Card
       className={cn(
@@ -139,7 +132,7 @@ export function AssessmentScorecard({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Badge variant="outline" className="font-medium text-[11px] px-2">
+              <Badge variant="outline" className="font-medium text-xs px-2">
                 {taskType === "TASK_2"
                   ? "Writing Task 2"
                   : taskType === "TASK_1"
@@ -149,14 +142,14 @@ export function AssessmentScorecard({
               {mode === "readonly" ? (
                 <Badge
                   variant="secondary"
-                  className="text-[10px] bg-muted/80 text-muted-foreground"
+                  className="text-xs bg-muted/80 text-muted-foreground"
                 >
                   <FileCheck2 className="mr-1 h-3 w-3" /> Báo cáo học viên
                 </Badge>
               ) : (
                 <Badge
                   variant="default"
-                  className="text-[10px] bg-primary/90 text-primary-foreground"
+                  className="text-xs bg-primary/90 text-primary-foreground"
                 >
                   <Scale className="mr-1 h-3 w-3" /> Chế độ chấm điểm Giáo viên
                 </Badge>
@@ -177,26 +170,24 @@ export function AssessmentScorecard({
             data-testid="overall-score-container"
           >
             <div className="text-right">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
                 Overall Band Score
               </span>
               <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                <span className="text-[11px] font-mono text-muted-foreground/80">
+                <span className="text-xs font-mono text-muted-foreground/80">
                   (tb {rawAverage.toFixed(3)})
                 </span>
                 <span className="text-xs font-semibold">→</span>
               </div>
             </div>
 
-            <div
-              className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-xl font-extrabold text-xl shadow-md transition-transform transform active:scale-95",
-                getBandBadgeColor(currentOverall)
-              )}
+            <BandScoreBadge
+              score={currentOverall}
+              size="xl"
+              showPrefix={false}
               data-testid="overall-band-badge"
-            >
-              {currentOverall.toFixed(1)}
-            </div>
+              className="h-12 min-w-12 px-3 text-xl font-extrabold shadow-md rounded-xl"
+            />
           </div>
         </div>
 
@@ -215,7 +206,7 @@ export function AssessmentScorecard({
                     {aiOverall?.toFixed(1)}
                   </strong>
                 </span>
-                <span className="text-muted-foreground/60 text-[10px]">
+                <span className="text-muted-foreground/60 text-xs">
                   (tb {aiRawAverage?.toFixed(3)})
                 </span>
               </div>
@@ -224,7 +215,7 @@ export function AssessmentScorecard({
                 <Badge
                   variant="outline"
                   className={cn(
-                    "text-[10px] h-5 px-1.5 font-mono font-bold",
+                    "text-xs h-5 px-1.5 font-mono font-bold",
                     overallDelta > 0
                       ? "border-emerald-600 text-emerald-800 bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700 dark:bg-emerald-950/40"
                       : "border-rose-600 text-rose-800 bg-rose-50 dark:text-rose-300 dark:border-rose-700 dark:bg-rose-950/40"

@@ -161,7 +161,7 @@ function CriteriaScoreSliderBase({
                           <PopoverTitle className="text-xs font-bold flex items-center gap-1.5">
                             <span
                               className={cn(
-                                "px-1.5 py-0.5 rounded text-[10px] font-bold text-white",
+                                "px-1.5 py-0.5 rounded text-xs font-bold text-white",
                                 meta.badgeBg
                               )}
                             >
@@ -175,22 +175,22 @@ function CriteriaScoreSliderBase({
                               setIsDescriptorPopoverOpen(false);
                               setIsRubricDialogOpen(true);
                             }}
-                            className="text-[10px] text-primary hover:underline font-medium flex items-center gap-1"
+                            className="text-xs text-primary hover:underline font-medium flex items-center gap-1"
                             data-testid={`open-full-rubric-from-popover-${meta.short.toLowerCase()}`}
                           >
                             <BookOpen className="h-3 w-3" /> Ma trận full
                           </button>
                         </div>
-                        <PopoverDescription className="text-[11px] font-medium text-foreground mt-1">
+                        <PopoverDescription className="text-xs font-medium text-foreground mt-1">
                           {currentDescriptor.summary}
                         </PopoverDescription>
                       </PopoverHeader>
-                      <div className="text-[11px] text-muted-foreground leading-relaxed">
+                      <div className="text-xs text-muted-foreground leading-relaxed">
                         <p className="italic mb-2">
                           {currentDescriptor.detail}
                         </p>
                         {currentDescriptor.bulletPoints && (
-                          <ul className="list-disc list-inside space-y-1 text-[10.5px]">
+                          <ul className="list-disc list-inside space-y-1 text-xs">
                             {currentDescriptor.bulletPoints.map((bp, i) => (
                               <li key={i}>{bp}</li>
                             ))}
@@ -202,7 +202,7 @@ function CriteriaScoreSliderBase({
                 </Popover>
               )}
             </div>
-            <p className="text-[10px] text-muted-foreground truncate hidden sm:block">
+            <p className="text-xs text-muted-foreground truncate hidden sm:block">
               {meta.vietnameseLabel}
             </p>
           </div>
@@ -217,7 +217,7 @@ function CriteriaScoreSliderBase({
                   render={
                     <div
                       className={cn(
-                        "flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium border transition-colors",
+                        "flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium border transition-colors",
                         hasAiDelta
                           ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/60 dark:text-amber-200"
                           : "bg-muted text-foreground/80 border-border/60"
@@ -230,7 +230,7 @@ function CriteriaScoreSliderBase({
                   }
                 />
                 <TooltipContent side="top">
-                  <span className="text-[11px]">
+                  <span className="text-xs">
                     Điểm AI đề xuất ban đầu:{" "}
                     <strong>{aiProposalScore.toFixed(1)}</strong>
                   </span>
@@ -270,7 +270,7 @@ function CriteriaScoreSliderBase({
             <Badge
               variant="outline"
               className={cn(
-                "text-[10px] h-5 px-1 font-mono font-bold",
+                "text-xs h-5 px-1 font-mono font-bold",
                 delta > 0
                   ? "border-emerald-600 text-emerald-800 bg-emerald-50 dark:text-emerald-300 dark:border-emerald-700 dark:bg-emerald-950/40"
                   : "border-rose-600 text-rose-800 bg-rose-50 dark:text-rose-300 dark:border-rose-700 dark:bg-rose-950/40"
@@ -329,10 +329,11 @@ function CriteriaScoreSliderBase({
                 <SliderPrimitive.Indicator
                   className={cn(
                     "h-full select-none",
-                    criterion === "TASK_ACHIEVEMENT" && "bg-emerald-500",
-                    criterion === "COHERENCE_COHESION" && "bg-amber-500",
-                    criterion === "LEXICAL_RESOURCE" && "bg-blue-500",
-                    criterion === "GRAMMATICAL_RANGE_ACCURACY" && "bg-rose-500"
+                    criterion === "TASK_ACHIEVEMENT" && "bg-criterion-ta",
+                    criterion === "COHERENCE_COHESION" && "bg-criterion-cc",
+                    criterion === "LEXICAL_RESOURCE" && "bg-criterion-lr",
+                    criterion === "GRAMMATICAL_RANGE_ACCURACY" &&
+                      "bg-criterion-gra"
                   )}
                 />
               </SliderPrimitive.Track>
@@ -341,13 +342,13 @@ function CriteriaScoreSliderBase({
                 className={cn(
                   "relative block h-4 w-4 shrink-0 rounded-full border-2 border-background bg-foreground shadow-md ring-ring/30 select-none transition-[background-color,box-shadow] focus-visible:ring-2 focus-visible:outline-hidden disabled:pointer-events-none disabled:opacity-50",
                   criterion === "TASK_ACHIEVEMENT" &&
-                    "hover:bg-emerald-600 focus-visible:ring-emerald-500",
+                    "hover:bg-criterion-ta focus-visible:ring-criterion-ta",
                   criterion === "COHERENCE_COHESION" &&
-                    "hover:bg-amber-600 focus-visible:ring-amber-500",
+                    "hover:bg-criterion-cc focus-visible:ring-criterion-cc",
                   criterion === "LEXICAL_RESOURCE" &&
-                    "hover:bg-blue-600 focus-visible:ring-blue-500",
+                    "hover:bg-criterion-lr focus-visible:ring-criterion-lr",
                   criterion === "GRAMMATICAL_RANGE_ACCURACY" &&
-                    "hover:bg-rose-600 focus-visible:ring-rose-500"
+                    "hover:bg-criterion-gra focus-visible:ring-criterion-gra"
                 )}
                 aria-label={`Điểm tiêu chí ${meta.label}`}
                 data-testid={`slider-thumb-${meta.short.toLowerCase()}`}
@@ -419,7 +420,7 @@ function CriteriaScoreSliderBase({
                       <span className="font-bold flex items-center gap-1.5">
                         <span
                           className={cn(
-                            "inline-flex h-5 w-5 items-center justify-center rounded text-[11px] font-bold text-white",
+                            "inline-flex h-5 w-5 items-center justify-center rounded text-xs font-bold text-white",
                             b >= 7
                               ? "bg-emerald-700"
                               : b >= 5
@@ -432,16 +433,16 @@ function CriteriaScoreSliderBase({
                         <span className="text-foreground">{item.summary}</span>
                       </span>
                       {isCurrentSelection && (
-                        <Badge variant="default" className="text-[10px] h-4">
+                        <Badge variant="default" className="text-xs h-5">
                           Đang chọn ({score.toFixed(1)})
                         </Badge>
                       )}
                     </div>
-                    <p className="text-muted-foreground text-[11px] italic mb-1.5 leading-relaxed">
+                    <p className="text-muted-foreground text-xs italic mb-1.5 leading-relaxed">
                       {item.detail}
                     </p>
                     {item.bulletPoints && (
-                      <ul className="list-disc list-inside space-y-0.5 text-[10.5px] text-muted-foreground">
+                      <ul className="list-disc list-inside space-y-0.5 text-xs text-muted-foreground">
                         {item.bulletPoints.map((pt, idx) => (
                           <li key={idx}>{pt}</li>
                         ))}

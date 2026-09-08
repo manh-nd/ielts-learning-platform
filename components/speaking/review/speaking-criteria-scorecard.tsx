@@ -42,11 +42,11 @@ export const SPEAKING_CRITERIA_META: Record<
     label: "Fluency & Coherence",
     short: "FC",
     vietnameseLabel: "Độ trôi chảy & Mạch lạc",
-    bgLight: "bg-criterion-cc-bg border-criterion-cc-subtle",
-    border: "border-criterion-cc",
+    bgLight: "bg-criterion-fc-bg border-criterion-fc-subtle",
+    border: "border-criterion-fc",
     text: "text-foreground",
     badgeClassName:
-      "bg-criterion-cc-bg text-foreground border-criterion-cc-subtle border",
+      "bg-criterion-fc-bg text-foreground border-criterion-fc-subtle border",
   },
   lexicalResource: {
     key: "lexicalResource",
@@ -242,13 +242,13 @@ export function SpeakingCriteriaScorecard({
             </Badge>
             <Badge
               variant="secondary"
-              className="gap-1 py-0.5 px-2 text-[11px] font-mono text-foreground/80 font-medium rounded-md"
+              className="gap-1 py-0.5 px-2 text-xs font-mono text-foreground/80 font-medium rounded-md"
             >
               <Clock className="h-3 w-3" />
               <span>{(traceMetadata.durationMs / 1000).toFixed(1)}s</span>
             </Badge>
             {traceMetadata.tokensUsed && (
-              <span className="text-[11px] text-muted-foreground font-mono ml-auto">
+              <span className="text-xs text-muted-foreground font-mono ml-auto">
                 {traceMetadata.tokensUsed.totalTokens.toLocaleString()} tokens
               </span>
             )}
@@ -277,7 +277,7 @@ export function SpeakingCriteriaScorecard({
           {aiProposalScores && (
             <div className="flex flex-col items-end gap-1">
               <div className="text-right">
-                <span className="text-[11px] text-muted-foreground block">
+                <span className="text-xs text-muted-foreground block">
                   AI Đề xuất:
                 </span>
                 <span className="text-sm font-bold text-foreground font-mono">
@@ -356,7 +356,7 @@ export function SpeakingCriteriaScorecard({
                         <Badge
                           variant="outline"
                           className={cn(
-                            "px-1.5 py-0 text-[10px] font-mono",
+                            "px-1.5 py-0 text-xs font-mono",
                             delta > 0
                               ? "text-primary border-primary/30 bg-primary/10"
                               : "text-destructive border-destructive/30 bg-destructive/10"

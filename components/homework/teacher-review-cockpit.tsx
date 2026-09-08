@@ -23,6 +23,10 @@ import {
   type AudioReviewMarker,
   type AudioReviewPlayerRef,
 } from "@/components/speaking/audio-review-player";
+import {
+  SPEAKING_CRITERIA_META,
+  type SpeakingCriterionKey,
+} from "@/components/speaking/review";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +63,16 @@ import {
   saveTeacherReviewDraft,
   type ReviewWorkflowState,
 } from "./client/teacher-review-workflow";
+
+export const ANNOTATION_CATEGORY_TO_CRITERION: Record<
+  SpeakingReviewAnnotationCategory,
+  SpeakingCriterionKey
+> = {
+  fluency: "fluencyAndCoherence",
+  lexical: "lexicalResource",
+  grammar: "grammaticalRangeAndAccuracy",
+  pronunciation: "pronunciation",
+};
 
 export interface TeacherReviewCockpitProps {
   initialData: TeacherReviewCockpitData;
@@ -406,35 +420,37 @@ export function TeacherReviewCockpit({
   const criteriaConfig = [
     {
       key: "fluencyAndCoherence" as const,
-      label: "Fluency & Coherence",
-      short: "FC",
-      vietnamese: "Lưu loát & Mạch lạc",
-      colorBadge: "bg-emerald-700 text-white",
-      textColor: "text-emerald-700 dark:text-emerald-300",
+      label: SPEAKING_CRITERIA_META.fluencyAndCoherence.label,
+      short: SPEAKING_CRITERIA_META.fluencyAndCoherence.short,
+      vietnamese: SPEAKING_CRITERIA_META.fluencyAndCoherence.vietnameseLabel,
+      colorBadge: SPEAKING_CRITERIA_META.fluencyAndCoherence.badgeClassName,
+      textColor: "text-criterion-fc",
     },
     {
       key: "lexicalResource" as const,
-      label: "Lexical Resource",
-      short: "LR",
-      vietnamese: "Vốn từ vựng",
-      colorBadge: "bg-blue-700 text-white",
-      textColor: "text-blue-700 dark:text-blue-300",
+      label: SPEAKING_CRITERIA_META.lexicalResource.label,
+      short: SPEAKING_CRITERIA_META.lexicalResource.short,
+      vietnamese: SPEAKING_CRITERIA_META.lexicalResource.vietnameseLabel,
+      colorBadge: SPEAKING_CRITERIA_META.lexicalResource.badgeClassName,
+      textColor: "text-criterion-lr",
     },
     {
       key: "grammaticalRangeAndAccuracy" as const,
-      label: "Grammatical Range & Accuracy",
-      short: "GRA",
-      vietnamese: "Ngữ pháp chính xác",
-      colorBadge: "bg-amber-700 text-white",
-      textColor: "text-amber-700 dark:text-amber-300",
+      label: SPEAKING_CRITERIA_META.grammaticalRangeAndAccuracy.label,
+      short: SPEAKING_CRITERIA_META.grammaticalRangeAndAccuracy.short,
+      vietnamese:
+        SPEAKING_CRITERIA_META.grammaticalRangeAndAccuracy.vietnameseLabel,
+      colorBadge:
+        SPEAKING_CRITERIA_META.grammaticalRangeAndAccuracy.badgeClassName,
+      textColor: "text-criterion-gra",
     },
     {
       key: "pronunciation" as const,
-      label: "Pronunciation",
-      short: "PR",
-      vietnamese: "Phát âm chuẩn",
-      colorBadge: "bg-purple-700 text-white",
-      textColor: "text-purple-700 dark:text-purple-300",
+      label: SPEAKING_CRITERIA_META.pronunciation.label,
+      short: SPEAKING_CRITERIA_META.pronunciation.short,
+      vietnamese: SPEAKING_CRITERIA_META.pronunciation.vietnameseLabel,
+      colorBadge: SPEAKING_CRITERIA_META.pronunciation.badgeClassName,
+      textColor: "text-criterion-pr",
     },
   ];
 
@@ -519,7 +535,7 @@ export function TeacherReviewCockpit({
                   <span className="font-mono">{formattedDuration}</span>
                 </span>
                 {isPaused ? (
-                  <span className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-300 font-sans font-semibold">
+                  <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300 font-sans font-semibold">
                     <PauseCircle className="h-3 w-3" />(
                     {pauseReason === "tab_hidden"
                       ? "Tạm dừng: Ẩn tab"
@@ -791,7 +807,7 @@ export function TeacherReviewCockpit({
                     className="space-y-2 pt-1"
                     data-testid="annotations-list"
                   >
-                    <span className="text-[11px] font-semibold text-muted-foreground block">
+                    <span className="text-xs font-semibold text-muted-foreground block">
                       Nhận xét cho Prompt {activePromptIndex + 1} (Part{" "}
                       {currentPrompt?.partNumber}):
                     </span>
@@ -828,15 +844,22 @@ export function TeacherReviewCockpit({
                                 onClick={() =>
                                   handleSeek(item.timestampSeconds)
                                 }
-                                className="h-6 px-1.5 text-[11px] font-mono gap-1 shrink-0"
+                                className="h-6 px-1.5 text-xs font-mono gap-1 shrink-0"
                                 data-testid={`seek-annotation-${item.id}`}
                                 aria-label={`Nghe lại tại ${formattedTime}`}
                               >
                                 {formattedTime}
                               </Button>
                               <Badge
-                                variant="secondary"
-                                className="text-[10px] shrink-0 font-medium"
+                                variant="outline"
+                                className={cn(
+                                  "text-xs shrink-0 font-medium",
+                                  SPEAKING_CRITERIA_META[
+                                    ANNOTATION_CATEGORY_TO_CRITERION[
+                                      item.category
+                                    ]
+                                  ]?.badgeClassName
+                                )}
                               >
                                 {categoryLabelMap[item.category] ||
                                   item.category}
@@ -921,7 +944,7 @@ export function TeacherReviewCockpit({
                     <CardTitle className="text-xs font-bold text-foreground">
                       Đề xuất chấm từ AI
                     </CardTitle>
-                    <span className="text-[10px] text-muted-foreground font-sans">
+                    <span className="text-xs text-muted-foreground font-sans">
                       Mô hình:{" "}
                       <span className="font-mono">
                         {aiProposal.modelVersion}
@@ -1128,10 +1151,7 @@ export function TeacherReviewCockpit({
                         )}
 
                         <span
-                          className={cn(
-                            "text-base font-bold font-mono",
-                            crit.textColor
-                          )}
+                          className="text-base font-bold font-mono text-foreground"
                           data-testid={`score-value-${crit.key}`}
                         >
                           {(currentScore ?? 0).toFixed(1)}
@@ -1187,7 +1207,7 @@ export function TeacherReviewCockpit({
               <div className="space-y-1.5 pt-2 border-t">
                 <label className="text-xs font-semibold text-foreground flex items-center justify-between">
                   <span>Nhận xét tổng quan của Giáo viên:</span>
-                  <span className="text-[10px] font-bold text-destructive uppercase">
+                  <span className="text-xs font-bold text-destructive uppercase">
                     * Bắt buộc
                   </span>
                 </label>

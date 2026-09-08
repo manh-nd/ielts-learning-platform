@@ -123,7 +123,7 @@ function DiagnosticPopoverForm({
                 type="button"
                 onClick={() => setDraftCategory(preset)}
                 className={cn(
-                  "rounded-md px-1.5 py-0.5 text-[10px] transition-colors border text-left",
+                  "rounded-md px-1.5 py-0.5 text-xs transition-colors border text-left",
                   isSelected
                     ? "bg-primary text-primary-foreground border-primary font-medium"
                     : "bg-background hover:bg-muted text-muted-foreground border-border"
@@ -309,14 +309,14 @@ export function DiagnosticPopover({
             <>
               <Badge
                 variant={severityMeta.badgeVariant}
-                className="text-[11px] font-normal"
+                className="text-xs font-normal"
               >
                 {severityMeta.label}
               </Badge>
 
               <span
                 className={cn(
-                  "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium",
+                  "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium",
                   isAI
                     ? "bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300"
                     : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
@@ -334,7 +334,7 @@ export function DiagnosticPopover({
               </span>
             </>
           ) : (
-            <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
+            <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
               <Edit3 className="h-3 w-3" />
               {isCreateMode ? "Thêm nhận xét mới" : "Chỉnh sửa chẩn đoán"}
             </span>
@@ -355,7 +355,7 @@ export function DiagnosticPopover({
       {/* Quote Context (Always shown) */}
       {annotation.originalQuote && (
         <div className="mt-2.5 rounded bg-muted/40 px-2.5 py-1.5 text-xs font-sans text-muted-foreground flex items-center gap-1.5">
-          <span className="text-[10px] font-semibold uppercase text-muted-foreground shrink-0">
+          <span className="text-xs font-semibold uppercase text-muted-foreground shrink-0">
             Trích đoạn:
           </span>
           <span className="font-semibold text-foreground truncate">
@@ -392,7 +392,7 @@ export function DiagnosticPopover({
               </span>
               {annotation.isResolved && (
                 <span
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground"
                   data-testid="resolved-badge"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" /> Đã sửa

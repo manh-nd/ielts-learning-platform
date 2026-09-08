@@ -122,7 +122,6 @@ Every component is assigned one of four canonical lifecycle statuses:
 | **ReviewPromptBanner** | `components/review/review-prompt-banner.tsx` | `Product/Writing/ReviewPromptBanner` | Product Feature | `components/review/teacher-review-workspace.tsx` | `production` | Prompt display and task instructions banner for teacher writing review workspace. |
 | **TeacherReviewAnnotator** | `components/review/teacher-review-annotator.tsx` | `Product/Writing/TeacherReviewAnnotator` | Product Feature | `components/review/teacher-review-workspace.tsx` | `production` | TipTap proofreader with 3-tier severity underlines and popovers for teacher writing review (ADR-0007). |
 | **TeacherReviewWorkspace** | `components/review/teacher-review-workspace.tsx` | `Product/Writing/TeacherReviewWorkspace` | Product Screen | `app/(protected)/teacher/review/page.tsx` | `production` | Full teacher writing review workspace for Writing Task 2. |
-| **Toggle & ToggleGroup** | `components/ui/toggle.tsx`, `toggle-group.tsx` | None (no story) | Primitive | None | `unused/dead` | Installed shadcn primitives; candidate for cleanup in Issue #103. |
 
 ---
 
