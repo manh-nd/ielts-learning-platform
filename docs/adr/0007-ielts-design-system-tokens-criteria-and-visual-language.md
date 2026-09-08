@@ -18,14 +18,14 @@ The IELTS Learning Platform requires an unambiguous visual language across both 
 
 We register 6 semantic criterion color palettes directly into `@theme inline` and `:root` / `.dark` in `app/globals.css`:
 
-| Criterion                          | Semantic Token          | Color Family      | Permitted Scope                                          |
-| :--------------------------------- | :---------------------- | :---------------- | :------------------------------------------------------- |
-| **Task Achievement / Response**    | `--color-criterion-ta`  | Emerald (`oklch`) | Writing TA/TR sub-scores, badges, evidence highlights    |
-| **Coherence & Cohesion**           | `--color-criterion-cc`  | Amber (`oklch`)   | CC linking device markers, flow diagnostic notes         |
-| **Fluency & Coherence (Speaking)** | `--color-criterion-fc`  | Cyan (`oklch`)    | Speaking fluency notes, pause markers, flow analysis     |
-| **Lexical Resource**               | `--color-criterion-lr`  | Blue (`oklch`)    | LR vocabulary upgrades, collocation corrections          |
-| **Grammatical Range & Accuracy**   | `--color-criterion-gra` | Rose (`oklch`)    | GRA grammar slips, sentence structure callouts           |
-| **Pronunciation (Speaking)**       | `--color-criterion-pr`  | Violet (`oklch`)  | Speaking phonetic notes, intonation markers, audio clips |
+| Criterion                          | Semantic Token          | Color Family                                      | Permitted Scope                                          |
+| :--------------------------------- | :---------------------- | :------------------------------------------------ | :------------------------------------------------------- |
+| **Task Achievement / Response**    | `--color-criterion-ta`  | Emerald (`oklch`)                                 | Writing TA/TR sub-scores, badges, evidence highlights    |
+| **Coherence & Cohesion**           | `--color-criterion-cc`  | Amber (`oklch`)                                   | CC linking device markers, flow diagnostic notes         |
+| **Fluency & Coherence (Speaking)** | `--color-criterion-fc`  | Amber (independent `criterion-fc` semantic token) | Speaking fluency notes, pause markers, flow analysis     |
+| **Lexical Resource**               | `--color-criterion-lr`  | Blue (`oklch`)                                    | LR vocabulary upgrades, collocation corrections          |
+| **Grammatical Range & Accuracy**   | `--color-criterion-gra` | Rose (`oklch`)                                    | GRA grammar slips, sentence structure callouts           |
+| **Pronunciation (Speaking)**       | `--color-criterion-pr`  | Violet (`oklch`)                                  | Speaking phonetic notes, intonation markers, audio clips |
 
 Each token includes a base color, a background highlight (`--color-criterion-*-bg`: 16% light / 28% dark), and a subtle border token (`--color-criterion-*-subtle`).
 

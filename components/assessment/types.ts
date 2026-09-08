@@ -30,7 +30,6 @@ export interface CriterionInfo {
   label: string;
   short: string;
   vietnameseLabel: string;
-  color: "emerald" | "amber" | "blue" | "rose";
   bgLight: string;
   bgDark: string;
   border: string;
@@ -45,52 +44,52 @@ export const CRITERION_META: Record<WritingCriterion, CriterionInfo> = {
     label: "Task Achievement / Task Response",
     short: "TA",
     vietnameseLabel: "Đáp ứng yêu cầu đề bài",
-    color: "emerald",
-    bgLight: "bg-emerald-50",
-    bgDark: "dark:bg-emerald-950/50",
-    border: "border-emerald-500 dark:border-emerald-400",
-    text: "text-emerald-700 dark:text-emerald-300",
-    badgeBg: "bg-emerald-700 text-white dark:bg-emerald-600",
-    accentColor: "text-emerald-600 dark:text-emerald-400",
+    bgLight: "bg-criterion-ta-bg",
+    bgDark: "dark:bg-criterion-ta-bg",
+    border: "border-criterion-ta-subtle dark:border-criterion-ta",
+    text: "text-criterion-ta",
+    badgeBg:
+      "bg-criterion-ta-bg text-foreground border border-criterion-ta-subtle",
+    accentColor: "text-criterion-ta",
   },
   COHERENCE_COHESION: {
     key: "COHERENCE_COHESION",
     label: "Coherence & Cohesion",
     short: "CC",
     vietnameseLabel: "Độ mạch lạc & Liên kết",
-    color: "amber",
-    bgLight: "bg-amber-50",
-    bgDark: "dark:bg-amber-950/50",
-    border: "border-amber-500 dark:border-amber-400",
-    text: "text-amber-700 dark:text-amber-300",
-    badgeBg: "bg-amber-700 text-white dark:bg-amber-600",
-    accentColor: "text-amber-600 dark:text-amber-400",
+    bgLight: "bg-criterion-cc-bg",
+    bgDark: "dark:bg-criterion-cc-bg",
+    border: "border-criterion-cc-subtle dark:border-criterion-cc",
+    text: "text-criterion-cc",
+    badgeBg:
+      "bg-criterion-cc-bg text-foreground border border-criterion-cc-subtle",
+    accentColor: "text-criterion-cc",
   },
   LEXICAL_RESOURCE: {
     key: "LEXICAL_RESOURCE",
     label: "Lexical Resource",
     short: "LR",
     vietnameseLabel: "Vốn từ vựng & Độ chuẩn xác",
-    color: "blue",
-    bgLight: "bg-blue-50",
-    bgDark: "dark:bg-blue-950/50",
-    border: "border-blue-500 dark:border-blue-400",
-    text: "text-blue-700 dark:text-blue-300",
-    badgeBg: "bg-blue-700 text-white dark:bg-blue-600",
-    accentColor: "text-blue-600 dark:text-blue-400",
+    bgLight: "bg-criterion-lr-bg",
+    bgDark: "dark:bg-criterion-lr-bg",
+    border: "border-criterion-lr-subtle dark:border-criterion-lr",
+    text: "text-criterion-lr",
+    badgeBg:
+      "bg-criterion-lr-bg text-foreground border border-criterion-lr-subtle",
+    accentColor: "text-criterion-lr",
   },
   GRAMMATICAL_RANGE_ACCURACY: {
     key: "GRAMMATICAL_RANGE_ACCURACY",
     label: "Grammatical Range & Accuracy",
     short: "GRA",
     vietnameseLabel: "Ngữ pháp & Cấu trúc đa dạng",
-    color: "rose",
-    bgLight: "bg-rose-50",
-    bgDark: "dark:bg-rose-950/50",
-    border: "border-rose-500 dark:border-rose-400",
-    text: "text-rose-700 dark:text-rose-300",
-    badgeBg: "bg-rose-700 text-white dark:bg-rose-600",
-    accentColor: "text-rose-600 dark:text-rose-400",
+    bgLight: "bg-criterion-gra-bg",
+    bgDark: "dark:bg-criterion-gra-bg",
+    border: "border-criterion-gra-subtle dark:border-criterion-gra",
+    text: "text-criterion-gra",
+    badgeBg:
+      "bg-criterion-gra-bg text-foreground border border-criterion-gra-subtle",
+    accentColor: "text-criterion-gra",
   },
 };
 

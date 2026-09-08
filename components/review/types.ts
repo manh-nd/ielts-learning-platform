@@ -18,7 +18,6 @@ export const CRITERIA_ORDER: Criterion[] = [
 export interface CriterionInfo {
   label: string;
   short: string;
-  color: "emerald" | "amber" | "blue" | "rose";
   bgLight: string;
   bgDark: string;
   border: string;
@@ -30,42 +29,42 @@ export const CRITERION_META: Record<Criterion, CriterionInfo> = {
   TASK_ACHIEVEMENT: {
     label: "Task Achievement",
     short: "TA",
-    color: "emerald",
-    bgLight: "bg-emerald-100",
-    bgDark: "dark:bg-emerald-950/50",
-    border: "border-emerald-500 dark:border-emerald-400",
-    text: "text-emerald-900 dark:text-emerald-200",
-    badgeBg: "bg-emerald-700 text-white dark:bg-emerald-600",
+    bgLight: "bg-criterion-ta-bg",
+    bgDark: "dark:bg-criterion-ta-bg",
+    border: "border-criterion-ta-subtle dark:border-criterion-ta",
+    text: "text-criterion-ta",
+    badgeBg:
+      "bg-criterion-ta-bg text-foreground border border-criterion-ta-subtle",
   },
   COHERENCE_COHESION: {
     label: "Coherence & Cohesion",
     short: "CC",
-    color: "amber",
-    bgLight: "bg-amber-100",
-    bgDark: "dark:bg-amber-950/50",
-    border: "border-amber-500 dark:border-amber-400",
-    text: "text-amber-900 dark:text-amber-200",
-    badgeBg: "bg-amber-700 text-white dark:bg-amber-600",
+    bgLight: "bg-criterion-cc-bg",
+    bgDark: "dark:bg-criterion-cc-bg",
+    border: "border-criterion-cc-subtle dark:border-criterion-cc",
+    text: "text-criterion-cc",
+    badgeBg:
+      "bg-criterion-cc-bg text-foreground border border-criterion-cc-subtle",
   },
   LEXICAL_RESOURCE: {
     label: "Lexical Resource",
     short: "LR",
-    color: "blue",
-    bgLight: "bg-blue-100",
-    bgDark: "dark:bg-blue-950/50",
-    border: "border-blue-500 dark:border-blue-400",
-    text: "text-blue-900 dark:text-blue-200",
-    badgeBg: "bg-blue-700 text-white dark:bg-blue-600",
+    bgLight: "bg-criterion-lr-bg",
+    bgDark: "dark:bg-criterion-lr-bg",
+    border: "border-criterion-lr-subtle dark:border-criterion-lr",
+    text: "text-criterion-lr",
+    badgeBg:
+      "bg-criterion-lr-bg text-foreground border border-criterion-lr-subtle",
   },
   GRAMMATICAL_RANGE_ACCURACY: {
     label: "Grammatical Range & Accuracy",
     short: "GRA",
-    color: "rose",
-    bgLight: "bg-rose-100",
-    bgDark: "dark:bg-rose-950/50",
-    border: "border-rose-500 dark:border-rose-400",
-    text: "text-rose-900 dark:text-rose-200",
-    badgeBg: "bg-rose-700 text-white dark:bg-rose-600",
+    bgLight: "bg-criterion-gra-bg",
+    bgDark: "dark:bg-criterion-gra-bg",
+    border: "border-criterion-gra-subtle dark:border-criterion-gra",
+    text: "text-criterion-gra",
+    badgeBg:
+      "bg-criterion-gra-bg text-foreground border border-criterion-gra-subtle",
   },
 };
 

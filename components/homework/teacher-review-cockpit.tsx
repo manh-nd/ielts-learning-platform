@@ -495,7 +495,7 @@ export function TeacherReviewCockpit({
                 </Badge>
                 <Badge
                   className={cn(
-                    "text-[11px] font-semibold",
+                    "text-xs font-semibold",
                     isPublished
                       ? "bg-emerald-700 text-white"
                       : isInReview
@@ -887,7 +887,7 @@ export function TeacherReviewCockpit({
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[11px] text-muted-foreground italic">
+                  <p className="text-xs text-muted-foreground italic">
                     Chưa có nhận xét mốc thời gian nào cho câu hỏi này.
                   </p>
                 )}
@@ -903,7 +903,7 @@ export function TeacherReviewCockpit({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {criteriaConfig.map((crit) => (
                     <div key={crit.key} className="space-y-1">
-                      <label className="text-[11px] font-semibold text-muted-foreground block">
+                      <label className="text-xs font-semibold text-muted-foreground block">
                         {crit.short} - {crit.vietnamese}:
                       </label>
                       <Textarea
@@ -958,7 +958,7 @@ export function TeacherReviewCockpit({
                     size="sm"
                     variant="outline"
                     onClick={handleAcceptAllAi}
-                    className="h-7 text-[11px] gap-1 border-primary/30 hover:bg-primary/10"
+                    className="h-7 text-xs gap-1 border-primary/30 hover:bg-primary/10"
                     data-testid="apply-ai-scores-button"
                   >
                     <Sparkles className="h-3 w-3 text-primary" />
@@ -970,7 +970,7 @@ export function TeacherReviewCockpit({
               <CardContent className="p-4 space-y-3">
                 <div className="flex items-center justify-between bg-card p-3 rounded-lg border">
                   <div>
-                    <span className="text-[11px] text-muted-foreground block">
+                    <span className="text-xs text-muted-foreground block">
                       Ước lượng Overall Band:
                     </span>
                     <span
@@ -981,7 +981,7 @@ export function TeacherReviewCockpit({
                     </span>
                   </div>
 
-                  <div className="text-right text-[11px] text-muted-foreground font-mono space-y-0.5">
+                  <div className="text-right text-xs text-muted-foreground font-mono space-y-0.5">
                     <div>
                       FC: {aiProposal.scores.fluencyAndCoherence.toFixed(1)} •
                       LR: {aiProposal.scores.lexicalResource.toFixed(1)}
@@ -1003,11 +1003,11 @@ export function TeacherReviewCockpit({
                 {Array.isArray(aiProposal.strengths) &&
                   aiProposal.strengths.length > 0 && (
                     <div className="space-y-1">
-                      <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                      <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
                         <ThumbsUp className="h-3 w-3" />
                         Điểm mạnh:
                       </span>
-                      <ul className="text-[11px] list-disc list-inside text-foreground bg-emerald-500/5 p-2 rounded border border-emerald-500/20">
+                      <ul className="text-xs list-disc list-inside text-foreground bg-emerald-500/5 p-2 rounded border border-emerald-500/20">
                         {aiProposal.strengths.map((s, i) => (
                           <li key={i}>{s}</li>
                         ))}
@@ -1018,11 +1018,11 @@ export function TeacherReviewCockpit({
                 {Array.isArray(aiProposal.improvements) &&
                   aiProposal.improvements.length > 0 && (
                     <div className="space-y-1">
-                      <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                      <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
                         <Target className="h-3 w-3" />
                         Cần cải thiện:
                       </span>
-                      <ul className="text-[11px] list-disc list-inside text-foreground bg-amber-500/5 p-2 rounded border border-amber-500/20">
+                      <ul className="text-xs list-disc list-inside text-foreground bg-amber-500/5 p-2 rounded border border-amber-500/20">
                         {aiProposal.improvements.map((imp, i) => (
                           <li key={i}>{imp}</li>
                         ))}
@@ -1041,7 +1041,7 @@ export function TeacherReviewCockpit({
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>Đề xuất từ AI tạm thời không khả dụng.</span>
               </div>
-              <p className="text-[11px] leading-relaxed pl-6">
+              <p className="text-xs leading-relaxed pl-6">
                 Thầy/Cô vui lòng chấm điểm và ghi nhận xét trực tiếp cho học
                 viên bằng form bên dưới.
               </p>
