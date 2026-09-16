@@ -59,7 +59,7 @@
       "source": "google-gemini/gemini-skills",
       "sourceType": "github",
       "skillPath": "skills/gemini-api-dev/SKILL.md",
-      "computedHash": "5af2d3c9e37f02cfb4e480ab8bf10f398988a8ef2565276ca2e29046a20361d0"
+      "computedHash": "820ebd2b43063fcaf77a564f15cfe381dc03e97b99a4f453131f398c7620c809"
     },
     "gemini-interactions-api": {
       "source": "google-gemini/gemini-skills",
@@ -71,7 +71,7 @@
       "source": "google-gemini/gemini-skills",
       "sourceType": "github",
       "skillPath": "skills/gemini-live-api-dev/SKILL.md",
-      "computedHash": "d4d52c9a639bd79fe5eeef0722a9d4d6ed256b99172375b60e96920c8b111836"
+      "computedHash": "bc33f3ef80fcfcecc6d3e41d85e443e55d8ab9eb7157d0d954c1cc22aee73e9a"
     },
     "grill-me": {
       "source": "mattpocock/skills",
