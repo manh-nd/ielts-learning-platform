@@ -21,7 +21,7 @@ export interface AudioReviewMarker {
 
 export interface AudioReviewPlayerRef {
   seekTo: (timeSeconds: number) => void;
-  play: () => Promise<void>;
+  play: (startSeconds?: number, endSeconds?: number) => Promise<void>;
   pause: () => void;
 }
 
@@ -52,6 +52,9 @@ export interface AudioReviewPlayerProps {
    * Optional callback notifying parent on audio time progression (in seconds).
    */
   onTimeUpdate?: (timeSeconds: number) => void;
+
+  /** Called when playback pauses, including the end of a bounded clip. */
+  onPause?: () => void;
 
   /**
    * Optional custom CSS class for container layout.
@@ -85,6 +88,7 @@ export function AudioReviewPlayer({
   markers,
   onMarkerActivate,
   onTimeUpdate,
+  onPause,
   className,
   muted = false,
   ref,
@@ -114,6 +118,7 @@ export function AudioReviewPlayer({
 
   const playbackSpeedRef = useRef<PlaybackSpeed>(playbackSpeed);
   const isReadyRef = useRef<boolean>(isReady);
+  const onPauseRef = useRef(onPause);
   const onTimeUpdateRef = useRef<((time: number) => void) | undefined>(
     onTimeUpdate
   );
@@ -122,7 +127,8 @@ export function AudioReviewPlayer({
     playbackSpeedRef.current = playbackSpeed;
     isReadyRef.current = isReady;
     onTimeUpdateRef.current = onTimeUpdate;
-  }, [playbackSpeed, isReady, onTimeUpdate]);
+    onPauseRef.current = onPause;
+  }, [playbackSpeed, isReady, onTimeUpdate, onPause]);
 
   useImperativeHandle(
     ref,
@@ -135,9 +141,9 @@ export function AudioReviewPlayer({
           wavesurferRef.current.seekTo(progress);
         }
       },
-      play: async () => {
+      play: async (startSeconds, endSeconds) => {
         if (wavesurferRef.current && isReadyRef.current) {
-          await wavesurferRef.current.play();
+          await wavesurferRef.current.play(startSeconds, endSeconds);
         }
       },
       pause: () => {
@@ -208,7 +214,10 @@ export function AudioReviewPlayer({
     });
 
     ws.on("play", () => setIsPlaying(true));
-    ws.on("pause", () => setIsPlaying(false));
+    ws.on("pause", () => {
+      setIsPlaying(false);
+      onPauseRef.current?.();
+    });
     ws.on("timeupdate", (time) => {
       setCurrentTime(time);
       onTimeUpdateRef.current?.(time);

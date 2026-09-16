@@ -94,7 +94,10 @@ export function getPreferredAudioMimeType(): string {
 export const DEFAULT_IELTS_AUDIO_CONSTRAINTS: MediaStreamConstraints = {
   audio: {
     channelCount: 1,
-    sampleRate: 16000,
+    // Do NOT specify sampleRate here: browsers (Chrome/macOS) often ignore the
+    // hint and apply software resampling which introduces its own artifacts.
+    // The AudioContext and noise suppressor self-calibrate to the device's
+    // native rate via audioCtx.sampleRate at setup time.
     echoCancellation: true,
     noiseSuppression: true,
     autoGainControl: true,
@@ -255,7 +258,7 @@ export function useAudioRecorder(
         const source = audioCtx.createMediaStreamSource(stream);
 
         try {
-          const suppressorGraph = createNoiseSuppressorNode(audioCtx, {
+          const suppressorGraph = await createNoiseSuppressorNode(audioCtx, {
             enabled: isNoiseSuppressionActiveRef.current,
             sampleRate: audioCtx.sampleRate,
           });

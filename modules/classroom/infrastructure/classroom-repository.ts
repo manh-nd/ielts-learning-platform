@@ -420,6 +420,36 @@ export async function findMembership(
 }
 
 /**
+ * Lists all memberships for a specific learner across classrooms
+ */
+export async function listMembershipsByLearnerId(
+  learnerId: string
+): Promise<Membership[]> {
+  const cached = devMemberCache.filter((m) => m.learnerId === learnerId);
+  if (cached.length > 0) return cached;
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const rows = await db
+        .select()
+        .from(classroomMembers)
+        .where(eq(classroomMembers.learnerId, learnerId));
+
+      if (rows.length > 0) {
+        return rows;
+      }
+    } catch (err) {
+      console.warn(
+        "[ClassroomRepository] listMembershipsByLearnerId DB warning:",
+        err
+      );
+    }
+  }
+
+  return cached;
+}
+
+/**
  * Adds a learner to a classroom as a member (Issue #73, ADR-0009)
  */
 export async function addMembership(

@@ -241,14 +241,14 @@ const meta = {
       const recordedAudio = context.args.recordedAudio
         ? {
             ...context.args.recordedAudio,
-            url: blobUrl,
+            url: context.args.recordedAudio.url || blobUrl,
           }
         : context.args.recordedAudio;
 
       const conversationReplay = context.args.conversationReplay
         ? {
             ...context.args.conversationReplay,
-            url: blobUrl,
+            url: context.args.conversationReplay.url || blobUrl,
           }
         : context.args.conversationReplay;
 
@@ -443,5 +443,186 @@ export const InteractiveEvidenceClipAndHiddenTabMount: Story = {
     // 8. Player controls remain ready and can start full playback without overlapping audio
     expect(playPauseBtn).not.toBeDisabled();
     await userEvent.click(playPauseBtn!);
+  },
+};
+
+// Learner-only fixture: source intervals 4.52–14.90s and 18.80–26.90s.
+// Sentence boundaries verified with local transcription and silence detection.
+// Feedback is authored demo content, not a Gemini assessment.
+export const PracticeFeedbackAudioClips: Story = {
+  parameters: {
+    docs: {
+      description: {
+        story:
+          "Generated dialogue with matching transcript and learner-only audio. Click a feedback button to hear its sentence; click again to stop. Feedback is illustrative, not an AI assessment.",
+      },
+    },
+  },
+  args: {
+    evaluationResult: null,
+    recordedAudio: {
+      blob: sampleAudioBlob,
+      url: "/audio/samples/speaking-practice-technology-learner.wav",
+      durationSeconds: 18.48,
+      mimeType: "audio/wav",
+    },
+    conversationReplay: {
+      url: "/audio/samples/speaking-practice-technology.wav",
+      durationSeconds: 29.96,
+    },
+    transcripts: [
+      {
+        id: "technology-q1",
+        sender: "examiner",
+        text: "What kind of technological device do you use most often?",
+        timestamp: 0,
+        isFinal: true,
+      },
+      {
+        id: "technology-a1",
+        sender: "user",
+        text: "I use my laptop every day, mainly for studying English and watching videos. What I like most is that I can look up new words while I’m watching.",
+        timestamp: 4520,
+        isFinal: true,
+      },
+      {
+        id: "technology-q2",
+        sender: "examiner",
+        text: "Is there anything you would like to change about the way you use it?",
+        timestamp: 15000,
+        isFinal: true,
+      },
+      {
+        id: "technology-a2",
+        sender: "user",
+        text: "Sometimes I get distracted by social media, though. I’m trying to spend less time scrolling and more time practising my speaking.",
+        timestamp: 18800,
+        isFinal: true,
+      },
+      {
+        id: "technology-end",
+        sender: "examiner",
+        text: "Thank you. That’s the end of this practice.",
+        timestamp: 27000,
+        isFinal: true,
+      },
+    ],
+    practiceFeedback: {
+      evidenceScope: { mode: "part_1", responseCount: 2 },
+      evidenceSufficiency: "sufficient_for_practice_feedback",
+      summary:
+        "Bản minh hoạ: giọng nói được tạo bằng AI, nhận xét được soạn để bạn thử tương tác. Bấm “Nghe đoạn này” để nghe câu tương ứng, rồi thử trả lời lại bằng ý của bạn.",
+      strengths: [
+        {
+          criterion: "LR",
+          observation: "Bạn dùng cụm “look up new words” đúng ngữ cảnh.",
+          evidence: {
+            transcriptQuote:
+              "What I like most is that I can look up new words while I’m watching.",
+            startMs: 6480,
+            endMs: 10380,
+          },
+          suggestion:
+            "Giữ cách đưa ví dụ cụ thể này khi nói về thói quen học tiếng Anh.",
+        },
+      ],
+      priorities: [
+        {
+          criterion: "FC",
+          observation:
+            "Phát triển thêm ý về việc bị mạng xã hội làm mất tập trung.",
+          evidence: {
+            transcriptQuote:
+              "Sometimes I get distracted by social media, though.",
+            startMs: 10380,
+            endMs: 13820,
+          },
+          suggestion:
+            "Thử thêm ví dụ: For example, I sometimes open social media when I should be reviewing vocabulary.",
+        },
+        {
+          criterion: "GRA",
+          observation:
+            "Thử mở rộng câu nói về mục tiêu bằng một mệnh đề chỉ mục đích.",
+          evidence: {
+            transcriptQuote:
+              "I’m trying to spend less time scrolling and more time practising my speaking.",
+            startMs: 13820,
+            endMs: 18480,
+          },
+          suggestion:
+            "I’m trying to spend less time scrolling so that I can focus on improving my speaking.",
+        },
+      ],
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getAllByRole("button", { name: /^Nghe đoạn này:/ })
+    ).toHaveLength(3);
+    await waitFor(
+      () =>
+        expect(
+          canvas.getByTestId("audio-player-play-pause")
+        ).not.toBeDisabled(),
+      { timeout: 10000 }
+    );
+  },
+};
+
+export const PracticeFeedbackClipSwitching: Story = {
+  args: PracticeFeedbackAudioClips.args,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await waitFor(
+      () =>
+        expect(
+          canvas.getByTestId("audio-player-play-pause")
+        ).not.toBeDisabled(),
+      { timeout: 10000 }
+    );
+    const first = canvas.getByRole("button", {
+      name: /Nghe đoạn này: Bạn dùng/,
+    });
+    await userEvent.click(first);
+    await expect(
+      canvas.getByRole("button", { name: /Dừng đoạn này: Bạn dùng/ })
+    ).toBeVisible();
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Nghe đoạn này: Phát triển/ })
+    );
+    await expect(
+      canvas.getByRole("button", { name: /Nghe đoạn này: Bạn dùng/ })
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: /Dừng đoạn này: Phát triển/ })
+    ).toBeVisible();
+    await waitFor(
+      () =>
+        expect(
+          canvas.getByRole("button", { name: /Nghe đoạn này: Phát triển/ })
+        ).toBeVisible(),
+      { timeout: 6000 }
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: /Nghe đoạn này: Bạn dùng/ })
+    );
+    await userEvent.click(
+      await canvas.findByRole("button", { name: /Dừng đoạn này: Bạn dùng/ })
+    );
+    await expect(
+      canvas.getByRole("button", { name: /Nghe đoạn này: Bạn dùng/ })
+    ).toBeVisible();
+  },
+};
+
+export const PracticeFeedbackWithoutOriginalAudio: Story = {
+  args: { ...PracticeFeedbackAudioClips.args, recordedAudio: null },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.queryByRole("button", { name: /^Nghe đoạn này:/ })
+    ).not.toBeInTheDocument();
   },
 };

@@ -39,6 +39,7 @@ import {
 import {
   IeltsSpeakingEvaluationResult,
   PracticeFeedback,
+  PracticeFeedbackPoint,
   SpeakingEvaluationTrace,
 } from "@/lib/gemini/speaking-schema";
 import {
@@ -95,39 +96,55 @@ export function LiveSpeakingResultView({
   const [isPlayingClip, setIsPlayingClip] = useState(false);
 
   const playerRef = useRef<AudioReviewPlayerRef | null>(null);
+  const clipRequestRef = useRef(0);
   const clipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Effective full conversation replay audio (with fallback to candidate recordedAudio)
-  const effectivePlaybackAudio = conversationReplay || recordedAudio;
+  // PracticeFeedback timestamps refer to OriginalAudio, not ConversationReplay.
+  const effectivePlaybackAudio = practiceFeedback
+    ? recordedAudio
+    : conversationReplay || recordedAudio;
   const isConversationReplay = Boolean(
-    conversationReplay && conversationReplay.url
+    !practiceFeedback && conversationReplay && conversationReplay.url
   );
 
   // Play clip helper
-  const handlePlayClip = useCallback((startMs: number, endMs: number) => {
-    const player = playerRef.current;
-    if (!player) return;
+  const handlePlayClip = useCallback(
+    (startMs: number, endMs: number) => {
+      const player = playerRef.current;
+      if (!player) return;
 
-    if (clipTimeoutRef.current) {
-      clearTimeout(clipTimeoutRef.current);
-      clipTimeoutRef.current = null;
-    }
+      if (clipTimeoutRef.current) {
+        clearTimeout(clipTimeoutRef.current);
+        clipTimeoutRef.current = null;
+      }
 
-    const durationMs = Math.max(800, endMs - startMs);
-    const startSec = Math.max(0, startMs / 1000);
-    player.seekTo(startSec);
-    player.play().catch(() => {});
-    setActiveClip({ startMs, endMs });
-    setIsPlayingClip(true);
+      const durationMs = Math.max(800, endMs - startMs);
+      const startSec = Math.max(0, startMs / 1000);
+      const request = ++clipRequestRef.current;
+      player.seekTo(startSec);
+      player
+        .play(startSec, practiceFeedback ? endMs / 1000 : undefined)
+        .catch(() => {
+          if (clipRequestRef.current !== request) return;
+          setIsPlayingClip(false);
+          setActiveClip(null);
+        });
+      setActiveClip({ startMs, endMs });
+      setIsPlayingClip(true);
 
-    clipTimeoutRef.current = setTimeout(() => {
-      player.pause();
-      setIsPlayingClip(false);
-      setActiveClip(null);
-    }, durationMs);
-  }, []);
+      if (practiceFeedback) return;
+
+      clipTimeoutRef.current = setTimeout(() => {
+        player.pause();
+        setIsPlayingClip(false);
+        setActiveClip(null);
+      }, durationMs);
+    },
+    [practiceFeedback]
+  );
 
   const handleStopClip = useCallback(() => {
+    clipRequestRef.current += 1;
     const player = playerRef.current;
     if (player) {
       player.pause();
@@ -147,6 +164,49 @@ export function LiveSpeakingResultView({
       }
     };
   }, []);
+
+  function renderEvidencePlayback(point: PracticeFeedbackPoint) {
+    const startMs = point.evidence?.startMs;
+    const endMs = point.evidence?.endMs;
+    if (
+      !recordedAudio?.url ||
+      !Number.isFinite(recordedAudio.durationSeconds) ||
+      startMs === undefined ||
+      endMs === undefined ||
+      !Number.isFinite(startMs) ||
+      !Number.isFinite(endMs) ||
+      startMs < 0 ||
+      endMs <= startMs ||
+      endMs > recordedAudio.durationSeconds * 1000
+    ) {
+      return null;
+    }
+    const active =
+      isPlayingClip &&
+      activeClip?.startMs === startMs &&
+      activeClip?.endMs === endMs;
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        aria-label={`${active ? "Dừng đoạn này" : "Nghe đoạn này"}: ${point.observation}`}
+        onClick={() =>
+          active ? handleStopClip() : handlePlayClip(startMs, endMs)
+        }
+      >
+        {active ? (
+          <Pause data-icon="inline-start" />
+        ) : (
+          <Play data-icon="inline-start" />
+        )}
+        {active ? "Dừng đoạn này" : "Nghe đoạn này"}
+        <span>
+          {formatTimestamp(startMs)}–{formatTimestamp(endMs)}
+        </span>
+      </Button>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -391,6 +451,7 @@ export function LiveSpeakingResultView({
                         &ldquo;{pt.evidence.transcriptQuote}&rdquo;
                       </p>
                     )}
+                    {renderEvidencePlayback(pt)}
                     {pt.suggestion && (
                       <p className="text-[11px] text-primary font-medium">
                         💡 {pt.suggestion}
@@ -432,6 +493,7 @@ export function LiveSpeakingResultView({
                       &ldquo;{pt.evidence.transcriptQuote}&rdquo;
                     </p>
                   )}
+                  {renderEvidencePlayback(pt)}
                   {pt.suggestion && (
                     <p className="text-[11px] text-foreground font-medium">
                       🎯 {pt.suggestion}
@@ -453,7 +515,7 @@ export function LiveSpeakingResultView({
                   <span>
                     {isConversationReplay
                       ? "Bản ghi âm Hội thoại Toàn bộ (Thí sinh & Giám khảo)"
-                      : "Bản ghi âm & Bản chép lời"}
+                      : "Bản ghi âm của bạn & Bản chép lời"}
                   </span>
                 </CardTitle>
                 {isConversationReplay && (
@@ -470,7 +532,11 @@ export function LiveSpeakingResultView({
               <AudioReviewPlayer
                 ref={playerRef}
                 src={effectivePlaybackAudio.url}
-                ariaLabel="Bản ghi âm hoàn chỉnh"
+                ariaLabel="Bản ghi âm của bạn"
+                onPause={() => {
+                  setIsPlayingClip(false);
+                  setActiveClip(null);
+                }}
               />
               <div className="space-y-1.5 pt-2">
                 <span className="font-semibold text-xs text-muted-foreground">

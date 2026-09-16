@@ -41,10 +41,11 @@ export class SpectralGateNoiseSuppressor implements INoiseSuppressorProcessor {
   private hpA1 = 0;
   private hpA2 = 0;
 
-  // Smoothing factors
+  // Smoothing factors (recomputed lazily when frame size changes)
   private attackCoeff: number = 0.8;
   private releaseCoeff: number = 0.05;
   private noiseFloorLearnRate: number = 0.005;
+  private lastFrameSize: number = 0;
 
   constructor(options: NoiseSuppressorOptions = {}) {
     this.options = {
@@ -71,18 +72,7 @@ export class SpectralGateNoiseSuppressor implements INoiseSuppressorProcessor {
   }
 
   private initCoefficients(): void {
-    const { sampleRate, attackMs, releaseMs, highPassCutoffHz } = this.options;
-
-    // Approximate frame duration (assuming ~128-512 samples per call)
-    const frameDurationMs = (256 / sampleRate) * 1000;
-    this.attackCoeff = Math.min(
-      1,
-      Math.max(0.1, frameDurationMs / Math.max(1, attackMs))
-    );
-    this.releaseCoeff = Math.min(
-      1,
-      Math.max(0.01, frameDurationMs / Math.max(10, releaseMs))
-    );
+    const { sampleRate, highPassCutoffHz } = this.options;
 
     // Calculate logarithmically spaced frequency bands (Bark / ERB scale approximation)
     const minFreq = 80;
@@ -107,6 +97,25 @@ export class SpectralGateNoiseSuppressor implements INoiseSuppressorProcessor {
     this.hpB2 = norm;
     this.hpA1 = 2 * (cSq - 1) * norm;
     this.hpA2 = (1 - sqrt2 * c + cSq) * norm;
+  }
+
+  /**
+   * (Re)compute attack/release coefficients from the actual buffer frame size.
+   * Called lazily on the first process() call and whenever frame size changes.
+   * This replaces the former hardcoded 256-sample assumption.
+   */
+  private _recomputeGainCoefficients(frameSize: number): void {
+    const { sampleRate, attackMs, releaseMs } = this.options;
+    const frameDurationMs = (frameSize / sampleRate) * 1000;
+    this.attackCoeff = Math.min(
+      1,
+      Math.max(0.1, frameDurationMs / Math.max(1, attackMs))
+    );
+    this.releaseCoeff = Math.min(
+      1,
+      Math.max(0.01, frameDurationMs / Math.max(10, releaseMs))
+    );
+    this.lastFrameSize = frameSize;
   }
 
   public setOptions(options: Partial<NoiseSuppressorOptions>): void {
@@ -148,6 +157,7 @@ export class SpectralGateNoiseSuppressor implements INoiseSuppressorProcessor {
     this.speechProbability = 0;
     this.isSpeechDetected = false;
     this.framesProcessedCount = 0;
+    this.lastFrameSize = 0; // trigger coefficient recompute on next process()
   }
 
   /**
@@ -162,6 +172,13 @@ export class SpectralGateNoiseSuppressor implements INoiseSuppressorProcessor {
     }
 
     const len = input.length;
+
+    // Lazy-recompute attack/release coefficients when frame size changes.
+    // This eliminates the former hardcoded 256-sample assumption.
+    if (len !== this.lastFrameSize) {
+      this._recomputeGainCoefficients(len);
+    }
+
     const output = new Float32Array(len);
 
     // 1. Apply High-Pass Rumble Filter
@@ -266,14 +283,19 @@ export class SpectralGateNoiseSuppressor implements INoiseSuppressorProcessor {
     this.isSpeechDetected =
       this.speechProbability > 0.35 && frameEnergyDb > this.options.thresholdDb;
 
-    // 5. Apply Multi-Band Gains with Overlap-Smoothing
+    // 5. Apply Multi-Band Gains with per-sample linear interpolation.
+    // Interpolating between adjacent band gains eliminates abrupt amplitude
+    // steps at block boundaries that caused click / pop artifacts.
     for (let b = 0; b < this.numBands; b++) {
       const start = b * subChunk;
       const end = Math.min(len, start + subChunk);
-      const gain = this.bandGains[b];
+      const gainStart = b > 0 ? this.bandGains[b - 1] : this.bandGains[b];
+      const gainEnd = this.bandGains[b];
+      const range = end - start;
 
       for (let i = start; i < end; i++) {
-        output[i] *= gain;
+        const t = range > 1 ? (i - start) / (range - 1) : 1;
+        output[i] *= gainStart + (gainEnd - gainStart) * t;
       }
     }
 

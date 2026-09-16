@@ -6,8 +6,9 @@ import {
   ArrowRightIcon,
   CheckCircle2Icon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export const metadata = {
   title: "Bảng điều khiển Học viên | Chilly IELTS",
@@ -81,14 +82,17 @@ export default async function LearnerDashboardPage() {
           </div>
 
           <div className="pt-2">
-            <Button
-              render={<Link href="/learner/speaking/live" />}
-              className="w-full justify-center gap-1.5 h-9 text-xs font-medium cursor-pointer"
+            <Link
+              href="/learner/speaking/live"
+              className={cn(
+                buttonVariants({ variant: "default", size: "default" }),
+                "w-full justify-center gap-1.5 h-9 text-xs font-medium cursor-pointer"
+              )}
             >
               <SparklesIcon className="size-3.5" />
               <span>Bắt đầu buổi luyện tập Speaking</span>
               <ArrowRightIcon className="size-3.5 ml-auto" />
-            </Button>
+            </Link>
           </div>
         </div>
       </div>

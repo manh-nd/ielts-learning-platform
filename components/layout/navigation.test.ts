@@ -21,6 +21,7 @@ describe("Layout Navigation Configuration (Issue #99)", () => {
     ]);
     expect(learnerItems.map((i) => i.title)).toEqual([
       "Tổng quan Dashboard",
+      "Homework",
       "Speaking Practice",
     ]);
   });
@@ -30,12 +31,16 @@ describe("Layout Navigation Configuration (Issue #99)", () => {
     const classroomsItem = TEACHER_NAV_ITEMS[1];
     const teacherLearnerViewItem = TEACHER_NAV_ITEMS[2];
     const learnerDashboardItem = LEARNER_NAV_ITEMS[0];
-    const speakingPracticeItem = LEARNER_NAV_ITEMS[1];
+    const learnerHomeworkItem = LEARNER_NAV_ITEMS[1];
+    const speakingPracticeItem = LEARNER_NAV_ITEMS[2];
 
     it("matches exact route equality", () => {
       expect(isNavItemActive("/teacher/review", teacherReviewItem)).toBe(true);
       expect(isNavItemActive("/teacher/classrooms", classroomsItem)).toBe(true);
       expect(isNavItemActive("/learner/dashboard", learnerDashboardItem)).toBe(
+        true
+      );
+      expect(isNavItemActive("/learner/assignments", learnerHomeworkItem)).toBe(
         true
       );
       expect(
@@ -61,14 +66,14 @@ describe("Layout Navigation Configuration (Issue #99)", () => {
         isNavItemActive("/teacher/submissions/sub-101", teacherReviewItem)
       ).toBe(true);
 
-      // Learner homework assignments descend from Learner Dashboard
+      // Learner homework assignments descend from Homework
       expect(
-        isNavItemActive("/learner/assignments/asg-202", learnerDashboardItem)
+        isNavItemActive("/learner/assignments/asg-202", learnerHomeworkItem)
       ).toBe(true);
       expect(
         isNavItemActive(
           "/learner/assignments/asg-202/result",
-          learnerDashboardItem
+          learnerHomeworkItem
         )
       ).toBe(true);
     });
@@ -122,7 +127,7 @@ describe("Layout Navigation Configuration (Issue #99)", () => {
         "/learner/assignments/asg-202",
         "learner"
       );
-      expect(active2?.title).toBe("Tổng quan Dashboard");
+      expect(active2?.title).toBe("Homework");
 
       const active3 = getActiveNavItem("/learner/speaking/live", "learner");
       expect(active3?.title).toBe("Speaking Practice");

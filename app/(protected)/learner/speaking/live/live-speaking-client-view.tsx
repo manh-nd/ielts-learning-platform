@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
   Mic,
@@ -35,6 +35,25 @@ import {
 } from "@/components/speaking/live/types";
 import { cn } from "@/lib/utils";
 
+function subscribe(callback: () => void) {
+  window.addEventListener("storage", callback);
+  return () => window.removeEventListener("storage", callback);
+}
+
+function getClientSessionSnapshot(): string {
+  if (typeof window === "undefined") return "";
+  const urlParams = new URLSearchParams(window.location.search);
+  return (
+    urlParams.get("sessionId") ||
+    sessionStorage.getItem(ACTIVE_SPEAKING_SESSION_STORAGE_KEY) ||
+    ""
+  );
+}
+
+function getServerSessionSnapshot(): string {
+  return "";
+}
+
 interface LiveSpeakingClientViewProps {
   candidateName: string;
   userId?: string;
@@ -48,33 +67,22 @@ export function LiveSpeakingClientView({
 }: LiveSpeakingClientViewProps) {
   const router = useRouter();
   const [selectedTopic, setSelectedTopic] = useState<SpeakingPracticeTopic>(
-    () => getRandomPracticeTopic()
+    SPEAKING_PRACTICE_TOPICS[0]
   );
   const [hasLocalConsent, setHasLocalConsent] = useState<boolean>(false);
   const hasConsent = Boolean(initialHasConsent || hasLocalConsent);
 
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      return (
-        urlParams.get("sessionId") ||
-        sessionStorage.getItem(ACTIVE_SPEAKING_SESSION_STORAGE_KEY)
-      );
-    }
-    return null;
-  });
+  const restoredSessionId = useSyncExternalStore(
+    subscribe,
+    getClientSessionSnapshot,
+    getServerSessionSnapshot
+  );
 
-  const [isInRoom, setIsInRoom] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlSessionId = urlParams.get("sessionId");
-      const storedSessionId = sessionStorage.getItem(
-        ACTIVE_SPEAKING_SESSION_STORAGE_KEY
-      );
-      return Boolean(urlSessionId || storedSessionId);
-    }
-    return false;
-  });
+  const [manualSessionId, setManualSessionId] = useState<string | null>(null);
+  const [manualInRoom, setManualInRoom] = useState<boolean | null>(null);
+
+  const activeSessionId = manualSessionId ?? (restoredSessionId || null);
+  const isInRoom = manualInRoom ?? Boolean(restoredSessionId);
 
   const handleRandomTopic = () => {
     const random = getRandomPracticeTopic();
@@ -82,8 +90,8 @@ export function LiveSpeakingClientView({
   };
 
   const handleLeaveRoom = () => {
-    setIsInRoom(false);
-    setActiveSessionId(null);
+    setManualInRoom(false);
+    setManualSessionId(null);
     clearActiveSpeakingSession();
   };
 
@@ -106,7 +114,7 @@ export function LiveSpeakingClientView({
           hasConsent={hasConsent}
           onConsentGranted={() => setHasLocalConsent(true)}
           initialSessionId={activeSessionId}
-          onSessionChange={setActiveSessionId}
+          onSessionChange={setManualSessionId}
           onBackToDashboard={() => {
             handleLeaveRoom();
             router.push("/learner/dashboard");
@@ -147,7 +155,7 @@ export function LiveSpeakingClientView({
           <div className="flex flex-col items-start sm:items-end gap-3 shrink-0">
             <Button
               size="lg"
-              onClick={() => setIsInRoom(true)}
+              onClick={() => setManualInRoom(true)}
               className="gap-2 font-semibold shadow-xs cursor-pointer w-full sm:w-auto"
               data-testid="start-practice-btn"
             >
@@ -282,7 +290,7 @@ export function LiveSpeakingClientView({
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedTopic(topic);
-                      setIsInRoom(true);
+                      setManualInRoom(true);
                     }}
                     className="h-8 text-xs font-medium cursor-pointer gap-1.5"
                   >

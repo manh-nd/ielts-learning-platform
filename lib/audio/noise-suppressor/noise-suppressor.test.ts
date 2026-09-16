@@ -134,6 +134,48 @@ describe("SpectralGateNoiseSuppressor", () => {
     expect(metrics.framesProcessed).toBe(0);
     expect(metrics.isSpeechDetected).toBe(false);
   });
+
+  it("should self-calibrate coefficients when frame size changes", () => {
+    // Process with a 512-sample frame (ScriptProcessorNode size)
+    const big = new Float32Array(512).fill(0.1);
+    expect(() => suppressor.process(big)).not.toThrow();
+    expect(suppressor.getMetrics().framesProcessed).toBe(1);
+
+    // Switch to 128-sample frames (AudioWorklet size) — must not throw or corrupt state
+    const small = new Float32Array(128).fill(0.1);
+    expect(() => suppressor.process(small)).not.toThrow();
+    expect(suppressor.getMetrics().framesProcessed).toBe(2);
+
+    // After reset, first process should re-calibrate again
+    suppressor.reset();
+    const afterReset = new Float32Array(256).fill(0.1);
+    expect(() => suppressor.process(afterReset)).not.toThrow();
+    expect(suppressor.getMetrics().framesProcessed).toBe(1);
+  });
+
+  it("should not produce large gain jumps at band boundaries", () => {
+    const len = 512;
+    const sineInput = new Float32Array(len);
+    for (let i = 0; i < len; i++) {
+      sineInput[i] = 0.3 * Math.sin((2 * Math.PI * 440 * i) / sampleRate);
+    }
+
+    // Warm up the adaptive noise floor (5 frames of silence, then speech)
+    const silence = new Float32Array(len); // all zeros
+    for (let f = 0; f < 5; f++) suppressor.process(silence);
+
+    const output = suppressor.process(sineInput);
+
+    // Check that no adjacent-sample amplitude difference exceeds a threshold.
+    // Without interpolation, block boundaries can jump by > 0.5; with
+    // interpolation the maximum step should be much smaller.
+    const MAX_ALLOWED_STEP = 0.5;
+    let maxStep = 0;
+    for (let i = 1; i < output.length; i++) {
+      maxStep = Math.max(maxStep, Math.abs(output[i] - output[i - 1]));
+    }
+    expect(maxStep).toBeLessThan(MAX_ALLOWED_STEP);
+  });
 });
 
 describe("WasmNoiseSuppressor", () => {
@@ -159,8 +201,81 @@ describe("WasmNoiseSuppressor", () => {
 });
 
 describe("createNoiseSuppressorNode", () => {
-  it("should instantiate Web Audio graph with fallback when AudioContext is provided", () => {
-    // Mock AudioContext for test environment
+  it("should instantiate AudioWorklet-based graph when worklet is available", async () => {
+    // Mock MessagePort
+    const mockPort = {
+      postMessage: () => {},
+      onmessage: null as unknown,
+    };
+
+    // Mock AudioWorkletNode
+    const MockAudioWorkletNode = class {
+      port = mockPort;
+      connect() {}
+      disconnect() {}
+    };
+
+    // Patch globals for this test
+    const origAudioWorkletNode = (globalThis as Record<string, unknown>)
+      .AudioWorkletNode;
+    (globalThis as Record<string, unknown>).AudioWorkletNode =
+      MockAudioWorkletNode;
+
+    const mockAudioContext = {
+      sampleRate: 48000,
+      createGain: () => ({
+        connect: () => {},
+        disconnect: () => {},
+      }),
+      createMediaStreamDestination: () => ({
+        stream: {
+          getAudioTracks: () => [{}],
+        } as unknown as MediaStream,
+      }),
+      createScriptProcessor: () => ({
+        onaudioprocess: null,
+        connect: () => {},
+        disconnect: () => {},
+      }),
+      createAnalyser: () => ({
+        connect: () => {},
+        disconnect: () => {},
+        fftSize: 256,
+      }),
+      audioWorklet: {
+        addModule: async () => {},
+      },
+    } as unknown as AudioContext;
+
+    const graph = await createNoiseSuppressorNode(mockAudioContext, {
+      enabled: true,
+    });
+
+    expect(graph.inputNode).toBeDefined();
+    expect(graph.outputNode).toBeDefined();
+    expect(graph.processor).toBeDefined();
+    expect(graph.cleanStream).toBeDefined();
+
+    graph.setEnabled(false);
+    expect(graph.processor.isEnabled()).toBe(false);
+
+    expect(() => graph.disconnect()).not.toThrow();
+
+    // Restore
+    if (origAudioWorkletNode !== undefined) {
+      (globalThis as Record<string, unknown>).AudioWorkletNode =
+        origAudioWorkletNode;
+    } else {
+      delete (globalThis as Record<string, unknown>).AudioWorkletNode;
+    }
+  });
+
+  it("should fall back to ScriptProcessorNode when AudioWorklet is unavailable", async () => {
+    // Patch globals: remove AudioWorkletNode to force fallback
+    const origAudioWorkletNode = (globalThis as Record<string, unknown>)
+      .AudioWorkletNode;
+    delete (globalThis as Record<string, unknown>).AudioWorkletNode;
+
     const mockAudioContext = {
       sampleRate: 16000,
       createGain: () => ({
@@ -171,13 +286,14 @@ describe("createNoiseSuppressorNode", () => {
         stream: {} as MediaStream,
       }),
       createScriptProcessor: () => ({
-        onaudioprocess: null,
+        onaudioprocess: null as unknown,
         connect: () => {},
         disconnect: () => {},
       }),
+      // No audioWorklet property → triggers fallback
     } as unknown as AudioContext;
 
-    const graph = createNoiseSuppressorNode(mockAudioContext, {
+    const graph = await createNoiseSuppressorNode(mockAudioContext, {
       enabled: true,
     });
 
@@ -189,5 +305,11 @@ describe("createNoiseSuppressorNode", () => {
     expect(graph.processor.isEnabled()).toBe(false);
 
     expect(() => graph.disconnect()).not.toThrow();
+
+    // Restore
+    if (origAudioWorkletNode !== undefined) {
+      (globalThis as Record<string, unknown>).AudioWorkletNode =
+        origAudioWorkletNode;
+    }
   });
 });

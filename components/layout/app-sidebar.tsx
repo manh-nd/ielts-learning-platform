@@ -16,6 +16,7 @@ import {
   SidebarMenuButton,
   SidebarFooter,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { UserNavMenu } from "@/components/auth/user-nav-menu";
 import type { UserProfile } from "@/components/auth/types";
@@ -37,6 +38,7 @@ export function AppSidebar({
   ...props
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const { isMobile, setOpenMobile } = useSidebar();
   const isTeacher = user.role === "teacher";
   const navItems = getNavItemsForRole(user.role);
 
@@ -50,6 +52,11 @@ export function AppSidebar({
         <Link
           href={isTeacher ? "/teacher/review" : "/learner/dashboard"}
           aria-label="Chilly IELTS"
+          onClick={() => {
+            if (isMobile) {
+              setOpenMobile(false);
+            }
+          }}
           className="flex items-center gap-2.5 text-sm font-semibold tracking-tight transition-opacity hover:opacity-90 overflow-hidden group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
         >
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-xs">
@@ -77,7 +84,16 @@ export function AppSidebar({
                       isActive={isActive}
                       tooltip={item.title}
                       aria-label={item.title}
-                      render={<Link href={item.href} />}
+                      render={
+                        <Link
+                          href={item.href}
+                          onClick={() => {
+                            if (isMobile) {
+                              setOpenMobile(false);
+                            }
+                          }}
+                        />
+                      }
                       className={cn(
                         "transition-colors",
                         isActive &&

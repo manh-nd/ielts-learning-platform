@@ -1,5 +1,11 @@
 import type { ComponentType } from "react";
-import { PenToolIcon, SchoolIcon, SparklesIcon, MicIcon } from "lucide-react";
+import {
+  PenToolIcon,
+  SchoolIcon,
+  SparklesIcon,
+  MicIcon,
+  BookOpenIcon,
+} from "lucide-react";
 import type { UserRole } from "@/components/auth/types";
 
 export interface NavItem {
@@ -35,7 +41,11 @@ export const LEARNER_NAV_ITEMS: NavItem[] = [
     title: "Tổng quan Dashboard",
     href: "/learner/dashboard",
     icon: SparklesIcon,
-    matchPrefixes: ["/learner/assignments"],
+  },
+  {
+    title: "Homework",
+    href: "/learner/assignments",
+    icon: BookOpenIcon,
   },
   {
     title: "Speaking Practice",

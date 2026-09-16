@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from "bun:test";
-import { getLearnerAssignmentDetails } from "./get-learner-homework";
+import {
+  getLearnerAssignmentDetails,
+  listLearnerAssignments,
+} from "./get-learner-homework";
 import {
   createAssignment,
   clearDevHomeworkCache,
@@ -120,6 +123,34 @@ describe("Learner Homework query", () => {
       expect(details.submission).toBeNull();
       expect(details.currentAttempt).toBeNull();
       expect(details.allAttempts).toHaveLength(0);
+    });
+  });
+
+  describe("listLearnerAssignments", () => {
+    it("should return empty array if learner is not enrolled in any classrooms", async () => {
+      const items = await listLearnerAssignments("non_enrolled_learner");
+      expect(items).toEqual([]);
+    });
+
+    it("should list published assignments for enrolled classrooms", async () => {
+      const { assignment, classroom } = await setupTestAssignment();
+
+      // Create a draft assignment in the same classroom — must be excluded
+      await createAssignment({
+        classroomId: classroom.id,
+        teacherId,
+        title: "Draft Assignment",
+        prompts: [{ promptId: "p_d", text: "Question", partNumber: 1 }],
+        submissionDeadline: new Date(Date.now() + 3600000),
+        status: "draft",
+      });
+
+      const items = await listLearnerAssignments(learnerId);
+      expect(items).toHaveLength(1);
+      expect(items[0].assignment.id).toBe(assignment.id);
+      expect(items[0].classroom.name).toBe("IELTS Speaking Room");
+      expect(items[0].submissionStatus).toBe("not_submitted");
+      expect(items[0].publishedScore).toBeNull();
     });
   });
 });
