@@ -11,7 +11,7 @@
       "source": "better-auth/skills",
       "sourceType": "github",
       "skillPath": "better-auth/best-practices/SKILL.md",
-      "computedHash": "61ba0ef64ed2e7c424401cc848ca33dd6d790a720c44727717dc0c5cba5fc122"
+      "computedHash": "0c30be0e118c2b7a0c4c57bd9e63bf110c7e420a79ec6ce7997153f3b1e066ee"
     },
     "better-auth-security-best-practices": {
       "source": "better-auth/skills",
@@ -35,7 +35,7 @@
       "source": "better-auth/skills",
       "sourceType": "github",
       "skillPath": "better-auth/create-auth/SKILL.md",
-      "computedHash": "4e261efac2ae9a2321c4495c846ef97cf239818fc8bd2ab7e92ed1f9d25470f7"
+      "computedHash": "9a9b498bc144367b8e237233f89def63fb2bd69e8cafe173eaa58fe3a863cdc4"
     },
     "diagnosing-bugs": {
       "source": "mattpocock/skills",
@@ -53,19 +53,13 @@
       "source": "better-auth/skills",
       "sourceType": "github",
       "skillPath": "better-auth/emailAndPassword/SKILL.md",
-      "computedHash": "747d7f73bd9e2ec5317b8ef88dc70f97df716d00e3d02de4051feebaa48b062d"
+      "computedHash": "863886759f729081e265941f4f72c503835d55a1f34f6d63cebe6571159fff4a"
     },
     "gemini-api-dev": {
       "source": "google-gemini/gemini-skills",
       "sourceType": "github",
       "skillPath": "skills/gemini-api-dev/SKILL.md",
       "computedHash": "820ebd2b43063fcaf77a564f15cfe381dc03e97b99a4f453131f398c7620c809"
-    },
-    "gemini-interactions-api": {
-      "source": "google-gemini/gemini-skills",
-      "sourceType": "github",
-      "skillPath": "skills/gemini-interactions-api/SKILL.md",
-      "computedHash": "3b1bccd4f131f749a3d0d19b0e734941fdaf799b7bb0689086ce10e1c3ebf380"
     },
     "gemini-live-api-dev": {
       "source": "google-gemini/gemini-skills",
@@ -113,7 +107,7 @@
       "source": "better-auth/skills",
       "sourceType": "github",
       "skillPath": "better-auth/organization/SKILL.md",
-      "computedHash": "27627eb3a13bd44eff3a5d890f96e7db052b623db90e01684f759abe3e7fe56b"
+      "computedHash": "8c85e683dabef4532f1e8b67bbed5c453d39e0e3d5aeedd69d16b568f6e6d44f"
     },
     "prototype": {
       "source": "mattpocock/skills",
@@ -149,7 +143,7 @@
       "source": "shadcn/ui",
       "sourceType": "github",
       "skillPath": "skills/shadcn/SKILL.md",
-      "computedHash": "c1a68ee06a668aced9ab2b5fbdea5f989864123794eb2e056b339a072dbb7f10"
+      "computedHash": "f615de216e085a84e31593ad0fa9062232adc40cd87b7c7ab2b8e49abf6500be"
     },
     "tdd": {
       "source": "mattpocock/skills",
@@ -167,7 +161,7 @@
       "source": "ueberdosis/tiptap",
       "sourceType": "github",
       "skillPath": "skills/tiptap/SKILL.md",
-      "computedHash": "109f4d9514b3c91fc3b0ffe1607b360a3e718f3b723421158651ec9e853fd944"
+      "computedHash": "772943440276fedbc27339a57ad35ccd3c2bc19c1df3c7ba5237cc5d88f3604a"
     },
     "to-questionnaire": {
       "source": "mattpocock/skills",
@@ -197,7 +191,7 @@
       "source": "better-auth/skills",
       "sourceType": "github",
       "skillPath": "better-auth/twoFactor/SKILL.md",
-      "computedHash": "a6f720042e5a090909e0d519a6a50a7eb8179553cd5315f0bbad852a6d20dac8"
+      "computedHash": "5bc3051aef5060db013f0b3cbe812c40dbae5c22d6ba3ddde4b941158362a197"
     },
     "wait-what": {
       "source": "mattpocock/skills",
