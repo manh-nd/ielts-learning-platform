@@ -1052,7 +1052,7 @@ export function useGeminiLive(
         systemInstruction ||
         buildExaminerSystemInstruction(candidateName, topic, targetPart);
 
-      const targetModel = tokenData.model || "gemini-3.1-flash-live-preview";
+      const targetModel = tokenData.model || "gemini-3.8-live";
       const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=${ephemeralKey}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;

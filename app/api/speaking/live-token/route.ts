@@ -59,7 +59,7 @@ export async function POST(req?: NextRequest) {
 
         return {
           token: tokenString,
-          model: "gemini-3.1-flash-live-preview",
+          model: "gemini-3.8-live",
           expiresAt: expireTime,
         };
       }

@@ -72,7 +72,7 @@ describe("Live Token API (Ephemeral Token)", () => {
     const originalExecute = geminiRotator.executeWithRotation;
     geminiRotator.executeWithRotation = mock(async () => ({
       token: "mock-ephemeral-token",
-      model: "gemini-3.1-flash-live-preview",
+      model: "gemini-3.8-live",
       expiresAt: "2026-08-31T20:00:00.000Z",
     })) as unknown as typeof geminiRotator.executeWithRotation;
 
