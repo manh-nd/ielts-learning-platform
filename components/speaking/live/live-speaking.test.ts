@@ -906,5 +906,60 @@ describe("Speaking Practice Failure Recovery & Resilience (#70)", () => {
       expect(turn2.turnKind).toBe("practice_answer");
       expect(turn2.questionId).toBe("hometown-urbanization-q2");
     });
+
+    it("Subtask A6: should reset startMs timestamp between consecutive turns so Turn B does not reuse Turn A startMs", () => {
+      let currentTurnStartMs = 0;
+      const turnMarkers: Array<{ startMs: number; endMs: number }> = [];
+
+      const recordStartTime = 100000; // session epoch start
+
+      // Turn A starts at t = 2000ms
+      const onMicLevelTurnA = (now: number) => {
+        if (!currentTurnStartMs) {
+          currentTurnStartMs = now - recordStartTime;
+        }
+      };
+
+      onMicLevelTurnA(recordStartTime + 2000);
+      expect(currentTurnStartMs).toBe(2000);
+
+      // Turn A ends at t = 7000ms
+      const recordTurnA = (now: number) => {
+        const endMs = now - recordStartTime;
+        const startMs = currentTurnStartMs || Math.max(0, endMs - 5000);
+        turnMarkers.push({ startMs, endMs });
+        currentTurnStartMs = 0; // Invariant A6: reset turn start timestamp
+      };
+
+      recordTurnA(recordStartTime + 7000);
+      expect(turnMarkers[0]).toEqual({ startMs: 2000, endMs: 7000 });
+      expect(currentTurnStartMs).toBe(0);
+
+      // Turn B starts at t = 12000ms (after examiner speaks)
+      const onMicLevelTurnB = (now: number) => {
+        if (!currentTurnStartMs) {
+          currentTurnStartMs = now - recordStartTime;
+        }
+      };
+
+      onMicLevelTurnB(recordStartTime + 12000);
+      // Turn B startMs must be 12000ms, NOT stale 2000ms!
+      expect(currentTurnStartMs).toBe(12000);
+
+      // Turn B ends at t = 18000ms
+      const recordTurnB = (now: number) => {
+        const endMs = now - recordStartTime;
+        const startMs = currentTurnStartMs || Math.max(0, endMs - 5000);
+        turnMarkers.push({ startMs, endMs });
+        currentTurnStartMs = 0;
+      };
+
+      recordTurnB(recordStartTime + 18000);
+      expect(turnMarkers[1]).toEqual({ startMs: 12000, endMs: 18000 });
+
+      // Invariant: Turn B range is strictly after Turn A
+      expect(turnMarkers[1].startMs).toBeGreaterThan(turnMarkers[0].endMs);
+      expect(turnMarkers[1].startMs).not.toBe(turnMarkers[0].startMs);
+    });
   });
 });

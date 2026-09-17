@@ -603,6 +603,7 @@ export function useGeminiLive(
       turnMarkersRef.current.push(marker);
       setTurnMarkers([...turnMarkersRef.current]);
       currentTurnIndexRef.current++;
+      currentTurnStartMsRef.current = 0;
     },
     [topic]
   );
