@@ -232,6 +232,7 @@ export function useGeminiLive(
   config: LiveSpeakingConfig = {}
 ): UseGeminiLiveReturn {
   const {
+    examinerPort,
     candidateName,
     topic,
     targetPart = "full",
@@ -246,6 +247,12 @@ export function useGeminiLive(
     onTranscriptUpdate,
     onExamCompleted,
   } = config;
+
+  const examinerPortRef = useRef(examinerPort);
+  useEffect(() => {
+    examinerPortRef.current = examinerPort;
+  }, [examinerPort]);
+  const portUnsubscribeRef = useRef<(() => void) | null>(null);
 
   const [status, setStatus] = useState<LiveSessionStatus>("idle");
   const [speakingState, setSpeakingState] = useState<LiveSpeakingState>({
@@ -381,21 +388,24 @@ export function useGeminiLive(
       }
     },
     onMuteChange: (muted) => {
-      if (
-        muted &&
-        wsRef.current &&
-        wsRef.current.readyState === WebSocket.OPEN
-      ) {
-        try {
-          wsRef.current.send(
-            JSON.stringify({
-              realtimeInput: {
-                audioStreamEnd: true,
-              },
-            })
-          );
-        } catch {
-          // Ignored
+      if (muted) {
+        if (examinerPortRef.current) {
+          examinerPortRef.current.endCandidateAudio();
+        } else if (
+          wsRef.current &&
+          wsRef.current.readyState === WebSocket.OPEN
+        ) {
+          try {
+            wsRef.current.send(
+              JSON.stringify({
+                realtimeInput: {
+                  audioStreamEnd: true,
+                },
+              })
+            );
+          } catch {
+            // Ignored
+          }
         }
       }
     },
@@ -410,30 +420,35 @@ export function useGeminiLive(
     if (examStage === 2 && part2Phase === "prep_countdown") return;
 
     nudgeTimerRef.current = setTimeout(() => {
-      if (
-        wsRef.current &&
-        wsRef.current.readyState === WebSocket.OPEN &&
-        statusRef.current === "connected"
-      ) {
-        try {
-          const nudgePayload = {
-            clientContent: {
-              turns: [
-                {
-                  role: "user",
-                  parts: [
-                    {
-                      text: `[System: The candidate has been silent for more than 9 seconds. As an encouraging senior IELTS examiner, gently prompt them: "Would you like me to repeat the question?" or provide a natural short hint to keep the conversation flowing.]`,
-                    },
-                  ],
-                },
-              ],
-              turnComplete: true,
-            },
-          };
-          wsRef.current.send(JSON.stringify(nudgePayload));
-        } catch {
-          // Ignored
+      if (statusRef.current === "connected") {
+        if (examinerPortRef.current) {
+          examinerPortRef.current.sendText({
+            text: `[System: The candidate has been silent for more than 9 seconds. As an encouraging senior IELTS examiner, gently prompt them: "Would you like me to repeat the question?" or provide a natural short hint to keep the conversation flowing.]`,
+          });
+        } else if (
+          wsRef.current &&
+          wsRef.current.readyState === WebSocket.OPEN
+        ) {
+          try {
+            const nudgePayload = {
+              clientContent: {
+                turns: [
+                  {
+                    role: "user",
+                    parts: [
+                      {
+                        text: `[System: The candidate has been silent for more than 9 seconds. As an encouraging senior IELTS examiner, gently prompt them: "Would you like me to repeat the question?" or provide a natural short hint to keep the conversation flowing.]`,
+                      },
+                    ],
+                  },
+                ],
+                turnComplete: true,
+              },
+            };
+            wsRef.current.send(JSON.stringify(nudgePayload));
+          } catch {
+            // Ignored
+          }
         }
       }
     }, 9000);
@@ -480,6 +495,15 @@ export function useGeminiLive(
     if (audioControllerRef.current) {
       audioControllerRef.current.close();
       audioControllerRef.current = null;
+    }
+
+    if (portUnsubscribeRef.current) {
+      portUnsubscribeRef.current();
+      portUnsubscribeRef.current = null;
+    }
+
+    if (examinerPortRef.current) {
+      examinerPortRef.current.disconnect().catch(() => {});
     }
 
     if (wsRef.current) {
@@ -676,7 +700,11 @@ export function useGeminiLive(
     setPrepTimeRemaining(0);
     setPart2Phase("speaking");
 
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (examinerPortRef.current) {
+      examinerPortRef.current.sendText({
+        text: "[System: The candidate's 1-minute preparation time is over. As the IELTS Examiner, please say: 'Your preparation time is up. Please begin your 2-minute talk now.' and listen carefully.]",
+      });
+    } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       try {
         const startSpeakingPayload = {
           clientContent: {
@@ -731,25 +759,34 @@ export function useGeminiLive(
           });
         }
 
-        if (
-          wsRef.current &&
-          wsRef.current.readyState === WebSocket.OPEN &&
-          call.id
-        ) {
-          try {
-            const toolResponsePayload = buildToolResponse(
-              call.id,
-              "display_cue_card",
-              {
-                status: "cue_card_displayed_prep_started",
-                prepTimeSeconds: 60,
-                message:
-                  "Cue card is displayed on screen. Candidate is preparing notes.",
-              }
-            );
-            wsRef.current.send(JSON.stringify(toolResponsePayload));
-          } catch (err) {
-            console.error("[useGeminiLive] Error sending toolResponse:", err);
+        if (call.id) {
+          if (examinerPortRef.current) {
+            examinerPortRef.current.respondToExaminerAction({
+              requestId: call.id,
+              status: "cue_card_displayed_prep_started",
+              message:
+                "Cue card is displayed on screen. Candidate is preparing notes.",
+              metadata: { prepTimeSeconds: 60 },
+            });
+          } else if (
+            wsRef.current &&
+            wsRef.current.readyState === WebSocket.OPEN
+          ) {
+            try {
+              const toolResponsePayload = buildToolResponse(
+                call.id,
+                "display_cue_card",
+                {
+                  status: "cue_card_displayed_prep_started",
+                  prepTimeSeconds: 60,
+                  message:
+                    "Cue card is displayed on screen. Candidate is preparing notes.",
+                }
+              );
+              wsRef.current.send(JSON.stringify(toolResponsePayload));
+            } catch (err) {
+              console.error("[useGeminiLive] Error sending toolResponse:", err);
+            }
           }
         }
 
@@ -777,45 +814,66 @@ export function useGeminiLive(
         setPart2Phase("idle");
         currentTurnIndexRef.current = 0;
 
-        if (
-          wsRef.current &&
-          wsRef.current.readyState === WebSocket.OPEN &&
-          call.id
-        ) {
-          try {
-            const toolResponsePayload = buildToolResponse(
-              call.id,
-              "start_part_3",
-              {
-                status: "part_3_active",
-                message:
-                  "UI in Part 3 mode. Continue with discussion questions.",
-              }
-            );
-            wsRef.current.send(JSON.stringify(toolResponsePayload));
-          } catch (err) {
-            console.error(
-              "[useGeminiLive] Error responding to start_part_3:",
-              err
-            );
+        if (call.id) {
+          if (examinerPortRef.current) {
+            examinerPortRef.current.respondToExaminerAction({
+              requestId: call.id,
+              status: "part_3_active",
+              message: "UI in Part 3 mode. Continue with discussion questions.",
+            });
+          } else if (
+            wsRef.current &&
+            wsRef.current.readyState === WebSocket.OPEN
+          ) {
+            try {
+              const toolResponsePayload = buildToolResponse(
+                call.id,
+                "start_part_3",
+                {
+                  status: "part_3_active",
+                  message:
+                    "UI in Part 3 mode. Continue with discussion questions.",
+                }
+              );
+              wsRef.current.send(JSON.stringify(toolResponsePayload));
+            } catch (err) {
+              console.error(
+                "[useGeminiLive] Error responding to start_part_3:",
+                err
+              );
+            }
           }
         }
       } else if (call.name === "end_exam") {
         updateStage("completed");
         setPart2Phase("idle");
-        if (
-          wsRef.current &&
-          wsRef.current.readyState === WebSocket.OPEN &&
-          call.id
-        ) {
-          try {
-            const toolResponsePayload = buildToolResponse(call.id, "end_exam", {
+        if (call.id) {
+          if (examinerPortRef.current) {
+            examinerPortRef.current.respondToExaminerAction({
+              requestId: call.id,
               status: "exam_completed",
               message: "Session concluded. Ready for evaluation.",
             });
-            wsRef.current.send(JSON.stringify(toolResponsePayload));
-          } catch (err) {
-            console.error("[useGeminiLive] Error responding to end_exam:", err);
+          } else if (
+            wsRef.current &&
+            wsRef.current.readyState === WebSocket.OPEN
+          ) {
+            try {
+              const toolResponsePayload = buildToolResponse(
+                call.id,
+                "end_exam",
+                {
+                  status: "exam_completed",
+                  message: "Session concluded. Ready for evaluation.",
+                }
+              );
+              wsRef.current.send(JSON.stringify(toolResponsePayload));
+            } catch (err) {
+              console.error(
+                "[useGeminiLive] Error responding to end_exam:",
+                err
+              );
+            }
           }
         }
 
@@ -971,6 +1029,163 @@ export function useGeminiLive(
 
     if (mockMode) {
       runMockSimulation();
+      return;
+    }
+
+    if (examinerPortRef.current) {
+      const currentPort = examinerPortRef.current;
+      updateStatus("requesting_token");
+      updateStatus("connecting");
+      recordStartTimeRef.current = Date.now();
+
+      controller.onSpeakerLevel((level) => {
+        if (level > 0.01) {
+          setVoiceActivity("ai_speaking");
+          setSpeakingState({ kind: "model-speaking" });
+        } else {
+          setVoiceActivity((curr) => (curr === "ai_speaking" ? "idle" : curr));
+        }
+      });
+
+      try {
+        await startAudioRecording(
+          controller,
+          (base64Pcm, rms) => {
+            if (statusRef.current === "connected" && !isMutedRef.current) {
+              const elapsedMs = Date.now() - recordStartTimeRef.current;
+
+              if (elapsedMs < 3000) {
+                return;
+              }
+
+              if (controller.isPlaying() && rms < 0.03) {
+                return;
+              }
+
+              currentPort.sendCandidateAudio({
+                audioBase64: base64Pcm,
+                mimeType: "audio/pcm;rate=16000",
+              });
+            }
+          },
+          (rawInt16) => {
+            conversationReplayRecorderRef.current?.addLearnerChunk(rawInt16);
+          }
+        );
+        coordinator.anchorMicCapture();
+      } catch (micErr: unknown) {
+        console.error("[useGeminiLive] Failed to start microphone:", micErr);
+        const isDenied = isPermissionDeniedError(micErr);
+
+        const err = new Error(
+          isDenied
+            ? "Quyền microphone bị từ chối. Vui lòng cấp quyền để tiếp tục."
+            : "Không thể truy cập Microphone. Vui lòng kiểm tra thiết bị."
+        );
+        Object.assign(err, { isMicDenied: isDenied });
+        setError(err);
+        updateStatus(isDenied ? "permission_denied" : "error");
+        onError?.(err);
+        cleanupAudio();
+        return;
+      }
+
+      if (portUnsubscribeRef.current) {
+        portUnsubscribeRef.current();
+      }
+
+      portUnsubscribeRef.current = currentPort.subscribe((evt) => {
+        if (evt.type === "connected") {
+          updateStatus("connected");
+          playCallStartSound();
+          requestWakeLock().catch(() => {});
+          currentPort.sendText({
+            text: "Hello. Please initiate the IELTS Speaking examination according to your instructions.",
+          });
+        } else if (evt.type === "disconnected") {
+          updateStatus("idle");
+        } else if (evt.type === "connection_failed") {
+          const err = new Error(evt.reason || "Connection failed");
+          setError(err);
+          updateStatus("error");
+          onError?.(err);
+          cleanupAudio();
+        } else if (evt.type === "examiner_audio_chunk") {
+          clearNudgeTimer();
+          audioControllerRef.current?.playAudioChunk(
+            evt.audioBase64,
+            (info) => {
+              coordinatorRef.current?.acceptExaminerPcm(
+                info.pcm,
+                info.scheduledStartTimeMs,
+                info.durationMs
+              );
+            }
+          );
+        } else if (evt.type === "examiner_transcript_updated") {
+          const clean = sanitizeTranscriptText(evt.text);
+          if (clean) {
+            currentTurnTextRef.current.examiner += clean;
+            updateTranscriptStream();
+          }
+        } else if (evt.type === "candidate_transcript_updated") {
+          const clean = sanitizeTranscriptText(evt.text);
+          if (clean) {
+            currentTurnTextRef.current.user += clean;
+            updateTranscriptStream();
+          }
+        } else if (evt.type === "candidate_interrupted_examiner") {
+          coordinatorRef.current?.handleInterruption();
+          commitCurrentTurn();
+          clearNudgeTimer();
+          setSpeakingState({ kind: "user-speaking" });
+        } else if (evt.type === "live_turn_completed") {
+          commitCurrentTurn();
+          startNudgeTimer();
+          setSpeakingState({ kind: "listening" });
+          coordinatorRef.current?.handleTurnComplete(onExamCompleted);
+        } else if (evt.type === "examiner_action_requested") {
+          const action = evt.action;
+          if (action.type === "display_cue_card_requested") {
+            handleToolCall({
+              id: action.requestId,
+              name: "display_cue_card",
+              args: {
+                topicTitle: action.topicTitle,
+                cueCardPrompt: action.cueCardPrompt,
+                bulletPoints: action.bulletPoints as string[],
+              },
+            });
+          } else if (action.type === "part_3_start_requested") {
+            handleToolCall({
+              id: action.requestId,
+              name: "start_part_3",
+              args: {
+                topicTitle: action.topicTitle,
+                introComment: action.introComment,
+              },
+            });
+          } else if (action.type === "practice_end_requested") {
+            handleToolCall({
+              id: action.requestId,
+              name: "end_exam",
+              args: {
+                closingRemarks: action.closingRemarks,
+              },
+            });
+          }
+        }
+      });
+
+      const effectiveInstruction =
+        systemInstruction ||
+        buildExaminerSystemInstruction(candidateName, topic, targetPart);
+
+      try {
+        await currentPort.connect({ systemInstruction: effectiveInstruction });
+      } catch (connErr) {
+        console.error("[useGeminiLive] currentPort.connect error:", connErr);
+      }
       return;
     }
 
@@ -1360,12 +1575,12 @@ export function useGeminiLive(
   }, [toggleRecorderMute]);
 
   const sendTextMessage = useCallback((text: string) => {
-    if (
-      !text.trim() ||
-      !wsRef.current ||
-      wsRef.current.readyState !== WebSocket.OPEN
-    )
+    if (!text.trim()) return;
+    if (examinerPortRef.current) {
+      examinerPortRef.current.sendText({ text });
       return;
+    }
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
     try {
       const payload = {
         clientContent: {

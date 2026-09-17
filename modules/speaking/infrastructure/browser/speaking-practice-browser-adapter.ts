@@ -2,12 +2,24 @@ import type {
   SpeakingPracticeAudioPayload,
   SpeakingPracticeWorkflowPorts,
 } from "../../application/speaking-practice-workflow";
+import type { SpeakingLiveExaminerPort } from "../../application/ports/speaking-live-examiner.port";
+import { GeminiLiveSpeakingExaminerAdapter } from "./live/gemini-live-speaking-examiner";
 import {
   dispatchPracticeAudioRecorded,
   dispatchPracticeSubmittedForFeedback,
   dispatchPracticeFeedbackReady,
   dispatchPracticeAudioError,
 } from "@/lib/telemetry/telemetry-client";
+
+export function createSpeakingLiveExaminerPort(options?: {
+  tokenEndpoint?: string;
+  voiceName?: string;
+}): SpeakingLiveExaminerPort {
+  return new GeminiLiveSpeakingExaminerAdapter({
+    tokenEndpoint: options?.tokenEndpoint,
+    voiceName: options?.voiceName,
+  });
+}
 
 export const ACTIVE_SPEAKING_SESSION_STORAGE_KEY =
   "ielts_active_speaking_session_id";

@@ -57,6 +57,7 @@ import {
 import {
   createSpeakingPracticeBrowserPorts,
   uploadAndAttachConversationReplay,
+  createSpeakingLiveExaminerPort,
 } from "@/modules/speaking/infrastructure/browser/speaking-practice-browser-adapter";
 
 /**
@@ -126,6 +127,14 @@ export function LiveSpeakingExaminerRoom({
   workflowPorts,
 }: LiveSpeakingExaminerRoomProps) {
   const finishExamActionRef = useRef<() => void>(() => {});
+  const examinerPort = useMemo(() => createSpeakingLiveExaminerPort(), []);
+
+  useEffect(() => {
+    return () => {
+      examinerPort.dispose();
+    };
+  }, [examinerPort]);
+
   const defaultWorkflowPorts = useMemo(
     () => createSpeakingPracticeBrowserPorts(),
     []
@@ -149,6 +158,7 @@ export function LiveSpeakingExaminerRoom({
     toggleMute,
     toggleNoiseSuppression,
   } = useGeminiLive({
+    examinerPort,
     candidateName,
     topic: adaptPracticeTopicToLiveEngine(topic),
     targetPart,

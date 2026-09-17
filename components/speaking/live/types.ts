@@ -96,7 +96,10 @@ export interface FinalizedLiveSessionAudio {
 
 export type GeminiLiveVoice = "Puck" | "Charon" | "Kore" | "Fenrir" | "Aoede";
 
+import type { SpeakingLiveExaminerPort } from "@/modules/speaking/application/ports/speaking-live-examiner.port";
+
 export interface LiveSpeakingConfig {
+  examinerPort?: SpeakingLiveExaminerPort;
   candidateName?: string;
   topic?: SpeakingMockTopic;
   targetPart?: "part1" | "part2" | "part3" | "full" | "part_1";
