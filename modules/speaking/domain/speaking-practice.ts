@@ -251,3 +251,75 @@ export function isPart1Question(value: unknown): value is Part1Question {
     candidate.order >= 1
   );
 }
+
+/**
+ * Pure domain representation of a Part 1 Speaking Practice Plan.
+ *
+ * Invariants:
+ * - Explicit topic identity (`topicId`).
+ * - Part 1 theme / context (`theme`).
+ * - Ordered Part1Question entities where order is defined by question metadata, not array position.
+ */
+export interface Part1PracticePlan {
+  /** Explicit topic identifier */
+  topicId: string;
+  /** Part 1 theme / topic title */
+  theme: string;
+  /** Ordered list of Part1Question domain entities */
+  questions: readonly Part1Question[];
+}
+
+/**
+ * Creates a domain Part1PracticePlan ensuring invariants are satisfied.
+ */
+export function createPart1PracticePlan(params: {
+  topicId: string;
+  theme: string;
+  questions: readonly Part1Question[];
+}): Part1PracticePlan {
+  const trimmedTopicId = params.topicId?.trim();
+  if (!trimmedTopicId) {
+    throw new Error("Part1PracticePlan requires a non-empty topicId");
+  }
+  const trimmedTheme = params.theme?.trim();
+  if (!trimmedTheme) {
+    throw new Error("Part1PracticePlan requires a non-empty theme");
+  }
+  if (!Array.isArray(params.questions) || params.questions.length === 0) {
+    throw new Error("Part1PracticePlan requires at least one question");
+  }
+  for (const q of params.questions) {
+    if (!isPart1Question(q)) {
+      throw new Error(
+        "Part1PracticePlan questions must be valid Part1Question entities"
+      );
+    }
+  }
+
+  return {
+    topicId: trimmedTopicId,
+    theme: trimmedTheme,
+    questions: Object.freeze([...params.questions]),
+  };
+}
+
+/**
+ * Type guard for Part1PracticePlan object.
+ */
+export function isPart1PracticePlan(
+  value: unknown
+): value is Part1PracticePlan {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.topicId === "string" &&
+    candidate.topicId.trim().length > 0 &&
+    typeof candidate.theme === "string" &&
+    candidate.theme.trim().length > 0 &&
+    Array.isArray(candidate.questions) &&
+    candidate.questions.length > 0 &&
+    candidate.questions.every(isPart1Question)
+  );
+}

@@ -11,6 +11,8 @@ import {
   canRetryPracticeEvaluation,
   createPart1Question,
   isPart1Question,
+  createPart1PracticePlan,
+  isPart1PracticePlan,
 } from "./speaking-practice";
 
 describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
@@ -293,6 +295,95 @@ describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
       expect(() =>
         createPart1Question({ id: "q1", text: "Valid text", order: 0 })
       ).toThrow("Part1Question order must be a positive integer");
+    });
+  });
+
+  describe("Part1PracticePlan Domain Invariants", () => {
+    it("should represent a plan with explicit topic identity and theme", () => {
+      const q1 = createPart1Question({
+        id: "hometown-loc",
+        text: "Where?",
+        order: 1,
+      });
+      const plan = createPart1PracticePlan({
+        topicId: "hometown-v1",
+        theme: "Hometown and Living",
+        questions: [q1],
+      });
+
+      expect(plan.topicId).toBe("hometown-v1");
+      expect(plan.theme).toBe("Hometown and Living");
+      expect(isPart1PracticePlan(plan)).toBe(true);
+    });
+
+    it("should contain explicit Part1Question identities", () => {
+      const q1 = createPart1Question({
+        id: "hometown-loc",
+        text: "Where is your hometown?",
+        order: 1,
+      });
+      const q2 = createPart1Question({
+        id: "hometown-like",
+        text: "What do you like about it?",
+        order: 2,
+      });
+      const plan = createPart1PracticePlan({
+        topicId: "hometown-v1",
+        theme: "Hometown",
+        questions: [q1, q2],
+      });
+
+      expect(plan.questions).toHaveLength(2);
+      expect(plan.questions[0].id).toBe("hometown-loc");
+      expect(plan.questions[1].id).toBe("hometown-like");
+    });
+
+    it("should represent question ordering independently from identity", () => {
+      const q1 = createPart1Question({
+        id: "hometown-loc",
+        text: "Where is your hometown?",
+        order: 2,
+      });
+      const q2 = createPart1Question({
+        id: "hometown-like",
+        text: "What do you like about it?",
+        order: 1,
+      });
+      const plan = createPart1PracticePlan({
+        topicId: "hometown-v1",
+        theme: "Hometown",
+        questions: [q1, q2],
+      });
+
+      // Identity is derived from question.id, order from question.order
+      expect(plan.questions[0].id).toBe("hometown-loc");
+      expect(plan.questions[0].order).toBe(2);
+      expect(plan.questions[1].id).toBe("hometown-like");
+      expect(plan.questions[1].order).toBe(1);
+    });
+
+    it("should reject plan creation with invalid inputs", () => {
+      const q1 = createPart1Question({ id: "q1", text: "Text", order: 1 });
+
+      expect(() =>
+        createPart1PracticePlan({
+          topicId: "",
+          theme: "Theme",
+          questions: [q1],
+        })
+      ).toThrow("Part1PracticePlan requires a non-empty topicId");
+
+      expect(() =>
+        createPart1PracticePlan({ topicId: "top1", theme: "", questions: [q1] })
+      ).toThrow("Part1PracticePlan requires a non-empty theme");
+
+      expect(() =>
+        createPart1PracticePlan({
+          topicId: "top1",
+          theme: "Theme",
+          questions: [],
+        })
+      ).toThrow("Part1PracticePlan requires at least one question");
     });
   });
 });
