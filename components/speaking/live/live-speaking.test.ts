@@ -1,8 +1,6 @@
 import { describe, it, expect, afterEach } from "bun:test";
 import {
   buildExaminerSystemInstruction,
-  parseLiveServerMessage,
-  buildToolResponse,
   pcmBase64ChunksToWavBlob,
   getSupportedMediaRecorderMimeType,
   isPermissionDeniedError,
@@ -137,65 +135,6 @@ describe("Live Speaking Prototype Engine", () => {
     );
     expect(instruction).toContain("Voice Anchor:");
     expect(instruction).toContain("Dr. Harrison");
-  });
-
-  it("should correctly parse setupComplete messages", () => {
-    const parsed = parseLiveServerMessage({ setupComplete: {} });
-    expect(parsed.type).toBe("setupComplete");
-  });
-
-  it("should correctly parse top-level toolCall messages from Gemini Live", () => {
-    const rawToolCall = {
-      toolCall: {
-        functionCalls: [
-          {
-            id: "call-12345",
-            name: "display_cue_card",
-            args: {
-              topicTitle: "A memorable journey",
-              cueCardPrompt: "Describe a memorable journey you have taken.",
-              bulletPoints: [
-                "Where you went",
-                "Who you went with",
-                "Why it was memorable",
-              ],
-            },
-          },
-        ],
-      },
-    };
-
-    const parsed = parseLiveServerMessage(rawToolCall);
-    expect(parsed.type).toBe("toolCall");
-    expect(parsed.toolCalls).toBeDefined();
-    expect(parsed.toolCalls?.length).toBe(1);
-    expect(parsed.toolCalls?.[0].id).toBe("call-12345");
-    expect(parsed.toolCalls?.[0].name).toBe("display_cue_card");
-    expect(parsed.toolCalls?.[0].args?.topicTitle).toBe("A memorable journey");
-  });
-
-  it("should format valid Gemini Live toolResponse payload", () => {
-    const response = buildToolResponse("call-12345", "display_cue_card", {
-      status: "cue_card_displayed",
-      prepTimeSeconds: 60,
-    });
-
-    expect(response).toEqual({
-      toolResponse: {
-        functionResponses: [
-          {
-            id: "call-12345",
-            name: "display_cue_card",
-            response: {
-              output: {
-                status: "cue_card_displayed",
-                prepTimeSeconds: 60,
-              },
-            },
-          },
-        ],
-      },
-    });
   });
 });
 

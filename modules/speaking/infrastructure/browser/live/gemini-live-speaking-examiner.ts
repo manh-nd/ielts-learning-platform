@@ -233,7 +233,9 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
     if (!this.transport.isOpen || !response.requestId) return;
 
     const correlation = this.actionCorrelationMap.get(response.requestId);
-    const functionName = correlation?.geminiFunctionName || "tool_response";
+    if (!correlation) return;
+
+    const functionName = correlation.geminiFunctionName;
 
     const toolResponsePayload = {
       toolResponse: {
@@ -254,6 +256,7 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
     };
 
     this.transport.send(toolResponsePayload);
+    this.actionCorrelationMap.delete(response.requestId);
   }
 
   subscribe(listener: (event: SpeakingLiveExaminerEvent) => void): () => void {
@@ -291,15 +294,8 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
       this.handleRawMessage(rawText);
     });
 
-    this.unsubscribeClose = this.transport.onClose((evt) => {
-      if (evt.code !== 1000) {
-        this.emitEvent({
-          type: "connection_failed",
-          reason: evt.reason || `Socket closed unexpectedly (code ${evt.code})`,
-        });
-      } else {
-        this.emitEvent({ type: "disconnected" });
-      }
+    this.unsubscribeClose = this.transport.onClose(() => {
+      this.emitEvent({ type: "disconnected" });
     });
 
     this.unsubscribeError = this.transport.onError((err) => {

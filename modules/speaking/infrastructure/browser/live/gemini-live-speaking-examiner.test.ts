@@ -220,6 +220,13 @@ describe("GeminiLiveSpeakingExaminerAdapter", () => {
       status: "cue_card_displayed_prep_started",
       message: "Countdown started",
     });
+
+    // Subsequent call for handled requestId is no-op because key was removed from correlation map
+    adapter.respondToExaminerAction({
+      requestId: "call_cue_card_99",
+      status: "cue_card_displayed_prep_started",
+    });
+    expect(transport.sentPayloads).toHaveLength(1);
   });
 
   it("sends candidate audio over transport with correct realtimeInput format", async () => {
@@ -254,26 +261,72 @@ describe("GeminiLiveSpeakingExaminerAdapter", () => {
     });
   });
 
-  it("emits disconnected on normal close (code 1000) and connection_failed on error", async () => {
+  it("emits disconnected on normal socket close", async () => {
     const tokenProvider = new FakeTokenProvider();
     const transport = new FakeTransport();
     const adapter = new GeminiLiveSpeakingExaminerAdapter({
       tokenProvider,
       transport,
     });
+    const events: SpeakingLiveExaminerEvent[] = [];
+    adapter.subscribe((evt) => events.push(evt));
 
+    await adapter.connect();
+    transport.simulateClose(1000, "Normal closure");
+    expect(events).toContainEqual({ type: "disconnected" });
+  });
+
+  it("emits disconnected on abnormal socket close without WebSocket error", async () => {
+    const tokenProvider = new FakeTokenProvider();
+    const transport = new FakeTransport();
+    const adapter = new GeminiLiveSpeakingExaminerAdapter({
+      tokenProvider,
+      transport,
+    });
+    const events: SpeakingLiveExaminerEvent[] = [];
+    adapter.subscribe((evt) => events.push(evt));
+
+    await adapter.connect();
+    transport.simulateClose(1006, "Abnormal closure");
+    expect(events).toContainEqual({ type: "disconnected" });
+  });
+
+  it("emits connection_failed on WebSocket error", async () => {
+    const tokenProvider = new FakeTokenProvider();
+    const transport = new FakeTransport();
+    const adapter = new GeminiLiveSpeakingExaminerAdapter({
+      tokenProvider,
+      transport,
+    });
+    const events: SpeakingLiveExaminerEvent[] = [];
+    adapter.subscribe((evt) => events.push(evt));
+
+    await adapter.connect();
+    transport.simulateError("WebSocket network failure");
+    expect(events).toContainEqual({
+      type: "connection_failed",
+      reason: "WebSocket network failure",
+    });
+  });
+
+  it("emits connection_failed then disconnected when connected socket encounters runtime error then closes", async () => {
+    const tokenProvider = new FakeTokenProvider();
+    const transport = new FakeTransport();
+    const adapter = new GeminiLiveSpeakingExaminerAdapter({
+      tokenProvider,
+      transport,
+    });
     const events: SpeakingLiveExaminerEvent[] = [];
     adapter.subscribe((evt) => events.push(evt));
 
     await adapter.connect();
 
-    transport.simulateClose(1000, "Normal closure");
-    expect(events).toContainEqual({ type: "disconnected" });
+    transport.simulateError("Connection reset");
+    transport.simulateClose(1006, "Connection lost");
 
-    transport.simulateError("Connection reset by peer");
-    expect(events).toContainEqual({
-      type: "connection_failed",
-      reason: "Connection reset by peer",
-    });
+    expect(events).toEqual([
+      { type: "connection_failed", reason: "Connection reset" },
+      { type: "disconnected" },
+    ]);
   });
 });
