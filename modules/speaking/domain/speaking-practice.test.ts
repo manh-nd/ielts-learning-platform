@@ -9,6 +9,9 @@ import {
   isFeedbackAvailable,
   checkPracticeEvaluationRetryEligibility,
   canRetryPracticeEvaluation,
+  createPart1Question,
+  isPart1Question,
+  createPart1QuestionsFromTopic,
 } from "./speaking-practice";
 
 describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
@@ -203,6 +206,96 @@ describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
 
       expect(eligibility.eligible).toBe(false);
       expect(eligibility.reason).toBe("PRACTICE_ABANDONED");
+    });
+  });
+
+  describe("Part1Question Domain Identity Invariants", () => {
+    it("should represent a Part 1 question with a stable explicit ID", () => {
+      const question = createPart1Question({
+        id: "tech-ai-future-q1",
+        text: "What kind of technological devices do you use most frequently every day?",
+        order: 1,
+      });
+
+      expect(question.id).toBe("tech-ai-future-q1");
+      expect(question.text).toBe(
+        "What kind of technological devices do you use most frequently every day?"
+      );
+      expect(isPart1Question(question)).toBe(true);
+    });
+
+    it("should represent question ordering explicitly", () => {
+      const q1 = createPart1Question({
+        id: "tech-q1",
+        text: "Question 1",
+        order: 1,
+      });
+      const q2 = createPart1Question({
+        id: "tech-q2",
+        text: "Question 2",
+        order: 2,
+      });
+
+      expect(q1.order).toBe(1);
+      expect(q2.order).toBe(2);
+      expect(q1.order).not.toBe(q2.order);
+    });
+
+    it("should ensure two different questions cannot be distinguished only by their array position", () => {
+      const qA = createPart1Question({
+        id: "q-alpha",
+        text: "Alpha question?",
+        order: 1,
+      });
+      const qB = createPart1Question({
+        id: "q-beta",
+        text: "Beta question?",
+        order: 2,
+      });
+
+      const list1 = [qA, qB];
+      const list2 = [qB, qA];
+
+      expect(list1[0].id).toBe("q-alpha");
+      expect(list2[0].id).toBe("q-beta");
+
+      expect(list2[1].id).toBe(qA.id);
+      expect(list2[1].order).toBe(1);
+      expect(list2[0].id).toBe(qB.id);
+      expect(list2[0].order).toBe(2);
+    });
+
+    it("should construct canonical Part1Question list from topic with deterministic stable IDs", () => {
+      const questions = createPart1QuestionsFromTopic("hometown-urbanization", [
+        "Where is your hometown?",
+        "What do you like about it?",
+      ]);
+
+      expect(questions).toHaveLength(2);
+      expect(questions[0]).toEqual({
+        id: "hometown-urbanization-q1",
+        text: "Where is your hometown?",
+        order: 1,
+      });
+      expect(questions[1]).toEqual({
+        id: "hometown-urbanization-q2",
+        text: "What do you like about it?",
+        order: 2,
+      });
+    });
+
+    it("should reject invalid question creation inputs", () => {
+      expect(() =>
+        createPart1Question({ id: "", text: "Valid text", order: 1 })
+      ).toThrow("Part1Question requires a non-empty stable id");
+
+      expect(() =>
+        createPart1Question({ id: "q1", text: "   ", order: 1 })
+      ).toThrow("Part1Question requires non-empty question text");
+
+      expect(() =>
+        createPart1Question({ id: "q1", text: "Valid text", order: 0 })
+      ).toThrow("Part1Question order must be a positive integer");
     });
   });
 });

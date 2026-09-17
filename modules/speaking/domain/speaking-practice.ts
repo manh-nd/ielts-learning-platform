@@ -185,3 +185,91 @@ export function canAttachConversationReplay(
   }
   return { eligible: false, reason: "PRACTICE_NOT_ENDED" };
 }
+
+/**
+ * Canonical Part 1 Speaking Practice question entity with explicit, stable identity.
+ *
+ * Invariant:
+ * - Every Part 1 practice question has a stable questionId (`id`).
+ * - Identity does NOT depend on array position, current turn index, transcript order,
+ *   React state, or Gemini state.
+ */
+export interface Part1Question {
+  /** Explicit, stable question identifier */
+  id: string;
+  /** The question prompt text */
+  text: string;
+  /** Explicit 1-based order within the topic / practice set */
+  order: number;
+}
+
+/**
+ * Creates a domain Part1Question ensuring domain invariants are satisfied.
+ */
+export function createPart1Question(params: {
+  id: string;
+  text: string;
+  order: number;
+}): Part1Question {
+  const trimmedId = params.id?.trim();
+  if (!trimmedId) {
+    throw new Error("Part1Question requires a non-empty stable id");
+  }
+  const trimmedText = params.text?.trim();
+  if (!trimmedText) {
+    throw new Error("Part1Question requires non-empty question text");
+  }
+  if (
+    typeof params.order !== "number" ||
+    !Number.isInteger(params.order) ||
+    params.order < 1
+  ) {
+    throw new Error("Part1Question order must be a positive integer");
+  }
+  return {
+    id: trimmedId,
+    text: trimmedText,
+    order: params.order,
+  };
+}
+
+/**
+ * Type guard for Part1Question object.
+ */
+export function isPart1Question(value: unknown): value is Part1Question {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === "string" &&
+    candidate.id.trim().length > 0 &&
+    typeof candidate.text === "string" &&
+    candidate.text.trim().length > 0 &&
+    typeof candidate.order === "number" &&
+    Number.isInteger(candidate.order) &&
+    candidate.order >= 1
+  );
+}
+
+/**
+ * Helper to construct canonical Part1Question domain entities from topic questions
+ * with deterministic, stable IDs.
+ */
+export function createPart1QuestionsFromTopic(
+  topicId: string,
+  questionTexts: string[]
+): Part1Question[] {
+  const cleanTopicId = topicId?.trim();
+  if (!cleanTopicId) {
+    throw new Error("topicId is required to generate stable question IDs");
+  }
+  return questionTexts.map((text, index) => {
+    const order = index + 1;
+    return createPart1Question({
+      id: `${cleanTopicId}-q${order}`,
+      text,
+      order,
+    });
+  });
+}
