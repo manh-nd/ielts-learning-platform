@@ -288,12 +288,27 @@ export function createPart1PracticePlan(params: {
   if (!Array.isArray(params.questions) || params.questions.length === 0) {
     throw new Error("Part1PracticePlan requires at least one question");
   }
+  const seenIds = new Set<string>();
+  const seenOrders = new Set<number>();
+
   for (const q of params.questions) {
     if (!isPart1Question(q)) {
       throw new Error(
         "Part1PracticePlan questions must be valid Part1Question entities"
       );
     }
+    if (seenIds.has(q.id)) {
+      throw new Error(
+        `Part1PracticePlan contains duplicate question id: "${q.id}"`
+      );
+    }
+    if (seenOrders.has(q.order)) {
+      throw new Error(
+        `Part1PracticePlan contains duplicate question order: ${q.order}`
+      );
+    }
+    seenIds.add(q.id);
+    seenOrders.add(q.order);
   }
 
   return {
@@ -313,15 +328,89 @@ export function isPart1PracticePlan(
     return false;
   }
   const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.topicId === "string" &&
-    candidate.topicId.trim().length > 0 &&
-    typeof candidate.theme === "string" &&
-    candidate.theme.trim().length > 0 &&
-    Array.isArray(candidate.questions) &&
-    candidate.questions.length > 0 &&
-    candidate.questions.every(isPart1Question)
-  );
+  if (
+    typeof candidate.topicId !== "string" ||
+    candidate.topicId.trim().length === 0 ||
+    typeof candidate.theme !== "string" ||
+    candidate.theme.trim().length === 0 ||
+    !Array.isArray(candidate.questions) ||
+    candidate.questions.length === 0 ||
+    !candidate.questions.every(isPart1Question)
+  ) {
+    return false;
+  }
+
+  const seenIds = new Set<string>();
+  const seenOrders = new Set<number>();
+  for (const q of candidate.questions as Part1Question[]) {
+    if (seenIds.has(q.id) || seenOrders.has(q.order)) {
+      return false;
+    }
+    seenIds.add(q.id);
+    seenOrders.add(q.order);
+  }
+
+  return true;
+}
+
+export interface ResolvedPart1TurnLineage {
+  turnKind: "identity_check" | "practice_answer";
+  promptQuestion: string;
+  questionId?: string;
+}
+
+/**
+ * Pure domain policy resolving Part 1 turn lineage from practice plan questions and turn index.
+ *
+ * Invariants:
+ * - Turn index 0 is reserved for identity_check (e.g. candidate name prompt); questionId MUST be undefined.
+ * - Turn index 1+ resolves to practice_answer for the Part 1 question at index (turnIndex - 1).
+ * - Stable, authored question.id is preserved regardless of question order / reordering.
+ * - NO string template IDs (such as `${topicId}-q${index+1}`) are generated at runtime.
+ */
+export function resolvePart1TurnLineage(params: {
+  turnIndex: number;
+  questions?: readonly (Part1Question | string)[];
+  defaultIdentityPrompt?: string;
+}): ResolvedPart1TurnLineage {
+  const {
+    turnIndex,
+    questions = [],
+    defaultIdentityPrompt = "Could you please tell me your full name?",
+  } = params;
+
+  if (turnIndex === 0) {
+    return {
+      turnKind: "identity_check",
+      promptQuestion: defaultIdentityPrompt,
+      questionId: undefined,
+    };
+  }
+
+  const questionIndex = turnIndex - 1;
+  const item = questions[questionIndex];
+
+  if (item) {
+    if (typeof item === "string") {
+      return {
+        turnKind: "practice_answer",
+        promptQuestion: item,
+        questionId: undefined,
+      };
+    }
+
+    return {
+      turnKind: "practice_answer",
+      promptQuestion: item.text,
+      questionId: item.id,
+    };
+  }
+
+  return {
+    turnKind: "practice_answer",
+    promptQuestion: `Part 1 Question ${turnIndex}`,
+    questionId: undefined,
+  };
 }
 
 /**

@@ -370,13 +370,17 @@ export function LiveSpeakingExaminerRoom({
 
     onSessionChange?.(activeSessionId);
 
+    const questionTexts = topic?.part1.questions?.map((q) =>
+      typeof q === "string" ? q : q.text
+    );
+
     const outcome = await finishSpeakingPracticeWorkflow(
       {
         sessionId: activeSessionId,
         candidateName,
         topicTitle: topic?.title,
-        questions: topic?.part1.questions,
-        part1Question: topic?.part1.questions?.[0],
+        questions: questionTexts,
+        part1Question: questionTexts?.[0],
         transcripts,
         turnMarkers,
         audio: finalizedAudio,
@@ -431,14 +435,18 @@ export function LiveSpeakingExaminerRoom({
     setUploadError(null);
     setIsEvaluating(true);
 
+    const questionTexts = topic?.part1.questions?.map((q) =>
+      typeof q === "string" ? q : q.text
+    );
+
     const outcome = await retrySpeakingAudioUploadWorkflow(
       {
         sessionId: activeSessionId,
         audio: savedFinalizedAudio,
         candidateName,
         topicTitle: topic?.title,
-        questions: topic?.part1.questions,
-        part1Question: topic?.part1.questions?.[0],
+        questions: questionTexts,
+        part1Question: questionTexts?.[0],
         transcripts,
         turnMarkers,
         audioBase64: persistedAudioBase64 || undefined,
@@ -461,13 +469,16 @@ export function LiveSpeakingExaminerRoom({
   const handleRetryEvaluation = useCallback(async () => {
     setIsEvaluating(true);
     setEvalError(null);
+    const questionTexts = topic?.part1.questions?.map((q) =>
+      typeof q === "string" ? q : q.text
+    );
     const outcome = await retrySpeakingPracticeEvaluationWorkflow(
       {
         sessionId: activeSessionId,
         candidateName,
         topicTitle: topic?.title,
-        questions: topic?.part1.questions,
-        part1Question: topic?.part1.questions?.[0],
+        questions: questionTexts,
+        part1Question: questionTexts?.[0],
         transcripts,
         turnMarkers,
         storageKey: persistedStorageKey || undefined,

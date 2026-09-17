@@ -86,7 +86,9 @@ describe("Issue #83: SpeakingPractice UI Isolation from Full Mock Prototype", ()
 
     const topic = getPracticeTopicById("tech-ai-future");
     expect(topic.id).toBe("tech-ai-future");
-    expect(topic.part1.questions[0]).toContain("technological devices");
+    const q0 = topic.part1.questions[0];
+    const qText = typeof q0 === "string" ? q0 : q0.text;
+    expect(qText).toContain("technological devices");
 
     const random = getRandomPracticeTopic();
     expect(random.part1.questions.length).toBeGreaterThanOrEqual(3);

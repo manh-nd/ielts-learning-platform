@@ -18,6 +18,7 @@ import {
   isPracticeTurn,
   checkPart1PracticeCompletion,
   canCompletePart1Practice,
+  resolvePart1TurnLineage,
 } from "./speaking-practice";
 
 describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
@@ -389,6 +390,106 @@ describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
           questions: [],
         })
       ).toThrow("Part1PracticePlan requires at least one question");
+    });
+
+    it("should reject plan creation with duplicate question ids", () => {
+      const q1 = createPart1Question({ id: "dup-id", text: "Q1", order: 1 });
+      const q2 = createPart1Question({ id: "dup-id", text: "Q2", order: 2 });
+
+      expect(() =>
+        createPart1PracticePlan({
+          topicId: "top1",
+          theme: "Theme",
+          questions: [q1, q2],
+        })
+      ).toThrow('Part1PracticePlan contains duplicate question id: "dup-id"');
+
+      expect(
+        isPart1PracticePlan({
+          topicId: "top1",
+          theme: "Theme",
+          questions: [q1, q2],
+        })
+      ).toBe(false);
+    });
+
+    it("should reject plan creation with duplicate question orders", () => {
+      const q1 = createPart1Question({ id: "q1", text: "Q1", order: 1 });
+      const q2 = createPart1Question({ id: "q2", text: "Q2", order: 1 });
+
+      expect(() =>
+        createPart1PracticePlan({
+          topicId: "top1",
+          theme: "Theme",
+          questions: [q1, q2],
+        })
+      ).toThrow("Part1PracticePlan contains duplicate question order: 1");
+
+      expect(
+        isPart1PracticePlan({
+          topicId: "top1",
+          theme: "Theme",
+          questions: [q1, q2],
+        })
+      ).toBe(false);
+    });
+  });
+
+  describe("resolvePart1TurnLineage Domain Helper", () => {
+    const q1 = createPart1Question({
+      id: "hometown-location",
+      text: "Where is your hometown?",
+      order: 1,
+    });
+    const q2 = createPart1Question({
+      id: "hometown-likes",
+      text: "What do you like about it?",
+      order: 2,
+    });
+
+    it("should resolve turn 0 as identity_check with undefined questionId", () => {
+      const result = resolvePart1TurnLineage({
+        turnIndex: 0,
+        questions: [q1, q2],
+      });
+      expect(result.turnKind).toBe("identity_check");
+      expect(result.promptQuestion).toBe(
+        "Could you please tell me your full name?"
+      );
+      expect(result.questionId).toBeUndefined();
+    });
+
+    it("should resolve turn 1+ as practice_answer with authored question id and text", () => {
+      const turn1 = resolvePart1TurnLineage({
+        turnIndex: 1,
+        questions: [q1, q2],
+      });
+      expect(turn1.turnKind).toBe("practice_answer");
+      expect(turn1.promptQuestion).toBe("Where is your hometown?");
+      expect(turn1.questionId).toBe("hometown-location");
+
+      const turn2 = resolvePart1TurnLineage({
+        turnIndex: 2,
+        questions: [q1, q2],
+      });
+      expect(turn2.turnKind).toBe("practice_answer");
+      expect(turn2.promptQuestion).toBe("What do you like about it?");
+      expect(turn2.questionId).toBe("hometown-likes");
+    });
+
+    it("should preserve questionId even if question order is changed", () => {
+      const reordered = [q2, q1];
+      const turn1Reordered = resolvePart1TurnLineage({
+        turnIndex: 1,
+        questions: reordered,
+      });
+      expect(turn1Reordered.questionId).toBe("hometown-likes");
+
+      const turn2Reordered = resolvePart1TurnLineage({
+        turnIndex: 2,
+        questions: reordered,
+      });
+      expect(turn2Reordered.questionId).toBe("hometown-location");
     });
   });
 

@@ -28,6 +28,7 @@ import {
   VOICE_ANCHOR_PROMPT,
   sanitizeTranscriptText,
 } from "@/lib/audio/live-guards";
+import { resolvePart1TurnLineage } from "@/modules/speaking/domain";
 
 export interface ParsedLiveMessage {
   type:
@@ -174,7 +175,7 @@ Theme: "${topic.title}" (${topic.category})
 
 PART 1: "${topic.part1.theme}"
 Questions (ask strictly ONE at a time, in order):
-${topic.part1.questions.map((q, idx) => `  Question ${idx + 1}: "${q}"`).join("\n")}
+${topic.part1.questions.map((q, idx) => `  Question ${idx + 1}: "${typeof q === "string" ? q : q.text}"`).join("\n")}
 
 CONCLUDING PART 1 PRACTICE:
 After the candidate finishes answering the final Part 1 question (Question ${topic.part1.questions.length}), say: "Thank you very much. That concludes your Part 1 Speaking practice session." and IMMEDIATELY CALL THE TOOL 'end_exam'.
@@ -187,7 +188,7 @@ Theme: "${topic.title}" (${topic.category})
 
 PART 1: "${topic.part1.theme}"
 Questions (ask strictly ONE at a time, in order):
-${topic.part1.questions.map((q, idx) => `  Question ${idx + 1}: "${q}"`).join("\n")}
+${topic.part1.questions.map((q, idx) => `  Question ${idx + 1}: "${typeof q === "string" ? q : q.text}"`).join("\n")}
 
 PART 2 CUE CARD:
 When Part 1 is finished, say "Thank you. Now let's move to Part 2 of the test. I will show you a cue card." and CALL THE TOOL 'display_cue_card'.
@@ -568,18 +569,13 @@ export function useGeminiLive(
       let turnKind: "identity_check" | "practice_answer" = "practice_answer";
 
       if (partNum === 1) {
-        if (currentTurnIndexRef.current === 0) {
-          turnKind = "identity_check";
-          promptQ = "Could you please tell me your full name?";
-        } else {
-          turnKind = "practice_answer";
-          const questionIndex = currentTurnIndexRef.current - 1;
-          const topicId = topic?.id || "part1-practice";
-          questionId = `${topicId}-q${questionIndex + 1}`;
-          if (topic?.part1.questions[questionIndex]) {
-            promptQ = topic.part1.questions[questionIndex];
-          }
-        }
+        const lineage = resolvePart1TurnLineage({
+          turnIndex: currentTurnIndexRef.current,
+          questions: topic?.part1.questions,
+        });
+        turnKind = lineage.turnKind;
+        promptQ = lineage.promptQuestion;
+        questionId = lineage.questionId;
       } else if (partNum === 2 && topic?.part2.cueCardPrompt) {
         promptQ = topic.part2.cueCardPrompt;
       } else if (
@@ -874,9 +870,11 @@ export function useGeminiLive(
         delay: 7000,
         action: () => {
           setVoiceActivity("ai_speaking");
+          const q0 = topic?.part1.questions[0];
+          const text0 = typeof q0 === "string" ? q0 : q0?.text;
           addTranscript(
             "examiner",
-            topic?.part1.questions[0] ||
+            text0 ||
               "What kind of technological devices do you use most frequently every day?"
           );
         },

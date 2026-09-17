@@ -30,6 +30,10 @@ import {
   dispatchPracticeFeedbackReady,
   dispatchPracticeAudioError,
 } from "@/lib/telemetry/telemetry-client";
+import {
+  resolvePart1TurnLineage,
+  createPart1Question,
+} from "@/modules/speaking/domain";
 
 describe("Live Speaking Prototype Engine", () => {
   it("should provide valid IELTS Speaking mock topics with 3 parts", () => {
@@ -863,48 +867,56 @@ describe("Speaking Practice Failure Recovery & Resilience (#70)", () => {
     });
   });
 
-  describe("Part 1 CandidateTurnMarker Lineage (Subtask A5 Invariant)", () => {
+  describe("Part 1 CandidateTurnMarker Lineage (Subtask A5 Invariant & Correction 3)", () => {
+    const q1 = createPart1Question({
+      id: "hometown-location",
+      text: "Where is your hometown, and is it a big city or a small town?",
+      order: 1,
+    });
+    const q2 = createPart1Question({
+      id: "hometown-neighborhood-likes",
+      text: "What do you like most about living in your neighborhood?",
+      order: 2,
+    });
+
     it("should classify turn 0 as identity_check with no questionId and turn 1+ as practice_answer with explicit questionId", () => {
-      const topicId = "hometown-urbanization";
+      const questions = [q1, q2];
 
-      // Replicate recordTurnMarker logic for Part 1
-      const recordTurnMarkerForTest = (turnIndex: number) => {
-        let promptQ = `Part 1 Question ${turnIndex + 1}`;
-        let questionId: string | undefined;
-        let turnKind: "identity_check" | "practice_answer" = "practice_answer";
-
-        if (turnIndex === 0) {
-          turnKind = "identity_check";
-          promptQ = "Could you please tell me your full name?";
-        } else {
-          turnKind = "practice_answer";
-          const questionIndex = turnIndex - 1;
-          questionId = `${topicId}-q${questionIndex + 1}`;
-        }
-
-        return {
-          partNumber: 1,
-          itemIndex: turnIndex,
-          promptQuestion: promptQ,
-          questionId,
-          turnKind,
-        };
-      };
-
-      const turn0 = recordTurnMarkerForTest(0);
+      const turn0 = resolvePart1TurnLineage({ turnIndex: 0, questions });
       expect(turn0.turnKind).toBe("identity_check");
       expect(turn0.promptQuestion).toBe(
         "Could you please tell me your full name?"
       );
       expect(turn0.questionId).toBeUndefined();
 
-      const turn1 = recordTurnMarkerForTest(1);
+      const turn1 = resolvePart1TurnLineage({ turnIndex: 1, questions });
       expect(turn1.turnKind).toBe("practice_answer");
-      expect(turn1.questionId).toBe("hometown-urbanization-q1");
+      expect(turn1.promptQuestion).toBe(q1.text);
+      expect(turn1.questionId).toBe("hometown-location");
 
-      const turn2 = recordTurnMarkerForTest(2);
+      const turn2 = resolvePart1TurnLineage({ turnIndex: 2, questions });
       expect(turn2.turnKind).toBe("practice_answer");
-      expect(turn2.questionId).toBe("hometown-urbanization-q2");
+      expect(turn2.promptQuestion).toBe(q2.text);
+      expect(turn2.questionId).toBe("hometown-neighborhood-likes");
+    });
+
+    it("Regression Test: reordering questions retains identical emitted questionId", () => {
+      const originalQuestions = [q1, q2];
+      const reorderedQuestions = [q2, q1];
+
+      const originalLineage = resolvePart1TurnLineage({
+        turnIndex: 1,
+        questions: originalQuestions,
+      });
+
+      const reorderedLineage = resolvePart1TurnLineage({
+        turnIndex: 2,
+        questions: reorderedQuestions,
+      });
+
+      expect(originalLineage.questionId).toBe("hometown-location");
+      expect(reorderedLineage.questionId).toBe("hometown-location");
+      expect(originalLineage.questionId).toBe(reorderedLineage.questionId);
     });
 
     it("Subtask A6: should reset startMs timestamp between consecutive turns so Turn B does not reuse Turn A startMs", () => {

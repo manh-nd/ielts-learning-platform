@@ -1,3 +1,5 @@
+import { Part1Question } from "@/modules/speaking/domain";
+
 /**
  * Speaking Mock Topic Fixtures (Full Mock Prototype)
  *
@@ -12,7 +14,7 @@ export interface SpeakingMockTopic {
   difficulty: "Standard" | "Challenging" | "Advanced";
   part1: {
     theme: string;
-    questions: string[];
+    questions: Part1Question[];
   };
   part2: {
     topicTitle: string;
@@ -37,9 +39,21 @@ export const SPEAKING_MOCK_TOPICS: SpeakingMockTopic[] = [
     part1: {
       theme: "Technology in Everyday Life",
       questions: [
-        "What kind of technological devices do you use most frequently every day?",
-        "Do you prefer reading physical books or electronic devices?",
-        "Have technological advancements made life easier or more stressful for you?",
+        {
+          id: "tech-device-frequency",
+          text: "What kind of technological devices do you use most frequently every day?",
+          order: 1,
+        },
+        {
+          id: "tech-reading-preference",
+          text: "Do you prefer reading physical books or electronic devices?",
+          order: 2,
+        },
+        {
+          id: "tech-advancements-impact",
+          text: "Have technological advancements made life easier or more stressful for you?",
+          order: 3,
+        },
       ],
     },
     part2: {
@@ -75,9 +89,21 @@ export const SPEAKING_MOCK_TOPICS: SpeakingMockTopic[] = [
     part1: {
       theme: "Hometown & Neighborhood",
       questions: [
-        "Where is your hometown, and is it a big city or a small town?",
-        "What do you like most about living in your neighborhood?",
-        "Has your hometown changed much over the last few years?",
+        {
+          id: "hometown-location",
+          text: "Where is your hometown, and is it a big city or a small town?",
+          order: 1,
+        },
+        {
+          id: "hometown-neighborhood-likes",
+          text: "What do you like most about living in your neighborhood?",
+          order: 2,
+        },
+        {
+          id: "hometown-recent-changes",
+          text: "Has your hometown changed much over the last few years?",
+          order: 3,
+        },
       ],
     },
     part2: {
@@ -111,9 +137,21 @@ export const SPEAKING_MOCK_TOPICS: SpeakingMockTopic[] = [
     part1: {
       theme: "Travel & Holidays",
       questions: [
-        "Do you enjoy traveling to unfamiliar places, and why?",
-        "What mode of transport do you usually prefer when taking a trip?",
-        "Do you prefer holidaying with friends, family, or traveling solo?",
+        {
+          id: "travel-unfamiliar-places",
+          text: "Do you enjoy traveling to unfamiliar places, and why?",
+          order: 1,
+        },
+        {
+          id: "travel-transport-preference",
+          text: "What mode of transport do you usually prefer when taking a trip?",
+          order: 2,
+        },
+        {
+          id: "travel-companions",
+          text: "Do you prefer holidaying with friends, family, or traveling solo?",
+          order: 3,
+        },
       ],
     },
     part2: {
@@ -148,9 +186,21 @@ export const SPEAKING_MOCK_TOPICS: SpeakingMockTopic[] = [
     part1: {
       theme: "Learning Habits & Subjects",
       questions: [
-        "What subject did you find most engaging when you were in secondary school?",
-        "Do you find it easier to learn through practical experience or theoretical study?",
-        "Have you picked up any new skill or hobby recently?",
+        {
+          id: "education-engaging-subject",
+          text: "What subject did you find most engaging when you were in secondary school?",
+          order: 1,
+        },
+        {
+          id: "education-learning-style",
+          text: "Do you find it easier to learn through practical experience or theoretical study?",
+          order: 2,
+        },
+        {
+          id: "education-new-skills",
+          text: "Have you picked up any new skill or hobby recently?",
+          order: 3,
+        },
       ],
     },
     part2: {
