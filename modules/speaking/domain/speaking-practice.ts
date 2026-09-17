@@ -251,25 +251,3 @@ export function isPart1Question(value: unknown): value is Part1Question {
     candidate.order >= 1
   );
 }
-
-/**
- * Helper to construct canonical Part1Question domain entities from topic questions
- * with deterministic, stable IDs.
- */
-export function createPart1QuestionsFromTopic(
-  topicId: string,
-  questionTexts: string[]
-): Part1Question[] {
-  const cleanTopicId = topicId?.trim();
-  if (!cleanTopicId) {
-    throw new Error("topicId is required to generate stable question IDs");
-  }
-  return questionTexts.map((text, index) => {
-    const order = index + 1;
-    return createPart1Question({
-      id: `${cleanTopicId}-q${order}`,
-      text,
-      order,
-    });
-  });
-}

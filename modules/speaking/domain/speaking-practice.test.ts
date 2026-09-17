@@ -11,7 +11,6 @@ import {
   canRetryPracticeEvaluation,
   createPart1Question,
   isPart1Question,
-  createPart1QuestionsFromTopic,
 } from "./speaking-practice";
 
 describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
@@ -265,23 +264,21 @@ describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
       expect(list2[0].order).toBe(2);
     });
 
-    it("should construct canonical Part1Question list from topic with deterministic stable IDs", () => {
-      const questions = createPart1QuestionsFromTopic("hometown-urbanization", [
-        "Where is your hometown?",
-        "What do you like about it?",
-      ]);
-
-      expect(questions).toHaveLength(2);
-      expect(questions[0]).toEqual({
-        id: "hometown-urbanization-q1",
+    it("should maintain question identity even if order changes", () => {
+      const qOrder1 = createPart1Question({
+        id: "hometown-location",
         text: "Where is your hometown?",
         order: 1,
       });
-      expect(questions[1]).toEqual({
-        id: "hometown-urbanization-q2",
-        text: "What do you like about it?",
-        order: 2,
+      const qOrder3 = createPart1Question({
+        id: "hometown-location",
+        text: "Where is your hometown?",
+        order: 3,
       });
+
+      expect(qOrder1.id).toBe(qOrder3.id);
+      expect(qOrder1.order).toBe(1);
+      expect(qOrder3.order).toBe(3);
     });
 
     it("should reject invalid question creation inputs", () => {
