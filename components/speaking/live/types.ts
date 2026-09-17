@@ -40,6 +40,8 @@ export interface CandidateTurnMarker {
   endMs: number;
   liveTranscript?: string;
   verifiedTranscript?: string;
+  questionId?: string;
+  turnKind?: "identity_check" | "practice_answer";
 }
 
 export interface CueCardData {

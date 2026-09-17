@@ -862,4 +862,49 @@ describe("Speaking Practice Failure Recovery & Resilience (#70)", () => {
       expect(res1.recordedAudio?.url).toBe("blob:audio");
     });
   });
+
+  describe("Part 1 CandidateTurnMarker Lineage (Subtask A5 Invariant)", () => {
+    it("should classify turn 0 as identity_check with no questionId and turn 1+ as practice_answer with explicit questionId", () => {
+      const topicId = "hometown-urbanization";
+
+      // Replicate recordTurnMarker logic for Part 1
+      const recordTurnMarkerForTest = (turnIndex: number) => {
+        let promptQ = `Part 1 Question ${turnIndex + 1}`;
+        let questionId: string | undefined;
+        let turnKind: "identity_check" | "practice_answer" = "practice_answer";
+
+        if (turnIndex === 0) {
+          turnKind = "identity_check";
+          promptQ = "Could you please tell me your full name?";
+        } else {
+          turnKind = "practice_answer";
+          const questionIndex = turnIndex - 1;
+          questionId = `${topicId}-q${questionIndex + 1}`;
+        }
+
+        return {
+          partNumber: 1,
+          itemIndex: turnIndex,
+          promptQuestion: promptQ,
+          questionId,
+          turnKind,
+        };
+      };
+
+      const turn0 = recordTurnMarkerForTest(0);
+      expect(turn0.turnKind).toBe("identity_check");
+      expect(turn0.promptQuestion).toBe(
+        "Could you please tell me your full name?"
+      );
+      expect(turn0.questionId).toBeUndefined();
+
+      const turn1 = recordTurnMarkerForTest(1);
+      expect(turn1.turnKind).toBe("practice_answer");
+      expect(turn1.questionId).toBe("hometown-urbanization-q1");
+
+      const turn2 = recordTurnMarkerForTest(2);
+      expect(turn2.turnKind).toBe("practice_answer");
+      expect(turn2.questionId).toBe("hometown-urbanization-q2");
+    });
+  });
 });

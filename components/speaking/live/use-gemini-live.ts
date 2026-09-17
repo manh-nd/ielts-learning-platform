@@ -564,11 +564,22 @@ export function useGeminiLive(
       const partNum = typeof stage === "number" ? stage : 3;
 
       let promptQ = `Part ${partNum} Question ${currentTurnIndexRef.current + 1}`;
-      if (
-        partNum === 1 &&
-        topic?.part1.questions[currentTurnIndexRef.current]
-      ) {
-        promptQ = topic.part1.questions[currentTurnIndexRef.current];
+      let questionId: string | undefined;
+      let turnKind: "identity_check" | "practice_answer" = "practice_answer";
+
+      if (partNum === 1) {
+        if (currentTurnIndexRef.current === 0) {
+          turnKind = "identity_check";
+          promptQ = "Could you please tell me your full name?";
+        } else {
+          turnKind = "practice_answer";
+          const questionIndex = currentTurnIndexRef.current - 1;
+          const topicId = topic?.id || "part1-practice";
+          questionId = `${topicId}-q${questionIndex + 1}`;
+          if (topic?.part1.questions[questionIndex]) {
+            promptQ = topic.part1.questions[questionIndex];
+          }
+        }
       } else if (partNum === 2 && topic?.part2.cueCardPrompt) {
         promptQ = topic.part2.cueCardPrompt;
       } else if (
@@ -585,6 +596,8 @@ export function useGeminiLive(
         startMs,
         endMs: nowMs,
         liveTranscript: userText.trim(),
+        questionId,
+        turnKind,
       };
 
       turnMarkersRef.current.push(marker);

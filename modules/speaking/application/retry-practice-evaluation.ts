@@ -21,6 +21,8 @@ export interface CandidateTurnMarkerInput {
   startMs: number;
   endMs: number;
   liveTranscript?: string;
+  questionId?: string;
+  turnKind?: "identity_check" | "practice_answer";
 }
 
 export interface RetryPracticeEvaluationInput {
