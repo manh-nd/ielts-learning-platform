@@ -189,6 +189,7 @@ export function useGeminiLive(
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
   const nudgeTimerRef = useRef<NodeJS.Timeout | null>(null);
   const statusRef = useRef<LiveSessionStatus>("idle");
+  const hasConnectedRef = useRef<boolean>(false);
   const examStageRef = useRef<ExamStage>(1);
   const currentTurnTextRef = useRef<{ user: string; examiner: string }>({
     user: "",
@@ -279,10 +280,10 @@ export function useGeminiLive(
 
   const recordTurnMarker = useCallback(
     (userText: string) => {
-      const endMs = Math.max(
-        currentTurnStartMsRef.current + 100,
-        Date.now() - recordStartTimeRef.current
-      );
+      const nowMs = Date.now() - recordStartTimeRef.current;
+      const startMs =
+        currentTurnStartMsRef.current || Math.max(0, nowMs - 5000);
+      const endMs = Math.max(startMs + 100, nowMs);
       const turnIndex = currentTurnIndexRef.current;
       currentTurnIndexRef.current += 1;
 
@@ -298,12 +299,12 @@ export function useGeminiLive(
         promptQuestion: lineage.promptQuestion,
         questionId: lineage.questionId,
         turnKind: lineage.turnKind,
-        startMs: currentTurnStartMsRef.current,
+        startMs,
         endMs,
         liveTranscript: userText,
       };
 
-      currentTurnStartMsRef.current = endMs;
+      currentTurnStartMsRef.current = 0;
 
       turnMarkersRef.current = [...turnMarkersRef.current, marker];
       setTurnMarkers([...turnMarkersRef.current]);
@@ -376,6 +377,27 @@ export function useGeminiLive(
     resetRecording,
   } = useLiveAudioRecorder({
     enableNoiseSuppression,
+    onMicLevel: (level) => {
+      if (
+        level > 0.04 &&
+        statusRef.current === "connected" &&
+        !isMutedRef.current
+      ) {
+        clearNudgeTimer();
+        if (currentTurnStartMsRef.current === 0) {
+          currentTurnStartMsRef.current = Math.max(
+            0,
+            Date.now() - recordStartTimeRef.current
+          );
+        }
+        setVoiceActivity((curr) =>
+          curr === "ai_speaking" ? curr : "user_speaking"
+        );
+        setSpeakingState({ kind: "user-speaking" });
+      } else if (level <= 0.04) {
+        setVoiceActivity((curr) => (curr === "user_speaking" ? "idle" : curr));
+      }
+    },
     onMuteChange: (muted) => {
       if (muted) {
         examinerPortRef.current?.endCandidateAudio();
@@ -402,6 +424,7 @@ export function useGeminiLive(
 
   const updateStatus = useCallback(
     (newStatus: LiveSessionStatus) => {
+      statusRef.current = newStatus;
       setStatus(newStatus);
       onStatusChange?.(newStatus);
       if (newStatus === "connecting" || newStatus === "requesting_token") {
@@ -699,6 +722,7 @@ export function useGeminiLive(
     setTranscripts([]);
     setTurnMarkers([]);
     recordStartTimeRef.current = Date.now();
+    hasConnectedRef.current = false;
     currentTurnStartMsRef.current = 0;
     currentTurnIndexRef.current = 0;
     updateStage(1);
@@ -803,6 +827,7 @@ export function useGeminiLive(
 
     portUnsubscribeRef.current = currentPort.subscribe((evt) => {
       if (evt.type === "connected") {
+        hasConnectedRef.current = true;
         updateStatus("connected");
         playCallStartSound();
         requestWakeLock().catch(() => {});
@@ -816,6 +841,9 @@ export function useGeminiLive(
         setError(err);
         updateStatus("error");
         onError?.(err);
+        if (!hasConnectedRef.current) {
+          cleanupAudio();
+        }
       } else if (evt.type === "examiner_audio_chunk") {
         clearNudgeTimer();
         audioControllerRef.current?.playAudioChunk(evt.audioBase64, (info) => {
@@ -860,6 +888,14 @@ export function useGeminiLive(
       await currentPort.connect({ systemInstruction: effectiveInstruction });
     } catch (connErr) {
       console.error("[useGeminiLive] currentPort.connect error:", connErr);
+      if (!hasConnectedRef.current) {
+        const err =
+          (connErr as Error) || new Error("Initial connection failed");
+        setError(err);
+        updateStatus("error");
+        onError?.(err);
+        cleanupAudio();
+      }
     }
   }, [
     candidateName,

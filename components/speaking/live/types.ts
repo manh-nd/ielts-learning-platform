@@ -104,8 +104,6 @@ export interface LiveSpeakingConfig {
   topic?: SpeakingMockTopic;
   targetPart?: "part1" | "part2" | "part3" | "full" | "part_1";
   systemInstruction?: string;
-  voiceName?: GeminiLiveVoice;
-  tokenEndpoint?: string;
   mockMode?: boolean;
   onStatusChange?: (status: LiveSessionStatus) => void;
   onStageChange?: (stage: ExamStage) => void;
