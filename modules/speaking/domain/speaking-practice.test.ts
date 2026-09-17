@@ -16,6 +16,8 @@ import {
   createIdentityCheckTurn,
   createPracticeAnswerTurn,
   isPracticeTurn,
+  checkPart1PracticeCompletion,
+  canCompletePart1Practice,
 } from "./speaking-practice";
 
 describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
@@ -481,6 +483,161 @@ describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
           endedAtMs: 1000,
         })
       ).toBe(false);
+    });
+  });
+
+  describe("Part1 Practice Completion Policy Domain Invariants", () => {
+    const q1 = createPart1Question({
+      id: "hometown-loc",
+      text: "Where is your hometown?",
+      order: 1,
+    });
+    const q2 = createPart1Question({
+      id: "hometown-like",
+      text: "What do you like about it?",
+      order: 2,
+    });
+    const plan = createPart1PracticePlan({
+      topicId: "hometown-v1",
+      theme: "Hometown",
+      questions: [q1, q2],
+    });
+
+    it("should evaluate identity-only flow as NOT complete", () => {
+      const identityTurn = createIdentityCheckTurn({
+        startedAtMs: 0,
+        endedAtMs: 3000,
+        transcript: "My name is John",
+      });
+
+      const result = checkPart1PracticeCompletion(plan, [identityTurn]);
+      expect(result.canComplete).toBe(false);
+      expect(result.answeredQuestionCount).toBe(0);
+      expect(result.missingQuestionIds).toEqual([
+        "hometown-loc",
+        "hometown-like",
+      ]);
+      expect(canCompletePart1Practice(plan, [identityTurn])).toBe(false);
+    });
+
+    it("should evaluate partial flow with missing required answers as NOT complete", () => {
+      const identityTurn = createIdentityCheckTurn({
+        startedAtMs: 0,
+        endedAtMs: 3000,
+      });
+      const ans1 = createPracticeAnswerTurn({
+        questionId: "hometown-loc",
+        startedAtMs: 3500,
+        endedAtMs: 10000,
+      });
+
+      const result = checkPart1PracticeCompletion(plan, [identityTurn, ans1]);
+      expect(result.canComplete).toBe(false);
+      expect(result.answeredQuestionCount).toBe(1);
+      expect(result.missingQuestionIds).toEqual(["hometown-like"]);
+      expect(canCompletePart1Practice(plan, [identityTurn, ans1])).toBe(false);
+    });
+
+    it("should evaluate flow with all required questions answered as ELIGIBLE for completion", () => {
+      const identityTurn = createIdentityCheckTurn({
+        startedAtMs: 0,
+        endedAtMs: 3000,
+      });
+      const ans1 = createPracticeAnswerTurn({
+        questionId: "hometown-loc",
+        startedAtMs: 3500,
+        endedAtMs: 10000,
+      });
+      const ans2 = createPracticeAnswerTurn({
+        questionId: "hometown-like",
+        startedAtMs: 10500,
+        endedAtMs: 18000,
+      });
+
+      const result = checkPart1PracticeCompletion(plan, [
+        identityTurn,
+        ans1,
+        ans2,
+      ]);
+      expect(result.canComplete).toBe(true);
+      expect(result.answeredQuestionCount).toBe(2);
+      expect(result.missingQuestionIds).toEqual([]);
+      expect(canCompletePart1Practice(plan, [identityTurn, ans1, ans2])).toBe(
+        true
+      );
+    });
+
+    it("should ignore answer for unknown questionId and not incorrectly complete practice", () => {
+      const identityTurn = createIdentityCheckTurn({
+        startedAtMs: 0,
+        endedAtMs: 3000,
+      });
+      const ans1 = createPracticeAnswerTurn({
+        questionId: "hometown-loc",
+        startedAtMs: 3500,
+        endedAtMs: 10000,
+      });
+      const unknownAns = createPracticeAnswerTurn({
+        questionId: "unknown-q99",
+        startedAtMs: 10500,
+        endedAtMs: 15000,
+      });
+
+      const result = checkPart1PracticeCompletion(plan, [
+        identityTurn,
+        ans1,
+        unknownAns,
+      ]);
+      expect(result.canComplete).toBe(false);
+      expect(result.missingQuestionIds).toEqual(["hometown-like"]);
+    });
+
+    it("should evaluate completion correctly regardless of turn ordering", () => {
+      const identityTurn = createIdentityCheckTurn({
+        startedAtMs: 0,
+        endedAtMs: 3000,
+      });
+      const ans1 = createPracticeAnswerTurn({
+        questionId: "hometown-loc",
+        startedAtMs: 3500,
+        endedAtMs: 10000,
+      });
+      const ans2 = createPracticeAnswerTurn({
+        questionId: "hometown-like",
+        startedAtMs: 10500,
+        endedAtMs: 18000,
+      });
+
+      // Out-of-order turns (e.g. q2 answered before q1)
+      const outOfOrderTurns = [ans2, identityTurn, ans1];
+
+      expect(canCompletePart1Practice(plan, outOfOrderTurns)).toBe(true);
+    });
+
+    it("should handle duplicate answers to same question cleanly", () => {
+      const identityTurn = createIdentityCheckTurn({
+        startedAtMs: 0,
+        endedAtMs: 3000,
+      });
+      const ans1 = createPracticeAnswerTurn({
+        questionId: "hometown-loc",
+        startedAtMs: 3500,
+        endedAtMs: 10000,
+      });
+      const ans1Repeat = createPracticeAnswerTurn({
+        questionId: "hometown-loc",
+        startedAtMs: 10500,
+        endedAtMs: 18000,
+      });
+
+      const result = checkPart1PracticeCompletion(plan, [
+        identityTurn,
+        ans1,
+        ans1Repeat,
+      ]);
+      expect(result.canComplete).toBe(false);
+      expect(result.answeredQuestionCount).toBe(1);
+      expect(result.missingQuestionIds).toEqual(["hometown-like"]);
     });
   });
 });

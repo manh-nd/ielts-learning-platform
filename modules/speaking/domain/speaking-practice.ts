@@ -456,3 +456,59 @@ export function isPracticeTurn(value: unknown): value is PracticeTurn {
   }
   return false;
 }
+
+export interface Part1PracticeCompletionResult {
+  canComplete: boolean;
+  totalRequiredQuestions: number;
+  answeredQuestionCount: number;
+  missingQuestionIds: string[];
+}
+
+/**
+ * Pure domain policy evaluating whether a Part 1 speaking practice session has satisfied
+ * its required question-answer progression.
+ *
+ * Invariants:
+ * - identity_check turns do NOT count as answered Part 1 questions.
+ * - Each required question in the practice plan must have at least one practice_answer turn.
+ * - Completion relies strictly on domain identity (`questionId`), independent of turn order or array position.
+ * - Answers for unknown questions or duplicate answers do not improperly affect completion.
+ * - Domain completion policy is framework-agnostic and strictly decoupled from LLM/Gemini tool calls.
+ */
+export function checkPart1PracticeCompletion(
+  plan: Part1PracticePlan,
+  turns: readonly PracticeTurn[]
+): Part1PracticeCompletionResult {
+  const requiredQuestionIds = plan.questions.map((q) => q.id);
+  const answeredQuestionIds = new Set<string>();
+
+  for (const turn of turns) {
+    if (turn.kind === "practice_answer" && turn.questionId) {
+      if (requiredQuestionIds.includes(turn.questionId)) {
+        answeredQuestionIds.add(turn.questionId);
+      }
+    }
+  }
+
+  const missingQuestionIds = requiredQuestionIds.filter(
+    (id) => !answeredQuestionIds.has(id)
+  );
+
+  return {
+    canComplete:
+      missingQuestionIds.length === 0 && requiredQuestionIds.length > 0,
+    totalRequiredQuestions: requiredQuestionIds.length,
+    answeredQuestionCount: answeredQuestionIds.size,
+    missingQuestionIds,
+  };
+}
+
+/**
+ * Predicate helper for Part 1 practice completion.
+ */
+export function canCompletePart1Practice(
+  plan: Part1PracticePlan,
+  turns: readonly PracticeTurn[]
+): boolean {
+  return checkPart1PracticeCompletion(plan, turns).canComplete;
+}
