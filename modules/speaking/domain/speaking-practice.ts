@@ -323,3 +323,136 @@ export function isPart1PracticePlan(
     candidate.questions.every(isPart1Question)
   );
 }
+
+/**
+ * Pure domain representation of learner turns in a speaking practice session.
+ *
+ * Invariants:
+ * - Distinguishes identity_check (learner name/intro) from practice_answer (response to prompt question).
+ * - identity_check MUST NOT reference a questionId.
+ * - practice_answer MUST reference an explicit questionId.
+ * - endedAtMs >= startedAtMs for valid duration.
+ * - OriginalAudio is authoritative evidence; transcript is optional derived text.
+ */
+export type PracticeTurnKind = "identity_check" | "practice_answer";
+
+export interface BasePracticeTurn {
+  kind: PracticeTurnKind;
+  startedAtMs: number;
+  endedAtMs: number;
+  /** Optional derived transcript text */
+  transcript?: string;
+}
+
+export interface IdentityCheckTurn extends BasePracticeTurn {
+  kind: "identity_check";
+}
+
+export interface PracticeAnswerTurn extends BasePracticeTurn {
+  kind: "practice_answer";
+  questionId: string;
+}
+
+export type PracticeTurn = IdentityCheckTurn | PracticeAnswerTurn;
+
+/**
+ * Creates an identity_check domain turn (e.g. learner responding to full name prompt).
+ */
+export function createIdentityCheckTurn(params: {
+  startedAtMs: number;
+  endedAtMs: number;
+  transcript?: string;
+}): IdentityCheckTurn {
+  if (
+    typeof params.startedAtMs !== "number" ||
+    typeof params.endedAtMs !== "number" ||
+    Number.isNaN(params.startedAtMs) ||
+    Number.isNaN(params.endedAtMs)
+  ) {
+    throw new Error("PracticeTurn timestamps must be valid numbers");
+  }
+  if (params.startedAtMs < 0 || params.endedAtMs < 0) {
+    throw new Error("PracticeTurn timestamps must be non-negative");
+  }
+  if (params.endedAtMs < params.startedAtMs) {
+    throw new Error(
+      "PracticeTurn endedAtMs must be greater than or equal to startedAtMs"
+    );
+  }
+  return {
+    kind: "identity_check",
+    startedAtMs: params.startedAtMs,
+    endedAtMs: params.endedAtMs,
+    ...(params.transcript !== undefined
+      ? { transcript: params.transcript }
+      : {}),
+  };
+}
+
+/**
+ * Creates a practice_answer domain turn for a specific Part 1 question.
+ */
+export function createPracticeAnswerTurn(params: {
+  questionId: string;
+  startedAtMs: number;
+  endedAtMs: number;
+  transcript?: string;
+}): PracticeAnswerTurn {
+  const trimmedQuestionId = params.questionId?.trim();
+  if (!trimmedQuestionId) {
+    throw new Error("PracticeAnswerTurn requires a non-empty questionId");
+  }
+  if (
+    typeof params.startedAtMs !== "number" ||
+    typeof params.endedAtMs !== "number" ||
+    Number.isNaN(params.startedAtMs) ||
+    Number.isNaN(params.endedAtMs)
+  ) {
+    throw new Error("PracticeTurn timestamps must be valid numbers");
+  }
+  if (params.startedAtMs < 0 || params.endedAtMs < 0) {
+    throw new Error("PracticeTurn timestamps must be non-negative");
+  }
+  if (params.endedAtMs < params.startedAtMs) {
+    throw new Error(
+      "PracticeTurn endedAtMs must be greater than or equal to startedAtMs"
+    );
+  }
+  return {
+    kind: "practice_answer",
+    questionId: trimmedQuestionId,
+    startedAtMs: params.startedAtMs,
+    endedAtMs: params.endedAtMs,
+    ...(params.transcript !== undefined
+      ? { transcript: params.transcript }
+      : {}),
+  };
+}
+
+/**
+ * Type guard for PracticeTurn object.
+ */
+export function isPracticeTurn(value: unknown): value is PracticeTurn {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.startedAtMs !== "number" ||
+    typeof candidate.endedAtMs !== "number" ||
+    candidate.startedAtMs < 0 ||
+    candidate.endedAtMs < candidate.startedAtMs
+  ) {
+    return false;
+  }
+  if (candidate.kind === "identity_check") {
+    return !("questionId" in candidate) || candidate.questionId === undefined;
+  }
+  if (candidate.kind === "practice_answer") {
+    return (
+      typeof candidate.questionId === "string" &&
+      candidate.questionId.trim().length > 0
+    );
+  }
+  return false;
+}

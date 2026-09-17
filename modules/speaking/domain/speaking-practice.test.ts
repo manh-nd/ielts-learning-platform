@@ -13,6 +13,9 @@ import {
   isPart1Question,
   createPart1PracticePlan,
   isPart1PracticePlan,
+  createIdentityCheckTurn,
+  createPracticeAnswerTurn,
+  isPracticeTurn,
 } from "./speaking-practice";
 
 describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
@@ -384,6 +387,100 @@ describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
           questions: [],
         })
       ).toThrow("Part1PracticePlan requires at least one question");
+    });
+  });
+
+  describe("PracticeTurn Domain Invariants", () => {
+    it("should model identity_check turn with no questionId", () => {
+      const turn = createIdentityCheckTurn({
+        startedAtMs: 0,
+        endedAtMs: 3200,
+        transcript: "My name is John Doe",
+      });
+
+      expect(turn.kind).toBe("identity_check");
+      expect(turn.startedAtMs).toBe(0);
+      expect(turn.endedAtMs).toBe(3200);
+      expect("questionId" in turn).toBe(false);
+      expect(isPracticeTurn(turn)).toBe(true);
+    });
+
+    it("should model practice_answer turn requiring explicit questionId", () => {
+      const turn = createPracticeAnswerTurn({
+        questionId: "hometown-location-q1",
+        startedAtMs: 3500,
+        endedAtMs: 15200,
+        transcript: "I live in Hanoi",
+      });
+
+      expect(turn.kind).toBe("practice_answer");
+      expect(turn.questionId).toBe("hometown-location-q1");
+      expect(turn.startedAtMs).toBe(3500);
+      expect(turn.endedAtMs).toBe(15200);
+      expect(isPracticeTurn(turn)).toBe(true);
+    });
+
+    it("should reject practice_answer creation without explicit questionId", () => {
+      expect(() =>
+        createPracticeAnswerTurn({
+          questionId: "",
+          startedAtMs: 1000,
+          endedAtMs: 3000,
+        })
+      ).toThrow("PracticeAnswerTurn requires a non-empty questionId");
+    });
+
+    it("should reject invalid timestamp ranges (endedAtMs < startedAtMs)", () => {
+      expect(() =>
+        createIdentityCheckTurn({
+          startedAtMs: 5000,
+          endedAtMs: 4000,
+        })
+      ).toThrow(
+        "PracticeTurn endedAtMs must be greater than or equal to startedAtMs"
+      );
+
+      expect(() =>
+        createPracticeAnswerTurn({
+          questionId: "q1",
+          startedAtMs: 10000,
+          endedAtMs: 2000,
+        })
+      ).toThrow(
+        "PracticeTurn endedAtMs must be greater than or equal to startedAtMs"
+      );
+    });
+
+    it("should validate practice turns using isPracticeTurn type guard", () => {
+      const validIdentity = createIdentityCheckTurn({
+        startedAtMs: 0,
+        endedAtMs: 1000,
+      });
+      const validAnswer = createPracticeAnswerTurn({
+        questionId: "q1",
+        startedAtMs: 1000,
+        endedAtMs: 2000,
+      });
+
+      expect(isPracticeTurn(validIdentity)).toBe(true);
+      expect(isPracticeTurn(validAnswer)).toBe(true);
+      expect(isPracticeTurn({ kind: "invalid_kind" })).toBe(false);
+      expect(
+        isPracticeTurn({
+          kind: "practice_answer",
+          questionId: "",
+          startedAtMs: 0,
+          endedAtMs: 1000,
+        })
+      ).toBe(false);
+      expect(
+        isPracticeTurn({
+          kind: "identity_check",
+          questionId: "should_not_exist",
+          startedAtMs: 0,
+          endedAtMs: 1000,
+        })
+      ).toBe(false);
     });
   });
 });
