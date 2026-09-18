@@ -1,4 +1,5 @@
 import { describe, it, expect, mock } from "bun:test";
+import { Modality } from "@google/genai";
 import { buildLiveTokenPayload, POST, GET } from "./route";
 import { NextRequest } from "next/server";
 import { geminiRotator } from "@/lib/gemini";
@@ -29,12 +30,20 @@ function createAuthHeaders(
 }
 
 describe("Live Token API (Ephemeral Token)", () => {
-  it("should build auth token payload with valid expireTime and uses for Gemini v1alpha", () => {
+  it("should build auth token payload with valid expireTime, uses, newSessionExpireTime, and liveConnectConstraints", () => {
     const expireTime = "2026-08-27T20:00:00.000Z";
-    const payload = buildLiveTokenPayload(expireTime, 3);
+    const now = 1756324800000;
+    const payload = buildLiveTokenPayload(expireTime, 1, now);
 
     expect(payload.expireTime).toBe(expireTime);
-    expect(payload.uses).toBe(3);
+    expect(payload.uses).toBe(1);
+    expect(payload.newSessionExpireTime).toBe(
+      new Date(now + 60_000).toISOString()
+    );
+    expect(payload.liveConnectConstraints).toEqual({
+      model: "models/gemini-3.8-live",
+      config: { responseModalities: [Modality.AUDIO] },
+    });
   });
 
   it("should reject unauthenticated requests with 401 Unauthorized", async () => {

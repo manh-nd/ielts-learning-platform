@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  GoogleGenAI,
+  Modality,
+  type CreateAuthTokenConfig,
+} from "@google/genai";
+import {
   assertBetaAccess,
   withBetaTokenLease,
 } from "@/modules/speaking/infrastructure/speaking-beta-access";
@@ -18,13 +23,18 @@ export interface LiveTokenResponse {
   expiresAt: string;
 }
 
-export function buildLiveTokenPayload(expireTime: string, uses = 1) {
+export function buildLiveTokenPayload(
+  expireTime: string,
+  uses = 1,
+  now = Date.now()
+): CreateAuthTokenConfig {
   return {
     expireTime,
+    newSessionExpireTime: new Date(now + 60_000).toISOString(),
     uses,
     liveConnectConstraints: {
       model: "models/gemini-3.8-live",
-      config: { responseModalities: ["AUDIO"] },
+      config: { responseModalities: [Modality.AUDIO] },
     },
   };
 }
@@ -54,32 +64,12 @@ export async function POST(req?: NextRequest) {
     const expireTime = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 mins expiry
     const payload = buildLiveTokenPayload(expireTime, 1); // Allow session resumption reconnects
 
-    const mint = async (key: string) => {
-      // Direct REST call to Gemini Developer API v1beta auth_tokens
-      const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/auth_tokens",
-        {
-          method: "POST",
-          headers: {
-            "x-goog-api-key": key,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+    const mint = async (client: GoogleGenAI) => {
+      const response = await client.authTokens.create({
+        config: payload,
+      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Failed to mint ephemeral token (${response.status}): ${errorText}`
-        );
-      }
-
-      const data = (await response.json()) as {
-        name?: string;
-        token?: string;
-      };
-      const tokenString = data.name || data.token;
+      const tokenString = response.name;
 
       if (!tokenString) {
         throw new Error("No token returned in auth_tokens response");
@@ -93,15 +83,18 @@ export async function POST(req?: NextRequest) {
     };
     const tokenData =
       process.env.SPEAKING_BETA_ENABLED === "true"
-        ? await withBetaTokenLease(session.user.id, sessionId!, () =>
-            mint(
-              process.env.GEMINI_BETA_API_KEY ||
-                (() => {
-                  throw new Error("Beta Gemini credential is not configured");
-                })()
-            )
-          )
-        : await geminiRotator.executeWithRotation((_client, key) => mint(key));
+        ? await withBetaTokenLease(session.user.id, sessionId!, () => {
+            const betaKey = process.env.GEMINI_BETA_API_KEY;
+            if (!betaKey) {
+              throw new Error("Beta Gemini credential is not configured");
+            }
+            const betaClient = new GoogleGenAI({
+              apiKey: betaKey,
+              httpOptions: { apiVersion: "v1beta" },
+            });
+            return mint(betaClient);
+          })
+        : await geminiRotator.executeWithRotation((client) => mint(client));
 
     return NextResponse.json(tokenData, {
       headers: { "Cache-Control": "no-store" },
