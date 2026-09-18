@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
     if (isPart1Practice) {
       const practiceResult = await finishSpeakingPractice({
         authenticatedUserId,
+        scope: normalizedScope!,
         sessionId,
         topicTitle: body.topicTitle || topicTitle,
         candidateName,
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
             message: practiceResult.message,
             sessionId: practiceResult.sessionId,
             isPractice: true,
-            practiceMode: "part_1",
+            practiceMode: normalizedScope,
             status: practiceResult.status,
           },
           { status: practiceResult.httpStatus }
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         success: true,
         isPractice: true,
-        practiceMode: "part_1",
+        practiceMode: normalizedScope,
         result: practiceResult.result,
         transcripts: practiceResult.transcripts,
         trace: practiceResult.trace,

@@ -20,8 +20,12 @@ export type GeminiLiveProtocolEvent =
         args?: Record<string, unknown>;
       }>;
     }
-  | { type: "session_resumption_update"; resumptionHandle: string }
-  | { type: "go_away"; timeLeft?: unknown }
+  | {
+      type: "session_resumption_update";
+      resumptionHandle: string;
+      resumable: boolean;
+    }
+  | { type: "go_away"; timeLeft?: number }
   | { type: "unknown" };
 
 interface RawGeminiWireMessage {
@@ -57,6 +61,7 @@ interface RawGeminiWireMessage {
   };
   goAway?: Record<string, unknown>;
   sessionResumptionUpdate?: {
+    resumable?: boolean;
     newHandle?: string;
     resumptionHandle?: string;
   };
@@ -99,10 +104,11 @@ export function mapGeminiLiveMessage(
     const handle =
       obj.sessionResumptionUpdate.newHandle ||
       obj.sessionResumptionUpdate.resumptionHandle;
-    if (handle) {
+    if (handle || obj.sessionResumptionUpdate.resumable === false) {
       events.push({
         type: "session_resumption_update",
-        resumptionHandle: handle,
+        resumptionHandle: handle || "",
+        resumable: obj.sessionResumptionUpdate.resumable === true,
       });
     }
   }
@@ -111,7 +117,10 @@ export function mapGeminiLiveMessage(
   if (obj.goAway) {
     events.push({
       type: "go_away",
-      timeLeft: obj.goAway,
+      timeLeft:
+        typeof obj.goAway.timeLeft === "string"
+          ? Number.parseFloat(obj.goAway.timeLeft) * 1000
+          : undefined,
     });
   }
 

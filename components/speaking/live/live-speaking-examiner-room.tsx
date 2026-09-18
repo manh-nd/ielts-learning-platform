@@ -35,7 +35,6 @@ import {
   clearActiveSpeakingSession,
 } from "./types";
 import { SpeakingPracticeTopic } from "@/lib/data/speaking-practice-topics";
-import { SpeakingMockTopic } from "@/lib/data/speaking-mock-topics";
 import {
   PracticeFeedback,
   SpeakingEvaluationTrace,
@@ -45,7 +44,8 @@ import {
   dispatchPracticeAgainStarted,
   dispatchPracticeAudioError,
 } from "@/lib/telemetry/telemetry-client";
-import { CANONICAL_SPEAKING_PRACTICE_SCOPE } from "@/modules/speaking/domain";
+import { getPracticePlan } from "@/modules/speaking/application/get-practice-plan";
+import type { SpeakingPracticeScope } from "@/modules/speaking/domain";
 import {
   finishSpeakingPracticeWorkflow,
   retrySpeakingPracticeEvaluationWorkflow,
@@ -60,42 +60,8 @@ import {
   createSpeakingLiveExaminerPort,
 } from "@/modules/speaking/infrastructure/browser/speaking-practice-browser-adapter";
 
-/**
- * Internal Compatibility Debt:
- * Adapts SpeakingPracticeTopic to satisfy legacy useGeminiLive engine's topic shape requirement.
- *
- * CRITICAL INVARIANTS:
- * - private/internal only
- * - placeholder Part 2/3 MUST never be exposed to Practice UI
- * - MUST never be interpreted as real Mock content
- * - targetPart="part_1" (CANONICAL_SPEAKING_PRACTICE_SCOPE) guarantees these placeholder fields are unreachable
- * - do not export this as a reusable Practice/Mock abstraction
- */
-function adaptPracticeTopicToLiveEngine(
-  topic?: SpeakingPracticeTopic
-): SpeakingMockTopic | undefined {
-  if (!topic) return undefined;
-  return {
-    id: topic.id,
-    title: topic.title,
-    category: topic.category,
-    description: topic.description,
-    difficulty: topic.difficulty,
-    part1: topic.part1,
-    // Technical placeholder debt for legacy engine only; unreachable in Part 1 practice
-    part2: {
-      topicTitle: "",
-      cueCardPrompt: "",
-      bulletPoints: [],
-    },
-    part3: {
-      theme: "",
-      questions: [],
-    },
-  };
-}
-
 export interface LiveSpeakingExaminerRoomProps {
+  scope?: SpeakingPracticeScope;
   title?: string;
   subtitle?: string;
   candidateName?: string;
@@ -112,6 +78,7 @@ export interface LiveSpeakingExaminerRoomProps {
 }
 
 export function LiveSpeakingExaminerRoom({
+  scope = "part_1",
   title = "Phòng Luyện Tập IELTS Speaking Trực Tiếp",
   subtitle = "Đối thoại thời gian thực 1-on-1 với Giám khảo AI (Examiner)",
   candidateName = "Thí sinh",
@@ -126,8 +93,17 @@ export function LiveSpeakingExaminerRoom({
   onRestart,
   workflowPorts,
 }: LiveSpeakingExaminerRoomProps) {
+  const [activeSessionId, setActiveSessionId] = useState<string>(
+    () => initialSessionId || `ses_live_${Date.now()}`
+  );
   const finishExamActionRef = useRef<() => void>(() => {});
-  const examinerPort = useMemo(() => createSpeakingLiveExaminerPort(), []);
+  const examinerPort = useMemo(
+    () =>
+      createSpeakingLiveExaminerPort({
+        tokenEndpoint: `/api/speaking/live-token?sessionId=${encodeURIComponent(activeSessionId)}`,
+      }),
+    [activeSessionId]
+  );
 
   useEffect(() => {
     return () => {
@@ -140,10 +116,15 @@ export function LiveSpeakingExaminerRoom({
     []
   );
   const effectiveWorkflowPorts = workflowPorts || defaultWorkflowPorts;
-  const targetPart = CANONICAL_SPEAKING_PRACTICE_SCOPE;
+  const targetPart = scope;
+  const practicePlan = useMemo(
+    () => (topic ? (getPracticePlan(topic.id, scope) ?? undefined) : undefined),
+    [topic, scope]
+  );
 
   const {
     status,
+    error: liveError,
     voiceActivity,
     examStage,
     transcripts,
@@ -157,10 +138,17 @@ export function LiveSpeakingExaminerRoom({
     finalizeLiveSession,
     toggleMute,
     toggleNoiseSuppression,
+    finishAnswer,
+    repeatQuestion,
+    getTurnMarkers,
+    finishPart2PrepEarly,
+    prepTimeRemaining,
+    part2Phase,
+    cueCardData,
   } = useGeminiLive({
     examinerPort,
+    practicePlan,
     candidateName,
-    topic: adaptPracticeTopicToLiveEngine(topic),
     targetPart,
     mockMode,
     onExamCompleted: () => {
@@ -168,9 +156,6 @@ export function LiveSpeakingExaminerRoom({
     },
   });
 
-  const [activeSessionId, setActiveSessionId] = useState<string>(
-    () => initialSessionId || `ses_live_${Date.now()}`
-  );
   const [persistedStorageKey] = useState<string | null>(null);
   const [persistedAudioBase64] = useState<string | null>(null);
   const [practiceFeedback, setPracticeFeedback] =
@@ -241,8 +226,30 @@ export function LiveSpeakingExaminerRoom({
       topic_title: topic?.title,
       target_part: targetPart,
     });
-    await connect();
-  }, [effectiveHasConsent, connect, activeSessionId, topic?.title, targetPart]);
+    try {
+      const admittedPlan =
+        !mockMode && topic
+          ? await effectiveWorkflowPorts.startPractice?.({
+              sessionId: activeSessionId,
+              topicId: topic.id,
+              targetPart,
+            })
+          : undefined;
+      await connect(admittedPlan);
+    } catch (error) {
+      setEvalError(
+        error instanceof Error ? error.message : "Could not start practice"
+      );
+    }
+  }, [
+    effectiveHasConsent,
+    connect,
+    activeSessionId,
+    topic,
+    targetPart,
+    effectiveWorkflowPorts,
+    mockMode,
+  ]);
 
   const handleConsentGranted = useCallback(async () => {
     setHasLocalConsent(true);
@@ -254,8 +261,30 @@ export function LiveSpeakingExaminerRoom({
       target_part: targetPart,
       consent_granted: true,
     });
-    await connect();
-  }, [onConsentGranted, connect, activeSessionId, topic?.title, targetPart]);
+    try {
+      const admittedPlan =
+        !mockMode && topic
+          ? await effectiveWorkflowPorts.startPractice?.({
+              sessionId: activeSessionId,
+              topicId: topic.id,
+              targetPart,
+            })
+          : undefined;
+      await connect(admittedPlan);
+    } catch (error) {
+      setEvalError(
+        error instanceof Error ? error.message : "Could not start practice"
+      );
+    }
+  }, [
+    onConsentGranted,
+    connect,
+    activeSessionId,
+    topic,
+    targetPart,
+    effectiveWorkflowPorts,
+    mockMode,
+  ]);
 
   // Telemetry: Mic permission denied tracking
   useEffect(() => {
@@ -387,12 +416,13 @@ export function LiveSpeakingExaminerRoom({
     const outcome = await finishSpeakingPracticeWorkflow(
       {
         sessionId: activeSessionId,
+        scope,
         candidateName,
         topicTitle: topic?.title,
         questions: questionTexts,
         part1Question: questionTexts?.[0],
         transcripts,
-        turnMarkers,
+        turnMarkers: getTurnMarkers(),
         audio: finalizedAudio,
         durationSeconds: finalizedAudio?.durationSeconds,
         persistedStorageKey: persistedStorageKey || undefined,
@@ -424,11 +454,14 @@ export function LiveSpeakingExaminerRoom({
     }
 
     applyWorkflowOutcome(outcome);
+    return outcome;
   }, [
+    scope,
     activeSessionId,
     applyWorkflowOutcome,
     candidateName,
     finalizeLiveSession,
+    getTurnMarkers,
     effectiveWorkflowPorts,
     isEvaluating,
     onSessionChange,
@@ -436,7 +469,6 @@ export function LiveSpeakingExaminerRoom({
     persistedStorageKey,
     topic,
     transcripts,
-    turnMarkers,
   ]);
 
   const handleRetryUpload = useCallback(async () => {
@@ -452,6 +484,7 @@ export function LiveSpeakingExaminerRoom({
     const outcome = await retrySpeakingAudioUploadWorkflow(
       {
         sessionId: activeSessionId,
+        scope,
         audio: savedFinalizedAudio,
         candidateName,
         topicTitle: topic?.title,
@@ -465,6 +498,7 @@ export function LiveSpeakingExaminerRoom({
     );
     applyWorkflowOutcome(outcome);
   }, [
+    scope,
     activeSessionId,
     applyWorkflowOutcome,
     candidateName,
@@ -485,6 +519,7 @@ export function LiveSpeakingExaminerRoom({
     const outcome = await retrySpeakingPracticeEvaluationWorkflow(
       {
         sessionId: activeSessionId,
+        scope,
         candidateName,
         topicTitle: topic?.title,
         questions: questionTexts,
@@ -499,6 +534,7 @@ export function LiveSpeakingExaminerRoom({
     );
     applyWorkflowOutcome(outcome);
   }, [
+    scope,
     activeSessionId,
     candidateName,
     topic,
@@ -514,6 +550,24 @@ export function LiveSpeakingExaminerRoom({
   useEffect(() => {
     finishExamActionRef.current = handleFinishExam;
   });
+
+  const restartPractice = () => {
+    setIsExamFinished(false);
+    setPracticeFeedback(null);
+    setTraceMetadata(null);
+    setSavedFinalizedAudio(null);
+    setSavedConversationReplay(null);
+    setUploadError(null);
+    setCanRetryEvaluation(false);
+    const newSessionId = `ses_live_${Date.now()}`;
+    dispatchPracticeAgainStarted(newSessionId, {
+      previous_session_id: activeSessionId,
+    });
+    setActiveSessionId(newSessionId);
+    clearActiveSpeakingSession();
+    onSessionChange?.(null);
+    onRestart?.();
+  };
 
   // If upload failed, display the Upload Recovery Card with audio preview & retry button
   if (uploadError && !isEvaluating) {
@@ -612,23 +666,7 @@ export function LiveSpeakingExaminerRoom({
         onRetryEvaluation={
           canRetryEvaluation ? handleRetryEvaluation : undefined
         }
-        onRestartTest={() => {
-          setIsExamFinished(false);
-          setPracticeFeedback(null);
-          setTraceMetadata(null);
-          setSavedFinalizedAudio(null);
-          setSavedConversationReplay(null);
-          setUploadError(null);
-          setCanRetryEvaluation(false);
-          const newSessionId = `ses_live_${Date.now()}`;
-          dispatchPracticeAgainStarted(newSessionId, {
-            previous_session_id: activeSessionId,
-          });
-          setActiveSessionId(newSessionId);
-          clearActiveSpeakingSession();
-          onSessionChange?.(null);
-          onRestart?.();
-        }}
+        onRestartTest={restartPractice}
         onBackToDashboard={() => {
           clearActiveSpeakingSession();
           onSessionChange?.(null);
@@ -698,6 +736,19 @@ export function LiveSpeakingExaminerRoom({
 
       {/* Main Content Studio with optimized padding */}
       <CardContent className="p-4 sm:p-6 space-y-4">
+        {cueCardData && status === "connected" && (
+          <section aria-label="Cue card" className="rounded-lg border p-4">
+            <p>{cueCardData.cueCardPrompt}</p>
+            <ul>
+              {cueCardData.bulletPoints.map((point) => (
+                <li key={point}>{point}</li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {(liveError || evalError) && (
+          <p role="alert">{liveError?.message || evalError}</p>
+        )}
         {/* Stage Visualization Area */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* AI Examiner Card */}
@@ -796,9 +847,50 @@ export function LiveSpeakingExaminerRoom({
       <CardFooter className="flex items-center justify-between border-t bg-muted/10 px-5 py-3.5">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-          <span>Mô hình: Gemini 3.1 Flash Live</span>
+          <span>Mô hình: Gemini Live</span>
         </div>
 
+        {status === "connected" && (
+          <div className="flex flex-wrap gap-2">
+            {part2Phase === "prep_countdown" ? (
+              <div>
+                <ul>
+                  {practicePlan?.cueCard?.bulletPoints.map((point) => (
+                    <li key={point}>{point}</li>
+                  ))}
+                </ul>
+                <p>{prepTimeRemaining}s</p>
+                <Button onClick={finishPart2PrepEarly}>Start early</Button>
+              </div>
+            ) : (
+              <>
+                <Button onClick={finishAnswer}>Done</Button>
+                <Button variant="outline" onClick={repeatQuestion}>
+                  Repeat question
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+        {status === "error" && (
+          <div className="flex gap-2">
+            <Button onClick={handleFinishExam}>Save captured practice</Button>
+            <Button
+              variant="outline"
+              onClick={async () => {
+                const outcome = await handleFinishExam();
+                if (
+                  outcome?.status === "feedback_ready" ||
+                  (outcome?.status === "evaluation_failed" &&
+                    outcome.practiceEnded)
+                )
+                  restartPractice();
+              }}
+            >
+              Save and start new practice
+            </Button>
+          </div>
+        )}
         <LiveSessionControls
           status={status}
           isMuted={isMuted}

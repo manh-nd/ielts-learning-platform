@@ -4,7 +4,12 @@ import {
   speakingResponses,
   SpeakingSessionStatus,
 } from "./speaking-schema";
-import { eq, and, or, lte } from "drizzle-orm";
+import {
+  practicePlanCompleted,
+  type PracticePlan,
+  type PracticeAnswer,
+} from "../domain/practice-plan";
+import { eq, and, or, lte, sql } from "drizzle-orm";
 import {
   deleteSpeakingAudioObject,
   deleteSpeakingAudioSession,
@@ -82,6 +87,7 @@ export interface CommitCompletedPracticeParams {
   topicTitle: string;
   durationSeconds: number;
   targetPart?: string;
+  plan?: PracticePlan;
   turnMarkers?: unknown[];
   liveTranscript?: string;
   storageKey?: string | null;
@@ -131,7 +137,9 @@ export class SpeakingPracticeRepository {
           "[SpeakingPracticeRepository] Database findById lookup failed, checking cache:",
           dbErr
         );
+        throw dbErr;
       }
+      return { practice: null, responses: [] };
     }
 
     const cachedPractice = devSessionCache.get(sessionId) || null;
@@ -158,10 +166,81 @@ export class SpeakingPracticeRepository {
     } = params;
 
     const now = new Date();
-    const existingCached = devSessionCache.get(sessionId);
-    const createdAt = existingCached?.createdAt || now;
-
-    // 1. Commit to in-memory dev cache
+    const partNumber = Number(targetPart.slice(-1));
+    const evidence = {
+      version: 1,
+      plan: params.plan,
+      planCompleted: params.plan
+        ? practicePlanCompleted(params.plan, turnMarkers as PracticeAnswer[])
+        : undefined,
+      turnMarkers,
+      liveTranscript,
+    };
+    const response = {
+      id: `resp_${sessionId}_p${partNumber}_0`,
+      sessionId,
+      partNumber,
+      itemIndex: 0,
+      promptQuestion: topicTitle,
+      storageKey,
+      audioUrl,
+      mimeType,
+      startMs: 0,
+      endMs: Math.round(durationSeconds * 1000),
+      durationSeconds,
+      liveTranscript,
+      verifiedTranscript: null,
+      createdAt: now,
+    };
+    if (process.env.DATABASE_URL) {
+      await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext(${sessionId}))`
+        );
+        const [existing] = await tx
+          .select()
+          .from(speakingSessions)
+          .where(eq(speakingSessions.id, sessionId));
+        if (existing && existing.userId !== userId)
+          throw new Error("Practice ownership mismatch");
+        if (existing && existing.status !== "in_progress") return;
+        const savedEvidence = existing?.evidenceJson as {
+          plan?: PracticePlan;
+        } | null;
+        const values = {
+          userId,
+          candidateName,
+          topicTitle,
+          status: "completed" as const,
+          targetPart,
+          durationSeconds,
+          evidenceJson: {
+            ...evidence,
+            plan: savedEvidence?.plan ?? params.plan,
+          },
+          updatedAt: now,
+        };
+        if (existing)
+          await tx
+            .update(speakingSessions)
+            .set(values)
+            .where(eq(speakingSessions.id, sessionId));
+        else
+          await tx
+            .insert(speakingSessions)
+            .values({ id: sessionId, ...values });
+        await tx.insert(speakingResponses).values(response);
+      });
+      devSessionCache.delete(sessionId);
+      devResponseCache.delete(sessionId);
+      return;
+    }
+    if (process.env.SPEAKING_BETA_ENABLED === "true")
+      throw new Error("Private beta requires durable storage");
+    const existing = devSessionCache.get(sessionId);
+    if (existing && existing.userId !== userId)
+      throw new Error("Practice ownership mismatch");
+    if (existing && existing.status !== "in_progress") return;
     devSessionCache.set(sessionId, {
       id: sessionId,
       userId,
@@ -173,95 +252,15 @@ export class SpeakingPracticeRepository {
       overallBand: null,
       scorecardJson: null,
       evidenceJson: {
-        turnMarkers,
-        liveTranscript,
+        ...evidence,
+        plan:
+          (existing?.evidenceJson as { plan?: PracticePlan } | null)?.plan ??
+          params.plan,
       },
-      createdAt,
+      createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     });
-
-    devResponseCache.set(sessionId, [
-      {
-        id: `resp_${sessionId}_p1_0`,
-        sessionId,
-        partNumber: 1,
-        itemIndex: 0,
-        promptQuestion: topicTitle,
-        storageKey,
-        audioUrl,
-        mimeType,
-        startMs: 0,
-        endMs: durationSeconds * 1000,
-        durationSeconds,
-        liveTranscript: liveTranscript || null,
-        verifiedTranscript: null,
-        createdAt,
-      },
-    ]);
-
-    // 2. Commit to PostgreSQL if configured
-    if (process.env.DATABASE_URL) {
-      try {
-        await db
-          .insert(speakingSessions)
-          .values({
-            id: sessionId,
-            userId,
-            candidateName,
-            topicTitle,
-            status: "completed",
-            targetPart,
-            durationSeconds,
-            overallBand: null,
-            scorecardJson: null,
-            evidenceJson: {
-              turnMarkers,
-              liveTranscript,
-            },
-          })
-          .onConflictDoUpdate({
-            target: speakingSessions.id,
-            set: {
-              status: "completed",
-              durationSeconds,
-              updatedAt: new Date(),
-            },
-            where: eq(speakingSessions.userId, userId),
-          });
-
-        await db
-          .insert(speakingResponses)
-          .values({
-            id: `resp_${sessionId}_p1_0`,
-            sessionId,
-            partNumber: 1,
-            itemIndex: 0,
-            promptQuestion: topicTitle,
-            storageKey,
-            audioUrl,
-            mimeType,
-            startMs: 0,
-            endMs: durationSeconds * 1000,
-            durationSeconds,
-            liveTranscript: liveTranscript || null,
-            verifiedTranscript: null,
-          })
-          .onConflictDoUpdate({
-            target: speakingResponses.id,
-            set: {
-              storageKey,
-              audioUrl,
-              liveTranscript: liveTranscript || null,
-            },
-          });
-      } catch (dbErr) {
-        console.error(
-          "[SpeakingPracticeRepository] Database commit failure for completed practice:",
-          dbErr
-        );
-        throw dbErr;
-      }
-    }
+    devResponseCache.set(sessionId, [response]);
   }
 
   async markEvaluated(params: MarkEvaluatedPracticeParams): Promise<void> {
@@ -275,15 +274,22 @@ export class SpeakingPracticeRepository {
 
     // 1. Update in-memory dev cache
     const existingSession = devSessionCache.get(sessionId);
-    if (existingSession) {
+    if (existingSession && !process.env.DATABASE_URL) {
       existingSession.status = "evaluated";
       existingSession.scorecardJson = scorecardJson;
-      existingSession.evidenceJson = evidenceJson;
+      existingSession.evidenceJson = {
+        ...(existingSession.evidenceJson as object),
+        ...(evidenceJson as object),
+      };
       existingSession.updatedAt = new Date();
     }
 
     const existingResponses = devResponseCache.get(sessionId);
-    if (existingResponses && existingResponses[0]) {
+    if (
+      !process.env.DATABASE_URL &&
+      existingResponses &&
+      existingResponses[0]
+    ) {
       existingResponses[0].verifiedTranscript = verifiedTranscript;
     }
 
@@ -295,7 +301,7 @@ export class SpeakingPracticeRepository {
           .set({
             status: "evaluated",
             scorecardJson,
-            evidenceJson,
+            evidenceJson: sql`coalesce(${speakingSessions.evidenceJson}, '{}'::jsonb) || ${JSON.stringify(evidenceJson)}::jsonb`,
             updatedAt: new Date(),
           })
           .where(
@@ -310,7 +316,7 @@ export class SpeakingPracticeRepository {
           .set({
             verifiedTranscript,
           })
-          .where(eq(speakingResponses.id, `resp_${sessionId}_p1_0`));
+          .where(eq(speakingResponses.sessionId, sessionId));
       } catch (dbErr) {
         console.error(
           "[SpeakingPracticeRepository] Database update to evaluated status failed:",
@@ -328,8 +334,11 @@ export class SpeakingPracticeRepository {
 
     // 1. Update in-memory dev cache
     const existingSession = devSessionCache.get(sessionId);
-    if (existingSession) {
-      existingSession.evidenceJson = failedEvidence;
+    if (existingSession && !process.env.DATABASE_URL) {
+      existingSession.evidenceJson = {
+        ...(existingSession.evidenceJson as object),
+        ...(failedEvidence as object),
+      };
       existingSession.updatedAt = new Date();
     }
 
@@ -339,7 +348,7 @@ export class SpeakingPracticeRepository {
         await db
           .update(speakingSessions)
           .set({
-            evidenceJson: failedEvidence,
+            evidenceJson: sql`coalesce(${speakingSessions.evidenceJson}, '{}'::jsonb) || ${JSON.stringify(failedEvidence)}::jsonb`,
             updatedAt: new Date(),
           })
           .where(
@@ -353,6 +362,7 @@ export class SpeakingPracticeRepository {
           "[SpeakingPracticeRepository] Failed to update error evidence in DB:",
           dbErr
         );
+        throw dbErr;
       }
     }
   }
@@ -363,6 +373,7 @@ export class SpeakingPracticeRepository {
     candidateName?: string | null;
     topicTitle?: string;
     targetPart?: string;
+    plan?: PracticePlan;
     createdAt?: Date;
   }): Promise<SpeakingPracticeRecord> {
     const {
@@ -389,12 +400,13 @@ export class SpeakingPracticeRepository {
       durationSeconds: 0,
       overallBand: null,
       scorecardJson: null,
-      evidenceJson: null,
+      evidenceJson: params.plan ? { version: 1, plan: params.plan } : null,
       createdAt,
       updatedAt: createdAt,
     };
 
-    devSessionCache.set(sessionId, sessionRecord);
+    if (!process.env.DATABASE_URL)
+      devSessionCache.set(sessionId, sessionRecord);
 
     if (process.env.DATABASE_URL) {
       try {
@@ -408,6 +420,9 @@ export class SpeakingPracticeRepository {
             status: "in_progress",
             targetPart,
             durationSeconds: 0,
+            evidenceJson: params.plan
+              ? { version: 1, plan: params.plan }
+              : null,
             createdAt,
             updatedAt: createdAt,
           })
@@ -417,6 +432,7 @@ export class SpeakingPracticeRepository {
           "[SpeakingPracticeRepository] Failed to insert in_progress session:",
           dbErr
         );
+        throw dbErr;
       }
     }
 

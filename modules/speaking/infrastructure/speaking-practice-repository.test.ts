@@ -74,7 +74,7 @@ describe("SpeakingPracticeRepository", () => {
     const found = await repository.findById(sessionId);
     expect(found.practice?.status).toBe("evaluated");
     expect(found.practice?.scorecardJson).toEqual(mockScorecard);
-    expect(found.practice?.evidenceJson).toEqual(mockEvidence);
+    expect(found.practice?.evidenceJson).toMatchObject(mockEvidence);
     expect(found.responses[0].verifiedTranscript).toBe(
       "I study computer science in Hanoi."
     );
@@ -103,7 +103,7 @@ describe("SpeakingPracticeRepository", () => {
 
     const found = await repository.findById(sessionId);
     expect(found.practice?.status).toBe("completed");
-    expect(found.practice?.evidenceJson).toEqual(failedEvidence);
+    expect(found.practice?.evidenceJson).toMatchObject(failedEvidence);
   });
 
   it("should create in_progress practice session idempotently", async () => {

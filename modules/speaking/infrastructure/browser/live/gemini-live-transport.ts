@@ -61,6 +61,7 @@ export class DefaultGeminiLiveTransport implements GeminiLiveTransport {
         this.ws = ws;
 
         ws.onopen = () => {
+          if (this.ws !== ws) return;
           if (setupPayload !== undefined) {
             try {
               const text =
@@ -92,6 +93,7 @@ export class DefaultGeminiLiveTransport implements GeminiLiveTransport {
             return;
           }
 
+          if (this.ws !== ws) return;
           for (const listener of this.rawMessageListeners) {
             try {
               listener(textData);
@@ -105,6 +107,7 @@ export class DefaultGeminiLiveTransport implements GeminiLiveTransport {
         };
 
         ws.onerror = (err: Event) => {
+          if (this.ws !== ws) return;
           if (!isSettled) {
             isSettled = true;
             reject(new Error("WebSocket connection error"));
@@ -122,6 +125,7 @@ export class DefaultGeminiLiveTransport implements GeminiLiveTransport {
         };
 
         ws.onclose = (evt: CloseEvent) => {
+          if (this.ws !== ws) return;
           if (!isSettled) {
             isSettled = true;
             reject(

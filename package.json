@@ -28,7 +28,9 @@
     "db:push": "drizzle-kit push",
     "prepare": "husky",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test:speaking:integration": "bun run scripts/test-speaking-persistence.ts",
+    "test:speaking:live": "bun run scripts/smoke-speaking-live.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1119.0",

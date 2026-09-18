@@ -9,6 +9,7 @@ export const SPEAKING_PRACTICE_EVENT_NAMES = [
   "practice_feedback_ready",
   "practice_again_started",
   "practice_audio_error",
+  "practice_live_metric",
   "practice_purged",
 ] as const;
 
@@ -83,6 +84,7 @@ export const ROLE_ALLOWED_EVENTS: Record<
     "practice_feedback_ready",
     "practice_again_started",
     "practice_audio_error",
+    "practice_live_metric",
     "practice_purged",
     "homework_viewed",
     "homework_record_completed",

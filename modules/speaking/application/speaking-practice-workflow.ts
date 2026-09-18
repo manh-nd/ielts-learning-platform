@@ -1,8 +1,11 @@
-import { CANONICAL_SPEAKING_PRACTICE_SCOPE } from "../domain";
+import {
+  CANONICAL_SPEAKING_PRACTICE_SCOPE,
+  type SpeakingPracticeScope,
+} from "../domain";
 import type {
   PracticeFeedback,
   SpeakingEvaluationTrace,
-} from "@/lib/gemini/speaking-schema";
+} from "./practice-feedback";
 
 /**
  * Pure application outcome union for SpeakingPractice finish & evaluation workflow.
@@ -75,6 +78,11 @@ export type { RestoredSpeakingPracticeState } from "./restore-speaking-practice"
  * Implemented by infrastructure adapters (e.g. browser adapter or test mocks).
  */
 export interface SpeakingPracticeWorkflowPorts {
+  startPractice?: (input: {
+    sessionId: string;
+    topicId: string;
+    targetPart: SpeakingPracticeScope;
+  }) => Promise<import("../domain/practice-plan").PracticePlan | undefined>;
   persistAudio: (
     sessionId: string,
     audio: SpeakingPracticeAudioPayload
@@ -83,8 +91,8 @@ export interface SpeakingPracticeWorkflowPorts {
     sessionId: string;
     topicTitle?: string;
     candidateName?: string;
-    practiceMode: "part_1";
-    targetPart: "part_1";
+    practiceMode: SpeakingPracticeScope;
+    targetPart: SpeakingPracticeScope;
     questions?: string[];
     part1Question?: string;
     transcripts?: Array<{ sender: string; text: string; timestamp?: number }>;
@@ -205,6 +213,7 @@ export function mapEvaluationFailureResponse(
 }
 
 export interface FinishSpeakingPracticeWorkflowInput {
+  scope?: SpeakingPracticeScope;
   sessionId: string;
   candidateName?: string;
   topicTitle?: string;
@@ -321,8 +330,8 @@ export async function finishSpeakingPracticeWorkflow(
     sessionId,
     topicTitle,
     candidateName,
-    practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
-    targetPart: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+    practiceMode: input.scope ?? CANONICAL_SPEAKING_PRACTICE_SCOPE,
+    targetPart: input.scope ?? CANONICAL_SPEAKING_PRACTICE_SCOPE,
     questions: questions && questions.length > 0 ? questions : undefined,
     part1Question,
     transcripts: transcripts.map((t) => ({
@@ -373,6 +382,7 @@ export async function finishSpeakingPracticeWorkflow(
 }
 
 export interface RetrySpeakingPracticeEvaluationInput {
+  scope?: SpeakingPracticeScope;
   sessionId: string;
   candidateName?: string;
   topicTitle?: string;
@@ -428,8 +438,8 @@ export async function retrySpeakingPracticeEvaluationWorkflow(
     sessionId,
     topicTitle,
     candidateName,
-    practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
-    targetPart: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+    practiceMode: input.scope ?? CANONICAL_SPEAKING_PRACTICE_SCOPE,
+    targetPart: input.scope ?? CANONICAL_SPEAKING_PRACTICE_SCOPE,
     questions: questions && questions.length > 0 ? questions : undefined,
     part1Question,
     transcripts: transcripts.map((t) => ({
@@ -480,6 +490,7 @@ export async function retrySpeakingPracticeEvaluationWorkflow(
 }
 
 export interface RetrySpeakingAudioUploadInput {
+  scope?: SpeakingPracticeScope;
   sessionId: string;
   audio: SpeakingPracticeAudioPayload;
   candidateName?: string;

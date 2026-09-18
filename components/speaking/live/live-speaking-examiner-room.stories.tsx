@@ -110,3 +110,28 @@ export const LiveSessionInteractiveTest: Story = {
     await userEvent.click(muteButton);
   },
 };
+
+export const Part2Preparation: Story = {
+  args: { scope: "part_2" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByTestId("connect-live-btn"));
+    const start = await canvas.findByRole("button", { name: "Start early" });
+    await expect(start).toBeVisible();
+    await userEvent.click(start);
+    await expect(
+      await canvas.findByRole("button", { name: "Done" })
+    ).toBeVisible();
+  },
+};
+export const Part3Discussion: Story = {
+  args: { scope: "part_3" },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByTestId("connect-live-btn"));
+    await userEvent.click(await canvas.findByRole("button", { name: "Done" }));
+    await expect(
+      canvas.getByRole("button", { name: "Repeat question" })
+    ).toBeVisible();
+  },
+};

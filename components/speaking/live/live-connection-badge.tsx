@@ -48,7 +48,7 @@ export function LiveConnectionBadge({
     );
   }
 
-  if (status === "connecting") {
+  if (status === "connecting" || status === "reconnecting") {
     return (
       <Badge
         variant="outline"
@@ -59,7 +59,9 @@ export function LiveConnectionBadge({
         )}
       >
         <Wifi className="w-3 h-3 animate-pulse" />
-        Đang kết nối phòng thi...
+        {status === "reconnecting"
+          ? "Đang khôi phục kết nối..."
+          : "Đang kết nối phòng thi..."}
       </Badge>
     );
   }

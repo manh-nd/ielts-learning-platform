@@ -12,9 +12,14 @@ import {
   retryPracticeEvaluation,
   executePracticeEvaluation,
 } from "./retry-practice-evaluation";
-import { CANONICAL_SPEAKING_PRACTICE_SCOPE } from "../domain";
+import {
+  CANONICAL_SPEAKING_PRACTICE_SCOPE,
+  normalizeSpeakingPracticeScope,
+  type SpeakingPracticeScope,
+} from "../domain";
 
 export interface FinishSpeakingPracticeInput {
+  scope?: SpeakingPracticeScope;
   authenticatedUserId: string;
   sessionId: string;
   topicTitle?: string;
@@ -69,19 +74,38 @@ export async function finishSpeakingPractice(
       );
     }
 
-    // Existing owned SpeakingPractice is always treated as RetryEvaluation
-    // re-using the same persisted immutable OriginalAudio without re-committing
-    return retryPracticeEvaluation({
-      authenticatedUserId,
-      sessionId,
-      topicTitle: input.topicTitle,
-      candidateName,
-      questions,
-      durationSeconds: input.durationSeconds,
-      turnMarkers,
-    });
+    if (!normalizeSpeakingPracticeScope(existingPractice.targetPart))
+      throw new ForbiddenError(
+        "This record is not an independent SpeakingPractice."
+      );
+    if (existingPractice.status !== "in_progress") {
+      // Existing owned SpeakingPractice is always treated as RetryEvaluation
+      // re-using the same persisted immutable OriginalAudio without re-committing
+      return retryPracticeEvaluation({
+        authenticatedUserId,
+        sessionId,
+        topicTitle: input.topicTitle,
+        candidateName,
+        questions,
+        durationSeconds: input.durationSeconds,
+        turnMarkers,
+      });
+    }
   }
 
+  if (process.env.SPEAKING_BETA_ENABLED === "true" && !existingPractice)
+    throw new ForbiddenError(
+      "Start an authorized practice before saving audio."
+    );
+  const scope =
+    normalizeSpeakingPracticeScope(existingPractice?.targetPart) ??
+    input.scope ??
+    CANONICAL_SPEAKING_PRACTICE_SCOPE;
+  const plan = (
+    existingPractice?.evidenceJson as {
+      plan?: import("../domain/practice-plan").PracticePlan;
+    } | null
+  )?.plan;
   let effectiveStorageKey = storageKey;
   let effectiveMimeType = mimeType;
 
@@ -175,6 +199,12 @@ export async function finishSpeakingPractice(
   const effectiveTurnMarkers = typedTurnMarkers;
 
   const part1Questions: string[] =
+    (plan
+      ? [
+          ...(plan.cueCard ? [plan.cueCard.text] : []),
+          ...plan.questions.map((q) => q.text),
+        ]
+      : undefined) ||
     questions ||
     (effectiveTurnMarkers.length > 0
       ? effectiveTurnMarkers.map(
@@ -204,7 +234,8 @@ export async function finishSpeakingPractice(
       candidateName: effectiveCandidateName,
       topicTitle: effectiveTopicTitle,
       durationSeconds: effectiveDuration,
-      targetPart: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+      targetPart: scope,
+      plan,
       turnMarkers: effectiveTurnMarkers,
       liveTranscript: userTranscripts,
       storageKey: effectiveStorageKey,
@@ -229,6 +260,7 @@ export async function finishSpeakingPractice(
 
   // STEP B: Run AI evaluation (PracticeEvaluation) & persist result
   return executePracticeEvaluation({
+    scope,
     sessionId,
     authenticatedUserId,
     topicTitle: effectiveTopicTitle,

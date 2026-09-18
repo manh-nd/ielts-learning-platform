@@ -15,6 +15,7 @@ export interface StartSpeakingLiveExaminerInput {
    * Expected to be removed when Part1PracticeCoordinator owns progression.
    */
   systemInstruction?: string;
+  applicationControlled?: boolean;
 }
 
 /**
@@ -85,6 +86,7 @@ export interface SpeakingLiveExaminerActionResponse {
  */
 export type SpeakingLiveExaminerEvent =
   | { type: "connected" }
+  | { type: "resumed" }
   | { type: "reconnecting" }
   | { type: "connection_failed"; reason: string }
   /**
@@ -125,7 +127,10 @@ export interface SpeakingLiveExaminerPort {
   connect(input: StartSpeakingLiveExaminerInput): Promise<void>;
   sendCandidateAudio(input: SendCandidateAudioInput): void;
   endCandidateAudio(): void;
+  startCandidateActivity?(): void;
+  endCandidateActivity?(): void;
   sendText(input: SendSpeakingExaminerTextInput): void;
+  presentPrompt?(input: { questionId: string; text: string }): void;
   respondToExaminerAction(response: SpeakingLiveExaminerActionResponse): void;
   subscribe(listener: (event: SpeakingLiveExaminerEvent) => void): () => void;
   disconnect(): Promise<void>;

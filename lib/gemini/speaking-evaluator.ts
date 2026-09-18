@@ -1,4 +1,4 @@
-import { geminiRotator } from "./index";
+import { geminiRotator, GeminiKeyRotator } from "./index";
 import {
   calculateIeltsOverallBand,
   IeltsSpeakingEvaluationResult,
@@ -420,6 +420,7 @@ CANONICAL DOMAIN RULES:
 `.trim();
 
 export interface SpeakingPracticePart1Input {
+  scope?: "part_1" | "part_2" | "part_3";
   practiceId?: string;
   topicTitle: string;
   questions: string[];
@@ -450,7 +451,8 @@ export interface EvaluatePracticePart1Options {
 export async function transcribePracticeAudioVerbatim(
   audioBase64: string,
   mimeType: string,
-  liveTranscript?: string
+  liveTranscript?: string,
+  credentials: GeminiKeyRotator = geminiRotator
 ): Promise<{
   flashLiteTranscript: string;
   bestTranscript: string;
@@ -459,7 +461,7 @@ export async function transcribePracticeAudioVerbatim(
 
   // Canonical Flash-Lite Verbatim Transcription
   try {
-    const result = await geminiRotator.executeWithRotation(async (client) => {
+    const result = await credentials.executeWithRotation(async (client) => {
       const response = await client.models.generateContent({
         model: "gemini-3.5-flash-lite",
         contents: [
@@ -507,6 +509,15 @@ export async function evaluateSpeakingPracticePart1(
   input: SpeakingPracticePart1Input,
   options: EvaluatePracticePart1Options = {}
 ): Promise<PracticeEvaluationResult> {
+  const credentials =
+    process.env.SPEAKING_BETA_ENABLED === "true"
+      ? new GeminiKeyRotator(
+          process.env.GEMINI_BETA_API_KEY ||
+            (() => {
+              throw new Error("Beta Gemini credential is not configured");
+            })()
+        )
+      : geminiRotator;
   const {
     topicTitle,
     questions,
@@ -534,14 +545,15 @@ export async function evaluateSpeakingPracticePart1(
     transcriptionData = await transcribePracticeAudioVerbatim(
       base64Audio,
       mimeType,
-      liveTranscript
+      liveTranscript,
+      credentials
     );
   }
 
   // Step 2: Build Single Multimodal Evaluation Prompt (OriginalAudio attached exactly ONCE)
   const promptText = `
 Candidate Spoken Practice Input:
-- Practice Mode: Part 1 Speaking Practice
+- Practice Mode: ${input.scope ?? "part_1"} Speaking Practice
 - Topic Theme: "${topicTitle}"
 - Questions Asked in Order:
 ${questions.map((q, idx) => `  ${idx + 1}. "${q}"`).join("\n")}
@@ -559,6 +571,7 @@ ${
 - Post-Session Best Verbatim Transcript:
 "${transcriptionData.bestTranscript}"
 
+- Evaluate only the practice-answer intervals in the turn markers when provided. Ignore identity checks and preparation speech. Never treat these as scored answers.
 - Audio Input: The complete candidate audio recording is attached inline. Analyze acoustic delivery (intonation, sentence stress, pauses, speech rate, L1 transfer) alongside the transcript to produce formative PracticeFeedback according to the schema.
 `.trim();
 
@@ -614,7 +627,7 @@ ${
       while (retryCount <= maxShortRetries) {
         try {
           const executeGenerate = async () => {
-            return await geminiRotator.executeWithRotation(
+            return await credentials.executeWithRotation(
               async (client, _key, keyFingerprint) => {
                 if (isPrimaryAttempt && isPrimaryAbandoned) {
                   throw new Error("PRIMARY_TIMEOUT");
@@ -627,7 +640,11 @@ ${
                     typeof client.models.generateContent
                   >[0]["contents"],
                   config: {
-                    systemInstruction: PART_1_PRACTICE_FEEDBACK_SYSTEM_PROMPT,
+                    systemInstruction:
+                      PART_1_PRACTICE_FEEDBACK_SYSTEM_PROMPT.replaceAll(
+                        "Part 1",
+                        `Part ${(input.scope ?? "part_1").slice(-1)}`
+                      ).replaceAll("part_1", input.scope ?? "part_1"),
                     responseMimeType: "application/json",
                     responseSchema:
                       practiceFeedbackJsonSchema as unknown as NonNullable<
@@ -751,6 +768,12 @@ ${
   let practiceFeedback: PracticeFeedback;
   try {
     const rawParsed = JSON.parse(jsonString);
+    rawParsed.evidenceScope = {
+      ...rawParsed.evidenceScope,
+      mode: input.scope ?? "part_1",
+    };
+    if (rawParsed.evidenceSufficiency === "limited")
+      delete rawParsed.estimatedPerformance;
 
     // Sanitize and round estimatedPerformance scores to valid IELTS 0.5 increments
     if (
@@ -785,7 +808,7 @@ ${
     practiceFeedback = PracticeFeedbackSchema.parse(rawParsed);
   } catch (parseErr) {
     throw new Error(
-      `Failed to parse PracticeFeedback JSON output: ${String(parseErr)}. Raw response: ${rawResponseText.slice(0, 300)}`
+      `Failed to parse PracticeFeedback JSON output (${parseErr instanceof Error ? parseErr.name : "invalid response"})`
     );
   }
 

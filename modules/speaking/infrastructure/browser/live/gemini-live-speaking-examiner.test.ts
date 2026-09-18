@@ -12,7 +12,7 @@ class FakeTokenProvider implements GeminiLiveTokenProvider {
     return {
       token: "fake_token_123",
       model: "gemini-3.8-live",
-      expiresAt: "2026-09-17T22:00:00.000Z",
+      expiresAt: new Date(Date.now() + 1800000).toISOString(),
     };
   }
 }
@@ -273,7 +273,11 @@ describe("GeminiLiveSpeakingExaminerAdapter", () => {
 
     await adapter.connect();
     transport.simulateClose(1000, "Normal closure");
-    expect(events).toContainEqual({ type: "disconnected" });
+    expect(events).toContainEqual({
+      type: "connection_failed",
+      reason:
+        "Live conversation unavailable. Save your recording and start a new practice.",
+    });
   });
 
   it("emits disconnected on abnormal socket close without WebSocket error", async () => {
@@ -288,7 +292,11 @@ describe("GeminiLiveSpeakingExaminerAdapter", () => {
 
     await adapter.connect();
     transport.simulateClose(1006, "Abnormal closure");
-    expect(events).toContainEqual({ type: "disconnected" });
+    expect(events).toContainEqual({
+      type: "connection_failed",
+      reason:
+        "Live conversation unavailable. Save your recording and start a new practice.",
+    });
   });
 
   it("emits connection_failed on WebSocket error", async () => {
@@ -305,7 +313,8 @@ describe("GeminiLiveSpeakingExaminerAdapter", () => {
     transport.simulateError("WebSocket network failure");
     expect(events).toContainEqual({
       type: "connection_failed",
-      reason: "WebSocket network failure",
+      reason:
+        "Live conversation unavailable. Save your recording and start a new practice.",
     });
   });
 
@@ -325,8 +334,73 @@ describe("GeminiLiveSpeakingExaminerAdapter", () => {
     transport.simulateClose(1006, "Connection lost");
 
     expect(events).toEqual([
-      { type: "connection_failed", reason: "Connection reset" },
-      { type: "disconnected" },
+      {
+        type: "connection_failed",
+        reason:
+          "Live conversation unavailable. Save your recording and start a new practice.",
+      },
     ]);
+  });
+});
+
+describe("live resumption", () => {
+  it("reuses credentials and restores the handle without emitting another connected event", async () => {
+    let tokens = 0;
+    const transport = new FakeTransport();
+    const adapter = new GeminiLiveSpeakingExaminerAdapter({
+      transport,
+      tokenProvider: {
+        fetchToken: async () => {
+          tokens++;
+          return new FakeTokenProvider().fetchToken();
+        },
+      },
+    });
+    const events: SpeakingLiveExaminerEvent[] = [];
+    adapter.subscribe((event) => events.push(event));
+    await adapter.connect({ applicationControlled: true });
+    transport.simulateIncomingRawMessage(JSON.stringify({ setupComplete: {} }));
+    transport.simulateIncomingRawMessage(
+      JSON.stringify({
+        sessionResumptionUpdate: {
+          resumable: true,
+          newHandle: "resume-handle",
+        },
+      })
+    );
+    transport.simulateIncomingRawMessage(
+      JSON.stringify({ goAway: { timeLeft: "10s" } })
+    );
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(transport.setupPayloadSent).toMatchObject({
+      setup: { sessionResumption: { handle: "resume-handle" } },
+    });
+    transport.simulateIncomingRawMessage(JSON.stringify({ setupComplete: {} }));
+    expect(events.map((e) => e.type)).toEqual([
+      "connected",
+      "reconnecting",
+      "resumed",
+    ]);
+    expect(tokens).toBe(1);
+    await adapter.disconnect();
+  });
+  it("cancels recovery on disposal", async () => {
+    const transport = new FakeTransport();
+    const adapter = new GeminiLiveSpeakingExaminerAdapter({
+      transport,
+      tokenProvider: new FakeTokenProvider(),
+    });
+    await adapter.connect();
+    transport.simulateIncomingRawMessage(
+      JSON.stringify({
+        setupComplete: {},
+        sessionResumptionUpdate: { resumable: true, newHandle: "h" },
+      })
+    );
+    transport.simulateClose(1006);
+    adapter.dispose();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(transport.isOpen).toBe(false);
+    expect(adapter.getResumptionHandle()).toBeNull();
   });
 });

@@ -10,7 +10,7 @@ import {
 import type {
   PracticeFeedback,
   SpeakingEvaluationTrace,
-} from "@/lib/gemini/speaking-schema";
+} from "./practice-feedback";
 import { mapSpeakingPracticePersistenceToDomain } from "./retry-practice-evaluation";
 import {
   checkPracticeEvaluationRetryEligibility,

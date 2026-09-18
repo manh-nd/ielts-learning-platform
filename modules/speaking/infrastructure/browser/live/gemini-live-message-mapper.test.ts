@@ -11,23 +11,24 @@ describe("gemini-live-message-mapper", () => {
 
   it("maps sessionResumptionUpdate payload to [session_resumption_update]", () => {
     const raw = JSON.stringify({
-      sessionResumptionUpdate: { newHandle: "handle_xyz123" },
+      sessionResumptionUpdate: { resumable: true, newHandle: "handle_xyz123" },
     });
     const events = mapGeminiLiveMessage(raw);
     expect(events).toHaveLength(1);
     expect(events[0]).toEqual({
       type: "session_resumption_update",
+      resumable: true,
       resumptionHandle: "handle_xyz123",
     });
   });
 
   it("maps goAway payload to [go_away]", () => {
-    const raw = JSON.stringify({ goAway: { reason: "maintenance" } });
+    const raw = JSON.stringify({ goAway: { timeLeft: "2.5s" } });
     const events = mapGeminiLiveMessage(raw);
     expect(events).toHaveLength(1);
     expect(events[0]).toEqual({
       type: "go_away",
-      timeLeft: { reason: "maintenance" },
+      timeLeft: 2500,
     });
   });
 

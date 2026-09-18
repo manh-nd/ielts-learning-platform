@@ -3,6 +3,7 @@ import { SpeakingMockTopic } from "@/lib/data/speaking-mock-topics";
 export type LiveSessionStatus =
   | "idle"
   | "requesting_token"
+  | "reconnecting"
   | "connecting"
   | "connected"
   | "disconnecting"
@@ -100,9 +101,11 @@ import type { SpeakingLiveExaminerPort } from "@/modules/speaking/application/po
 
 export interface LiveSpeakingConfig {
   examinerPort?: SpeakingLiveExaminerPort;
+  practicePlan?: import("@/modules/speaking/domain/practice-plan").PracticePlan;
   candidateName?: string;
   topic?: SpeakingMockTopic;
-  targetPart?: "part1" | "part2" | "part3" | "full" | "part_1";
+  targetPart?:
+    "part1" | "part2" | "part3" | "full" | "part_1" | "part_2" | "part_3";
   systemInstruction?: string;
   mockMode?: boolean;
   onStatusChange?: (status: LiveSessionStatus) => void;
@@ -130,7 +133,9 @@ export interface UseGeminiLiveReturn {
   inputVolume: number;
   recordedAudio: RecordedAudioData | null;
   conversationReplay: ConversationReplayData | null;
-  connect: () => Promise<void>;
+  connect: (
+    plan?: import("@/modules/speaking/domain/practice-plan").PracticePlan
+  ) => Promise<void>;
   disconnect: () => Promise<RecordedAudioData | null>;
   finalizeLiveSession: (
     reason: "ai_completed" | "learner_finish"
@@ -141,6 +146,9 @@ export interface UseGeminiLiveReturn {
   clearTranscripts: () => void;
   setScratchpadNotes: (notes: string) => void;
   finishPart2PrepEarly: () => void;
+  finishAnswer: () => void;
+  repeatQuestion: () => void;
+  getTurnMarkers: () => CandidateTurnMarker[];
   triggerMockStageChange: (stage: ExamStage) => void;
 }
 

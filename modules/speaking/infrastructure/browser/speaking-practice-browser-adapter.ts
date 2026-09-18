@@ -5,6 +5,7 @@ import type {
 import type { SpeakingLiveExaminerPort } from "../../application/ports/speaking-live-examiner.port";
 import { GeminiLiveSpeakingExaminerAdapter } from "./live/gemini-live-speaking-examiner";
 import {
+  dispatchTelemetryEvent,
   dispatchPracticeAudioRecorded,
   dispatchPracticeSubmittedForFeedback,
   dispatchPracticeFeedbackReady,
@@ -18,6 +19,13 @@ export function createSpeakingLiveExaminerPort(options?: {
   return new GeminiLiveSpeakingExaminerAdapter({
     tokenEndpoint: options?.tokenEndpoint,
     voiceName: options?.voiceName,
+    onMetric: (name, durationMs) =>
+      dispatchTelemetryEvent({
+        eventName: "practice_live_metric",
+        contextType: "practice",
+        durationMs,
+        properties: { metric: name },
+      }),
   });
 }
 
@@ -181,6 +189,21 @@ export async function uploadAndAttachConversationReplay(
  */
 export function createSpeakingPracticeBrowserPorts(): SpeakingPracticeWorkflowPorts {
   return {
+    startPractice: async (input) => {
+      const response = await fetch("/api/speaking/practice/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(
+          body.message || body.error || "Could not start practice"
+        );
+      }
+      const body = await response.json();
+      return body.session?.evidenceJson?.plan;
+    },
     persistAudio: async (
       sessionId: string,
       audio: SpeakingPracticeAudioPayload

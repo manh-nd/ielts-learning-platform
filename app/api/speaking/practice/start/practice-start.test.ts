@@ -174,7 +174,7 @@ describe("POST /api/speaking/practice/start", () => {
     expect(json.error.code).toBe("VALIDATION_ERROR");
   });
 
-  it("should reject explicit invalid scopes such as 'part2' or 'mock_test' with 400 Bad Request", async () => {
+  it("should reject explicit invalid scopes such as 'mock_test' with 400 Bad Request", async () => {
     const sessionId = `ses_reject_part2_${Date.now()}`;
     const req = new NextRequest(
       "http://localhost:3000/api/speaking/practice/start",
@@ -188,7 +188,7 @@ describe("POST /api/speaking/practice/start", () => {
         body: JSON.stringify({
           sessionId,
           topicTitle: "Invalid Part 2",
-          targetPart: "part2",
+          targetPart: "mock_test",
         }),
       }
     );

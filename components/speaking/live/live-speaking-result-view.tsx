@@ -330,7 +330,10 @@ export function LiveSpeakingResultView({
         <div className="rounded-xl border border-border bg-muted/30 p-5 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <Badge className="text-xs">Luyện tập Speaking Part 1</Badge>
+              <Badge className="text-xs">
+                Luyện tập Speaking{" "}
+                {practiceFeedback.evidenceScope.mode.replace("part_", "Part ")}
+              </Badge>
               <Badge variant="outline" className="text-xs">
                 Formative Practice Feedback
               </Badge>
@@ -346,8 +349,8 @@ export function LiveSpeakingResultView({
           </div>
           <p className="text-xs text-muted-foreground">
             💡 <strong>Lưu ý:</strong> Đây là nhận xét phân tích cho phần Luyện
-            tập Part 1 nhằm hỗ trợ cải thiện kỹ năng, không phải chứng chỉ hay
-            điểm số thi IELTS chính thức.
+            tập theo từng phần nhằm hỗ trợ cải thiện kỹ năng, không phải chứng
+            chỉ hay điểm số thi IELTS chính thức.
           </p>
         </div>
 

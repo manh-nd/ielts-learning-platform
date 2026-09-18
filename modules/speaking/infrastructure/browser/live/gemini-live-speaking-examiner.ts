@@ -20,6 +20,7 @@ import { mapGeminiLiveMessage } from "./gemini-live-message-mapper";
 export interface GeminiLiveSpeakingExaminerOptions {
   tokenEndpoint?: string;
   voiceName?: string;
+  onMetric?: (name: string, durationMs?: number) => void | Promise<unknown>;
   tokenProvider?: GeminiLiveTokenProvider;
   transport?: GeminiLiveTransport;
 }
@@ -45,6 +46,23 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
   private actionCorrelationMap: Map<string, ActionCorrelation> = new Map();
   private latestResumptionHandle: string | null = null;
   private isConnecting = false;
+  private readonly onMetric?: GeminiLiveSpeakingExaminerOptions["onMetric"];
+  private connectedAt = 0;
+  private answerEndedAt: number | null = null;
+  private applicationControlled = false;
+  private stopped = false;
+  private ready = false;
+  private recovering = false;
+  private epoch = 0;
+  private recoveryAttempt = 0;
+  private recoveryDeadline = 0;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private setupTimer: ReturnType<typeof setTimeout> | null = null;
+  private token: Awaited<
+    ReturnType<GeminiLiveTokenProvider["fetchToken"]>
+  > | null = null;
+  private setup: Record<string, unknown> | null = null;
+
   private unsubscribeRawMessages: (() => void) | null = null;
   private unsubscribeClose: (() => void) | null = null;
   private unsubscribeError: (() => void) | null = null;
@@ -54,6 +72,7 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
   }
 
   constructor(options: GeminiLiveSpeakingExaminerOptions = {}) {
+    this.onMetric = options.onMetric;
     this.voiceName = options.voiceName || "Puck";
     this.tokenProvider =
       options.tokenProvider ||
@@ -69,13 +88,19 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
       return;
     }
 
+    this.applicationControlled = input.applicationControlled === true;
+    this.connectedAt = Date.now();
+    this.stopped = false;
+    const epoch = ++this.epoch;
     this.isConnecting = true;
     try {
       // 1. Fetch ephemeral session token
       const tokenDto = await this.tokenProvider.fetchToken();
+      if (this.stopped || epoch !== this.epoch) return;
+      this.token = tokenDto;
 
       const targetModel = tokenDto.model || "gemini-3.8-live";
-      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=${tokenDto.token}`;
+      const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=${encodeURIComponent(tokenDto.token)}`;
 
       // 2. Build Gemini setup payload
       const setupPayload = {
@@ -92,7 +117,13 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
             },
           },
           systemInstruction: {
-            parts: [{ text: input.systemInstruction || "" }],
+            parts: [
+              {
+                text: this.applicationControlled
+                  ? "You are a supportive IELTS practice examiner. Speak only the prompt authorized by the application. Never choose another question, change parts, or end practice independently. Do not score the learner. Wait silently between authorized prompts."
+                  : input.systemInstruction || "",
+              },
+            ],
           },
           tools: [
             {
@@ -174,16 +205,19 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
       };
 
       // 3. Setup transport subscriptions before connecting
+      if (this.applicationControlled) {
+        setupPayload.setup.tools = [];
+        setupPayload.setup.realtimeInputConfig.automaticActivityDetection.disabled = true;
+      }
+      this.setup = setupPayload.setup;
       this.bindTransportEvents();
+      this.armSetupTimeout();
 
       // 4. Connect WebSocket
       await this.transport.connect(wsUrl, setupPayload);
     } catch (err: unknown) {
-      this.emitEvent({
-        type: "connection_failed",
-        reason:
-          (err as Error)?.message || "Failed to establish live connection",
-      });
+      if (epoch === this.epoch && !this.stopped)
+        this.fail("Failed to establish live connection");
       throw err;
     } finally {
       this.isConnecting = false;
@@ -191,7 +225,7 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
   }
 
   sendCandidateAudio(input: SendCandidateAudioInput): void {
-    if (!this.transport.isOpen) return;
+    if (!this.transport.isOpen || this.recovering || this.stopped) return;
 
     this.transport.send({
       realtimeInput: {
@@ -203,8 +237,18 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
     });
   }
 
+  startCandidateActivity(): void {
+    if (this.ready && !this.recovering)
+      this.transport.send({ realtimeInput: { activityStart: {} } });
+  }
+  endCandidateActivity(): void {
+    this.answerEndedAt = Date.now();
+    if (this.ready && !this.recovering)
+      this.transport.send({ realtimeInput: { activityEnd: {} } });
+  }
   endCandidateAudio(): void {
-    if (!this.transport.isOpen) return;
+    if (this.applicationControlled) return this.endCandidateActivity();
+    if (!this.transport.isOpen || this.recovering || this.stopped) return;
 
     this.transport.send({
       realtimeInput: {
@@ -213,8 +257,14 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
     });
   }
 
+  presentPrompt(input: { questionId: string; text: string }): void {
+    this.sendText({
+      text: `Authorized prompt ${input.questionId}. Read only this prompt and then wait silently: ${input.text}`,
+    });
+  }
+
   sendText(input: SendSpeakingExaminerTextInput): void {
-    if (!this.transport.isOpen) return;
+    if (!this.transport.isOpen || this.recovering || this.stopped) return;
 
     this.transport.send({
       clientContent: {
@@ -267,9 +317,17 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
   }
 
   async disconnect(): Promise<void> {
+    this.stopped = true;
+    this.epoch++;
+    this.ready = false;
+    this.recovering = false;
+    this.clearTimers();
     this.unbindTransportEvents();
     this.transport.close();
     this.actionCorrelationMap.clear();
+    this.latestResumptionHandle = null;
+    this.token = null;
+    this.setup = null;
   }
 
   dispose(): void {
@@ -277,7 +335,27 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
     this.eventListeners.clear();
   }
 
+  private metric(name: string, durationMs?: number) {
+    try {
+      void Promise.resolve(this.onMetric?.(name, durationMs)).catch(() => {});
+    } catch {
+      /* Best effort. */
+    }
+  }
   private emitEvent(event: SpeakingLiveExaminerEvent): void {
+    if (event.type === "connected")
+      this.metric("connection_ready", Date.now() - this.connectedAt);
+    if (
+      event.type === "reconnecting" ||
+      event.type === "resumed" ||
+      event.type === "connection_failed" ||
+      event.type === "candidate_interrupted_examiner"
+    )
+      this.metric(event.type);
+    if (event.type === "examiner_audio_chunk" && this.answerEndedAt !== null) {
+      this.metric("answer_to_examiner", Date.now() - this.answerEndedAt);
+      this.answerEndedAt = null;
+    }
     for (const listener of this.eventListeners) {
       try {
         listener(event);
@@ -294,16 +372,105 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
       this.handleRawMessage(rawText);
     });
 
-    this.unsubscribeClose = this.transport.onClose(() => {
-      this.emitEvent({ type: "disconnected" });
+    this.unsubscribeClose = this.transport.onClose((event) => {
+      if ([1008, 1007, 1003].includes(event.code)) {
+        this.fail(
+          "Live conversation could not be restored. Save your recording and start a new practice."
+        );
+      } else this.recover();
     });
+    this.unsubscribeError = this.transport.onError(() => this.recover());
+  }
 
-    this.unsubscribeError = this.transport.onError((err) => {
-      this.emitEvent({
-        type: "connection_failed",
-        reason: (err as Error)?.message || "WebSocket error",
-      });
-    });
+  private clearTimers(): void {
+    if (this.retryTimer) clearTimeout(this.retryTimer);
+    if (this.setupTimer) clearTimeout(this.setupTimer);
+    this.retryTimer = null;
+    this.setupTimer = null;
+  }
+
+  private fail(reason: string): void {
+    if (this.stopped) return;
+    this.stopped = true;
+    this.ready = false;
+    this.recovering = false;
+    this.clearTimers();
+    this.unbindTransportEvents();
+    this.transport.close();
+    this.emitEvent({ type: "connection_failed", reason });
+  }
+
+  private armSetupTimeout(): void {
+    if (this.setupTimer) clearTimeout(this.setupTimer);
+    const remaining = this.recovering
+      ? this.recoveryDeadline - Date.now()
+      : 10000;
+    this.setupTimer = setTimeout(
+      () => {
+        if (this.recovering) this.scheduleRecovery();
+        else this.fail("Live connection setup timed out.");
+      },
+      Math.max(0, Math.min(5000, remaining))
+    );
+  }
+
+  private recover(): void {
+    if (this.stopped || this.recovering) return;
+    if (
+      !this.ready ||
+      !this.latestResumptionHandle ||
+      !this.token ||
+      Date.parse(this.token.expiresAt) <= Date.now()
+    ) {
+      this.fail(
+        "Live conversation unavailable. Save your recording and start a new practice."
+      );
+      return;
+    }
+    this.ready = false;
+    this.recovering = true;
+    this.recoveryAttempt = 0;
+    this.recoveryDeadline = Date.now() + 20000;
+    this.emitEvent({ type: "reconnecting" });
+    this.scheduleRecovery();
+  }
+
+  private scheduleRecovery(): void {
+    if (this.stopped) return;
+    this.clearTimers();
+    this.unbindTransportEvents();
+    this.transport.close();
+    if (
+      ++this.recoveryAttempt > 3 ||
+      Date.now() >= this.recoveryDeadline ||
+      !this.token ||
+      Date.parse(this.token.expiresAt) <= Date.now()
+    ) {
+      this.fail(
+        "Live recovery failed. Save your recording and start a new practice."
+      );
+      return;
+    }
+    const epoch = this.epoch;
+    this.retryTimer = setTimeout(
+      () => {
+        if (this.stopped || epoch !== this.epoch || !this.token) return;
+        this.bindTransportEvents();
+        this.armSetupTimeout();
+        const url = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token=${encodeURIComponent(this.token.token)}`;
+        void this.transport
+          .connect(url, {
+            setup: {
+              ...this.setup,
+              sessionResumption: { handle: this.latestResumptionHandle },
+            },
+          })
+          .catch(() => {
+            if (!this.stopped && epoch === this.epoch) this.scheduleRecovery();
+          });
+      },
+      [0, 500, 1500][this.recoveryAttempt - 1]
+    );
   }
 
   private unbindTransportEvents(): void {
@@ -327,15 +494,21 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
     for (const event of events) {
       switch (event.type) {
         case "setup_complete":
-          this.emitEvent({ type: "connected" });
+          if (this.stopped || this.ready) break;
+          this.clearTimers();
+          this.ready = true;
+          this.emitEvent({ type: this.recovering ? "resumed" : "connected" });
+          this.recovering = false;
           break;
 
         case "session_resumption_update":
-          this.latestResumptionHandle = event.resumptionHandle;
+          this.latestResumptionHandle = event.resumable
+            ? event.resumptionHandle
+            : null;
           break;
 
         case "go_away":
-          // Stored internally; recovery deferred
+          this.recover();
           break;
 
         case "tool_call":
@@ -389,6 +562,7 @@ export class GeminiLiveSpeakingExaminerAdapter implements SpeakingLiveExaminerPo
     name: string;
     args?: Record<string, unknown>;
   }): void {
+    if (this.applicationControlled) return;
     const requestId = call.id;
 
     if (call.name === "display_cue_card") {

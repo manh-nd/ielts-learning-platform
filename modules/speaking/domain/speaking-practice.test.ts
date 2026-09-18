@@ -35,8 +35,8 @@ describe("SpeakingPractice Domain Policies & Lifecycle Invariants", () => {
     it("should reject non-practice scopes and Full Mock values, preserving SpeakingPractice != MockTest", () => {
       expect(normalizeSpeakingPracticeScope("full")).toBeNull();
       expect(normalizeSpeakingPracticeScope("mock_test")).toBeNull();
-      expect(normalizeSpeakingPracticeScope("part2")).toBeNull();
-      expect(normalizeSpeakingPracticeScope("part3")).toBeNull();
+      expect(normalizeSpeakingPracticeScope("part2")).toBe("part_2");
+      expect(normalizeSpeakingPracticeScope("part3")).toBe("part_3");
       expect(normalizeSpeakingPracticeScope("")).toBeNull();
       expect(normalizeSpeakingPracticeScope(null)).toBeNull();
       expect(normalizeSpeakingPracticeScope(undefined)).toBeNull();

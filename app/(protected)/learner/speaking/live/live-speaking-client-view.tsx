@@ -1,5 +1,6 @@
 "use client";
 
+import type { SpeakingPracticeScope } from "@/modules/speaking/domain";
 import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -66,6 +67,7 @@ export function LiveSpeakingClientView({
   initialHasConsent = false,
 }: LiveSpeakingClientViewProps) {
   const router = useRouter();
+  const [scope, setScope] = useState<SpeakingPracticeScope>("part_1");
   const [selectedTopic, setSelectedTopic] = useState<SpeakingPracticeTopic>(
     SPEAKING_PRACTICE_TOPICS[0]
   );
@@ -109,6 +111,7 @@ export function LiveSpeakingClientView({
         </Button>
 
         <LiveSpeakingExaminerRoom
+          scope={scope}
           candidateName={candidateName}
           topic={selectedTopic}
           hasConsent={hasConsent}
@@ -160,12 +163,24 @@ export function LiveSpeakingClientView({
               data-testid="start-practice-btn"
             >
               <Sparkles className="size-4" />
-              <span>Bắt đầu Luyện Part 1</span>
+              <span>{`Bắt đầu Luyện ${scope.replace("part_", "Part ")}`}</span>
               <ArrowRight className="size-4" />
             </Button>
           </div>
         </div>
 
+        <label className="flex gap-2 items-center">
+          Practice part
+          <select
+            aria-label="Practice part"
+            value={scope}
+            onChange={(e) => setScope(e.target.value as SpeakingPracticeScope)}
+          >
+            <option value="part_1">Part 1</option>
+            <option value="part_2">Part 2</option>
+            <option value="part_3">Part 3</option>
+          </select>
+        </label>
         {/* Tips & Audio Best Practice Bar */}
         <div className="mt-5 pt-4 border-t border-border/50 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">

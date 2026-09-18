@@ -33,7 +33,7 @@ export type PracticeEvaluationStatus = "pending" | "ready" | "failed";
  * Canonical scope for the currently shipped Speaking Practice mode.
  * Part 1 is the single supported practice mode in MVP.
  */
-export type SpeakingPracticeScope = "part_1";
+export type SpeakingPracticeScope = "part_1" | "part_2" | "part_3";
 
 export const CANONICAL_SPEAKING_PRACTICE_SCOPE: SpeakingPracticeScope =
   "part_1";
@@ -59,6 +59,8 @@ export function normalizeSpeakingPracticeScope(
     return CANONICAL_SPEAKING_PRACTICE_SCOPE;
   }
 
+  if (normalized === "part_2" || normalized === "part2") return "part_2";
+  if (normalized === "part_3" || normalized === "part3") return "part_3";
   return null;
 }
 
@@ -68,7 +70,7 @@ export function normalizeSpeakingPracticeScope(
 export function isSpeakingPracticeScope(
   value: unknown
 ): value is SpeakingPracticeScope {
-  return value === CANONICAL_SPEAKING_PRACTICE_SCOPE;
+  return value === "part_1" || value === "part_2" || value === "part_3";
 }
 
 /**

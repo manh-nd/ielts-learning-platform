@@ -3,11 +3,13 @@ import {
   getSpeakingAudioBuffer,
   isSpeakingAudioStorageKeyOwnedBy,
 } from "@/lib/storage/s3-client";
-import { evaluateSpeakingPracticePart1 } from "@/lib/gemini/speaking-evaluator";
-import type { PracticeFeedback } from "@/lib/gemini/speaking-schema";
+import { geminiPracticeEvaluator } from "../infrastructure/gemini-practice-evaluator";
+import type { SpeakingPracticeEvaluatorPort } from "./ports/speaking-practice-evaluator.port";
+import type { PracticeFeedback } from "./practice-feedback";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import {
   CANONICAL_SPEAKING_PRACTICE_SCOPE,
+  normalizeSpeakingPracticeScope,
   SpeakingPracticeScope,
   SpeakingPracticeStatus,
   PracticeEvaluationStatus,
@@ -90,6 +92,7 @@ export function mapSpeakingPracticePersistenceToDomain(practice: {
 }
 
 export interface ExecuteEvaluationParams {
+  scope?: SpeakingPracticeScope;
   sessionId: string;
   authenticatedUserId: string;
   topicTitle: string;
@@ -107,8 +110,42 @@ export interface ExecuteEvaluationParams {
  * Runs AI evaluation, persists failure or success, and returns formatted result.
  */
 export async function executePracticeEvaluation(
-  params: ExecuteEvaluationParams
+  params: ExecuteEvaluationParams,
+  evaluator: SpeakingPracticeEvaluatorPort = geminiPracticeEvaluator
 ): Promise<PracticeEvaluationExecutionResult> {
+  // Re-read committed evidence: a concurrent finish must never evaluate its losing upload.
+  const committed = await speakingPracticeRepository.findById(params.sessionId);
+  const response = committed.responses[0];
+  if (committed.practice && response?.storageKey) {
+    const original = await getSpeakingAudioBuffer(response.storageKey);
+    if (!original?.buffer?.length)
+      throw new Error("Committed OriginalAudio is unavailable");
+    const evidence = committed.practice.evidenceJson as {
+      plan?: import("../domain/practice-plan").PracticePlan;
+      turnMarkers?: CandidateTurnMarkerInput[];
+      liveTranscript?: string;
+    } | null;
+    const plan = evidence?.plan;
+    params = {
+      ...params,
+      scope:
+        normalizeSpeakingPracticeScope(committed.practice.targetPart) ??
+        "part_1",
+      audioBuffer: original.buffer,
+      mimeType: original.mimeType,
+      audioBase64: undefined,
+      topicTitle: committed.practice.topicTitle,
+      durationSeconds: committed.practice.durationSeconds,
+      turnMarkers: evidence?.turnMarkers ?? params.turnMarkers,
+      liveTranscript: evidence?.liveTranscript ?? params.liveTranscript,
+      questions: plan
+        ? [
+            ...(plan.cueCard ? [plan.cueCard.text] : []),
+            ...plan.questions.map((q) => q.text),
+          ]
+        : params.questions,
+    };
+  }
   const {
     sessionId,
     authenticatedUserId,
@@ -126,7 +163,8 @@ export async function executePracticeEvaluation(
   let evaluationError: string | null = null;
 
   try {
-    practiceResult = await evaluateSpeakingPracticePart1({
+    practiceResult = await evaluator.evaluate({
+      scope: params.scope,
       practiceId: sessionId,
       topicTitle,
       questions,
@@ -135,7 +173,9 @@ export async function executePracticeEvaluation(
       mimeType,
       durationSeconds,
       liveTranscript,
-      turnMarkers,
+      turnMarkers: turnMarkers.filter(
+        (marker) => marker.turnKind !== "identity_check"
+      ),
     });
   } catch (evalErr) {
     evaluationError =
@@ -164,7 +204,7 @@ export async function executePracticeEvaluation(
     return {
       success: false,
       isPractice: true,
-      practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+      practiceMode: params.scope ?? CANONICAL_SPEAKING_PRACTICE_SCOPE,
       error: "EVALUATION_FAILED",
       message: evaluationError,
       sessionId,
@@ -192,7 +232,7 @@ export async function executePracticeEvaluation(
     return {
       success: false,
       isPractice: true,
-      practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+      practiceMode: params.scope ?? CANONICAL_SPEAKING_PRACTICE_SCOPE,
       sessionId,
       error: "PRACTICE_PERSISTENCE_FAILED",
       message: "Failed to update evaluated practice feedback in database.",
@@ -203,7 +243,7 @@ export async function executePracticeEvaluation(
   return {
     success: true,
     isPractice: true,
-    practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+    practiceMode: params.scope ?? CANONICAL_SPEAKING_PRACTICE_SCOPE,
     result: practiceResult.practiceFeedback,
     transcripts: practiceResult.transcripts,
     trace: practiceResult.trace,
@@ -245,6 +285,11 @@ export async function retryPracticeEvaluation(
       "Cannot retry, mutate, or access a speaking practice belonging to another user."
     );
   }
+
+  if (!normalizeSpeakingPracticeScope(existingPractice.targetPart))
+    throw new ForbiddenError(
+      "This record is not an independent SpeakingPractice."
+    );
 
   // 3. Resolve existing persisted OriginalAudio from response
   const existingResponse = responses[0];
@@ -289,7 +334,9 @@ export async function retryPracticeEvaluation(
       return {
         success: false,
         isPractice: true,
-        practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+        practiceMode:
+          normalizeSpeakingPracticeScope(existingPractice.targetPart) ??
+          CANONICAL_SPEAKING_PRACTICE_SCOPE,
         sessionId,
         error: "ORIGINAL_AUDIO_MISSING",
         message:
@@ -301,7 +348,9 @@ export async function retryPracticeEvaluation(
       return {
         success: false,
         isPractice: true,
-        practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+        practiceMode:
+          normalizeSpeakingPracticeScope(existingPractice.targetPart) ??
+          CANONICAL_SPEAKING_PRACTICE_SCOPE,
         sessionId,
         error: "EVALUATION_PENDING",
         message:
@@ -313,7 +362,9 @@ export async function retryPracticeEvaluation(
       return {
         success: false,
         isPractice: true,
-        practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+        practiceMode:
+          normalizeSpeakingPracticeScope(existingPractice.targetPart) ??
+          CANONICAL_SPEAKING_PRACTICE_SCOPE,
         sessionId,
         error: "EVALUATION_ALREADY_COMPLETED",
         message:
@@ -324,7 +375,9 @@ export async function retryPracticeEvaluation(
     return {
       success: false,
       isPractice: true,
-      practiceMode: CANONICAL_SPEAKING_PRACTICE_SCOPE,
+      practiceMode:
+        normalizeSpeakingPracticeScope(existingPractice.targetPart) ??
+        CANONICAL_SPEAKING_PRACTICE_SCOPE,
       sessionId,
       error: retryEligibility.reason || "RETRY_NOT_PERMITTED",
       message:
@@ -344,13 +397,17 @@ export async function retryPracticeEvaluation(
       }
     | undefined;
 
-  const effectiveTurnMarkers =
-    turnMarkers.length > 0 ? turnMarkers : existingEvidence?.turnMarkers || [];
+  const effectiveTurnMarkers = existingEvidence?.turnMarkers || turnMarkers;
 
   const effectiveTopicTitle =
-    topicTitle || existingPractice.topicTitle || "IELTS Speaking Practice";
+    existingPractice.topicTitle || topicTitle || "IELTS Speaking Practice";
 
   const effectiveQuestions: string[] =
+    (
+      existingPractice.evidenceJson as {
+        plan?: import("../domain/practice-plan").PracticePlan;
+      } | null
+    )?.plan?.questions.map((q) => q.text) ||
     questions ||
     (effectiveTurnMarkers.length > 0
       ? effectiveTurnMarkers.map(
@@ -359,11 +416,13 @@ export async function retryPracticeEvaluation(
       : [effectiveTopicTitle]);
 
   const effectiveDuration =
-    durationSeconds || existingPractice.durationSeconds || 60;
+    existingPractice.durationSeconds || durationSeconds || 60;
   const userTranscripts = existingEvidence?.liveTranscript || "";
 
   // 5. Execute PracticeEvaluation with same immutable OriginalAudio
   return executePracticeEvaluation({
+    scope:
+      normalizeSpeakingPracticeScope(existingPractice.targetPart) ?? "part_1",
     sessionId,
     authenticatedUserId,
     topicTitle: effectiveTopicTitle,
